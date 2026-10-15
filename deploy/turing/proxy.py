@@ -25,7 +25,8 @@ async def clients(app):
         yield
 
 async def api(request):
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP | {"host", "authorization", "content-length", "cookie"}}
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP | {"host", "authorization", "content-length", "cookie", "x-internal-token"}}
+    if os.environ.get("INTERNAL_API_TOKEN"): headers["X-Internal-Token"] = os.environ["INTERNAL_API_TOKEN"]
     try:
         async with request.app["client"].request(request.method,
                 "http://127.0.0.1:" + os.environ.get("SERVER_PORT", "18126") + request.raw_path,

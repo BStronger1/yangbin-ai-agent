@@ -53,3 +53,9 @@ app.jar
 *.tar.gz
 __pycache__/
 *.pyc
+
+# Server release files
+/mcp.jar
+/knowledge/
+/releases/
+/incoming-*/

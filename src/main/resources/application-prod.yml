@@ -5,7 +5,14 @@ spring:
   ai:
     mcp:
       client:
-        enabled: false
+        enabled: ${MCP_ENABLED:false}
+        name: yangbin-ai-agent
+        type: SYNC
+        request-timeout: 30s
+        sse:
+          connections:
+            knowledge:
+              url: ${MCP_URL:http://127.0.0.1:18127}
 springdoc:
   api-docs:
     enabled: false

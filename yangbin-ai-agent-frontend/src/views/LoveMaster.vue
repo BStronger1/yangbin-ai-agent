@@ -6,6 +6,13 @@
       <div class="chat-id">会话ID: {{ chatId }}</div>
     </div>
 
+    <label class="mode-picker">回答方式
+      <select v-model="mode" :disabled="connectionStatus === 'connecting'">
+        <option value="chat">普通聊天</option>
+        <option value="rag" :disabled="!capabilities.rag">知识库问答（RAG）</option>
+        <option value="mcp" :disabled="!capabilities.mcpTools.length">MCP 工具</option>
+      </select>
+    </label>
     <div class="content-wrapper">
       <div class="chat-area">
         <ChatRoom
@@ -29,7 +36,7 @@ import { useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import ChatRoom from '../components/ChatRoom.vue'
 import AppFooter from '../components/AppFooter.vue'
-import { chatWithLoveApp } from '../api'
+import { chatWithLoveApp, getCapabilities } from '../api'
 
 // 设置页面标题和元数据
 useHead({
@@ -48,6 +55,14 @@ useHead({
 
 const router = useRouter()
 const messages = ref([])
+const mode = ref('chat')
+const capabilities = ref({ rag: false, mcpTools: [] })
+onMounted(async () => {
+  try {
+    capabilities.value = await getCapabilities()
+    if (capabilities.value.rag) mode.value = 'rag'
+  } catch (error) { console.error('Capabilities unavailable', error) }
+})
 const chatId = ref('')
 const connectionStatus = ref('disconnected')
 let eventSource = null
@@ -80,7 +95,7 @@ const sendMessage = (message) => {
   addMessage('', false)
 
   connectionStatus.value = 'connecting'
-  eventSource = chatWithLoveApp(message, chatId.value)
+  eventSource = chatWithLoveApp(message, chatId.value, mode.value)
 
   // 监听SSE消息
   eventSource.onmessage = (event) => {
@@ -129,6 +144,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.mode-picker { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px; color: #333; background: #fff; }
+.mode-picker select { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
 .love-master-container {
   display: flex;
   flex-direction: column;

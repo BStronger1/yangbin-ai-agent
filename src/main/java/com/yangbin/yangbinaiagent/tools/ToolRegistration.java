@@ -7,9 +7,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
+import com.yangbin.yangbinaiagent.rag.KnowledgeService;
 
 /**
- * 闆嗕腑鐨勫伐鍏锋敞鍐岀被
+ * 集中的工具注册类
  */
 @Configuration
 public class ToolRegistration {
@@ -24,7 +28,8 @@ public class ToolRegistration {
     private boolean terminalEnabled;
 
     @Bean
-    public ToolCallback[] allTools() {
+    public ToolCallback[] allTools(ObjectProvider<KnowledgeService> knowledge,
+            ObjectProvider<SyncMcpToolCallbackProvider> mcp) {
         List<Object> tools = new ArrayList<>();
         if (searchApiKey != null && !searchApiKey.isBlank()) tools.add(new WebSearchTool(searchApiKey));
         tools.add(new PDFGenerationTool());
@@ -35,6 +40,9 @@ public class ToolRegistration {
             tools.add(new ResourceDownloadTool());
         }
         if (terminalEnabled) tools.add(new TerminalOperationTool());
-        return ToolCallbacks.from(tools.toArray());
+        if (knowledge.getIfAvailable()!=null) tools.add(new KnowledgeSearchTool(knowledge.getObject()));
+        List<ToolCallback> callbacks=new ArrayList<>(Arrays.asList(ToolCallbacks.from(tools.toArray())));
+        if(mcp.getIfAvailable()!=null) callbacks.addAll(Arrays.asList(mcp.getObject().getToolCallbacks()));
+        return callbacks.toArray(ToolCallback[]::new);
     }
 }

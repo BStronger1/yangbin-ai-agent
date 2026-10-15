@@ -7,7 +7,7 @@
 - Java 21、Spring Boot 3.4.4、Spring AI 1.0、Vue 3、Vite。
 - 根目录：后端，包名 `com.yangbin.yangbinaiagent`。
 - `yangbin-ai-agent-frontend/`：网页界面。
-- `yangbin-image-search-mcp-server/`：可选的 Pexels 图片搜索 MCP 教学模块。
+- `yangbin-image-search-mcp-server/`：独立 MCP 服务，提供知识库读取、时间查询，以及可选 Pexels 图片搜索。
 - `deploy/turing/`：用户目录部署、同源代理与服务管理。
 
 ## 本地运行
@@ -38,18 +38,19 @@ npm run dev
 - 智能体逐步调用工具；普通回答完成后结束，最多执行 20 步。
 - 默认注册 PDF 生成和结束工具；配置 `SEARCH_API_KEY` 后启用网页搜索。
 - 中文 PDF 输出到 `tmp/pdf/`，通过 `/api/files/文件名.pdf` 下载。
-- RAG 默认关闭；启用 `RAG_ENABLED=true` 会在启动时调用百炼 Embedding 和模型为知识库建索引，需要相应凭据。
-- 云知识库、PgVector 和 MCP 保留为可选教学模块，未在默认部署中启用。PgVector 仍须自行配置数据源及其配置类。
-- 服务器默认关闭通用文件操作、任意网页下载和 shell 工具；隔离环境中可通过 `EXTENDED_TOOLS_ENABLED` / `TERMINAL_ENABLED` 明确启用。
-- Turing 部署入口使用个人访问口令；它不是多用户系统，不做账号间数据隔离。
+- Turing 已启用 RAG：本地多语种 MiniLM 模型生成 384 维向量，分块索引保存在 `tmp/rag/`，知识库变化后自动重建。检索与建索引不调用付费模型，生成答案仍使用已有聊天模型。恋爱问答页默认选择知识库模式，回答提示包含来源文件与资料编号。
+- Turing 已启用 MCP：通过 loopback SSE 连接独立服务，提供列出/读取知识库文件和时区时间查询；超级智能体可自动调用，恋爱问答页也可选择 MCP 模式。图片搜索须另配 `PEXELS_API_KEY`。云知识库和 PgVector 仍未启用。
+- Turing 已按维护者要求启用通用终端：以服务账号权限执行 Linux shell 命令，默认工作目录为 `tmp/terminal/`，30 秒超时，最多返回 32768 个字符。工作目录不是权限沙箱。通用文件/网页下载工具仍由独立的 `EXTENDED_TOOLS_ENABLED` 控制。
+- Turing 部署入口使用个人访问口令，后端额外校验由代理注入的内部令牌，避免直接访问绕过入口。它不是多用户系统，不做账号间数据隔离。不要向他人分享终端入口的访问口令。
 
 ## 构建和验证
 
 ```bash
-mvn -Dtest=DeploymentSmokeTest package
+mvn -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
+mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest package
 cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```
 
-`DeploymentSmokeTest` 使用本地模拟模型服务，不调用收费 API，覆盖无数据库启动、兼容模型对话、SSE 结束、智能体工具执行及中文 PDF 下载。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
+上述 12 项测试使用本地模拟模型服务，不调用收费 API，覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)

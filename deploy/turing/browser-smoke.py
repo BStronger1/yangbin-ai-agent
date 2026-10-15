@@ -1,5 +1,5 @@
 """Browser rendering and UI streaming checks. Model calls are intercepted locally."""
-import json
+import json,re
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 ROOT=Path(__file__).resolve().parents[2]
@@ -8,7 +8,7 @@ base="http://"+e["PUBLIC_BIND"]+":"+e["PUBLIC_PORT"]
 with sync_playwright() as p:
     browser=p.chromium.launch(executable_path=str(Path.home()/"apps/agent-workbench/runtime/browsers/chromium-1194/chrome-linux/chrome"),headless=True,args=["--no-sandbox"])
     context=browser.new_context(http_credentials={"username":e["ACCESS_USER"],"password":e["ACCESS_PASSWORD"]},viewport={"width":1360,"height":900})
-    context.route("**/api/ai/**", lambda route: route.fulfill(status=200,content_type="text/event-stream",body="data: browser-stream-ok\n\ndata: [DONE]\n\n"))
+    context.route(re.compile(r"/api/ai/(love_app|manus)/chat"), lambda route: route.fulfill(status=200,content_type="text/event-stream",body="data: browser-stream-ok\n\ndata: [DONE]\n\n"))
     page=context.new_page();errors=[]
     page.on("pageerror",lambda error: errors.append(str(error)))
     assert page.goto(base,wait_until="domcontentloaded").status==200
@@ -18,6 +18,9 @@ with sync_playwright() as p:
     for route in ("/love-master","/super-agent"):
         page.goto(base+route,wait_until="domcontentloaded")
         expect(page.locator("textarea")).to_be_visible()
+        if route=="/love-master":
+            expect(page.locator("select")).to_have_value("rag")
+            assert not page.locator('option[value="mcp"]').is_disabled()
         page.locator("textarea").fill("browser UI smoke test")
         page.get_by_role("button",name="发送",exact=True).click()
         expect(page.get_by_text("browser-stream-ok",exact=True)).to_be_visible(timeout=10000)

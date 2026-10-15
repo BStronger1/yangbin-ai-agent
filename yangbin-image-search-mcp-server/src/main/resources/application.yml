@@ -2,6 +2,16 @@ spring:
   application:
     name: yangbin-image-search-mcp-server
   profiles:
-    active: sse
+    active: ${MCP_SERVER_PROFILE:sse}
 server:
-  port: 8127
+  port: ${MCP_PORT:18127}
+  address: 127.0.0.1
+app:
+  knowledge-dir: ${KNOWLEDGE_DIR:knowledge}
+logging:
+  file:
+    name: logs/mcp.log
+  logback:
+    rollingpolicy:
+      max-file-size: 5MB
+      max-history: 3

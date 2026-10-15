@@ -39,4 +39,20 @@ ssh -N -L 18825:172.16.185.103:18825 zzl-zhouyangbin@172.16.185.103
 - 升级：停止本项目，备份 `app.jar` 与 `frontend/`，替换构建产物后启动。
 - 服务由独立 tmux 会话托管，SSH 断开后继续运行；服务器重启后需重新执行启动命令。
 
-不要重复初始化覆盖现有密钥。默认未启用搜索 API、RAG、MCP、数据库和通用 shell/文件工具；相关功能需单独配置和验收。
+不要重复初始化覆盖现有密钥。当前 Turing 已启用本地 RAG、MCP 和终端工具。搜索 API、Pexels 图片搜索、数据库和独立文件操作工具仍需额外配置。
+
+
+## RAG / MCP / 终端运行配置
+
+- 嵌入服务：`127.0.0.1:18128`，复用 `~/apps/agent-workbench/runtime/ai-venv` 与已有模型缓存，以离线模式加载，不启动或改动原 workbench 服务。
+- MCP 服务：`127.0.0.1:18127`，运行本项目 `mcp.jar`，读取 `knowledge/*.md`。
+- 后端：`127.0.0.1:18126`；代理入口维持 `172.16.185.103:18825`。
+- 启动顺序为嵌入服务 → MCP → 后端 → 入口；每项依赖就绪后才启动下一项。
+- `secrets.json` 中 `RAG_ENABLED`、`MCP_ENABLED`、`TERMINAL_ENABLED` 为 `true`。`INTERNAL_API_TOKEN` 只由入口代理注入，不应发给浏览器。
+- 终端以 `zzl-zhouyangbin` 的系统权限执行，默认目录 `tmp/terminal/`，30 秒超时、32768 字符输出上限；不是容器或权限沙箱。不要暴露给不可信用户。
+- 当前知识库来自三个内置 Markdown 文档；修改后需要重新构建后端，并同步 `knowledge/` 给 MCP。不是在线上传系统。
+- 构建验证先打包 MCP 模块，再运行主项目的 12 项测试，命令见根 README。
+- 升级脚本 `enable-features.py` 使用项目目录中的可信 `features.tar.gz`，备份到 `releases/before-features-*`，保留原账号密码和模型密钥。
+- `FeatureVerificationMain` 是显式调用的运维入口：用实际嵌入、MCP 和终端检查检索/列出文件/读取文件/查询时间/echo，结果保存在 `logs/feature-verification.json`，不调用聊天模型。
+
+若不需要终端，把 `TERMINAL_ENABLED` 改为 `false` 后重启；不要直接删除访问认证配置。

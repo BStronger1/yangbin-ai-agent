@@ -43,8 +43,8 @@ export const connectSSE = (url, params, onMessage, onError) => {
 }
 
 // AI恋爱大师聊天
-export const chatWithLoveApp = (message, chatId) => {
-  return connectSSE('/ai/love_app/chat/sse', { message, chatId })
+export const chatWithLoveApp = (message, chatId, mode = "chat") => {
+  return connectSSE('/ai/love_app/chat/sse', { message, chatId, mode })
 }
 
 // AI超级智能体聊天
@@ -56,3 +56,5 @@ export default {
   chatWithLoveApp,
   chatWithManus
 }
+
+export const getCapabilities = () => request.get("/ai/capabilities").then(response => response.data)

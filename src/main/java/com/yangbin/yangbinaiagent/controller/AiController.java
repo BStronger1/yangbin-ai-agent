@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/ai")
@@ -48,8 +49,9 @@ public class AiController {
      * @return
      */
     @GetMapping(value = "/love_app/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> doChatWithLoveAppSSE(String message, String chatId) {
-        return loveApp.doChatByStream(message, chatId).concatWithValues("[DONE]");
+    public Flux<String> doChatWithLoveAppSSE(String message, String chatId,
+            @RequestParam(defaultValue="chat") String mode) {
+        return loveApp.doChatByStream(message, chatId, mode).concatWithValues("[DONE]");
     }
 
     /**

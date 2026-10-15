@@ -21,7 +21,7 @@ subprocess.run([sys.executable,"-m","venv",str(ROOT/"runtime/venv")],check=True)
 subprocess.run([str(ROOT/"runtime/venv/bin/pip"),"install","-r",str(ROOT/"deploy/turing/requirements.txt")],check=True)
 env={"MODEL_PROVIDER":"openai","MODEL_API_KEY":source["AI_API_KEY"],"MODEL_BASE_URL":source["AI_BASE_URL"],"MODEL_NAME":source["AI_MODEL"],
      "SPRING_PROFILES_ACTIVE":"prod","SERVER_ADDRESS":"127.0.0.1","SERVER_PORT":"18126","PUBLIC_BIND":a.bind,"PUBLIC_PORT":"18825",
-     "ACCESS_USER":"yangbin","ACCESS_PASSWORD":secrets.token_urlsafe(24),"RAG_ENABLED":"false","RAG_CLOUD_ENABLED":"false","EXTENDED_TOOLS_ENABLED":"false","TERMINAL_ENABLED":"false"}
+     "INTERNAL_API_TOKEN":secrets.token_urlsafe(32),"ACCESS_USER":"yangbin","ACCESS_PASSWORD":secrets.token_urlsafe(24),"RAG_ENABLED":"false","RAG_CLOUD_ENABLED":"false","EXTENDED_TOOLS_ENABLED":"false","TERMINAL_ENABLED":"false"}
 (ROOT/"secrets.json").write_text(json.dumps({"env":env,"java":str(a.java.resolve())},indent=2))
 (ROOT/"secrets.json").chmod(0o600)
 (ROOT/"access.txt").write_text("Username: yangbin\nPassword: "+env["ACCESS_PASSWORD"]+"\n")

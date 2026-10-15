@@ -68,6 +68,7 @@ logging:
   level:
     org.springframework.ai: INFO
 app:
+  internal-api-token: ${INTERNAL_API_TOKEN:}
   model:
     provider: ${MODEL_PROVIDER:dashscope}
     base-url: ${MODEL_BASE_URL:https://api.openai.com}
@@ -76,6 +77,10 @@ app:
   rag:
     enabled: ${RAG_ENABLED:false}
     cloud-enabled: ${RAG_CLOUD_ENABLED:false}
+    embedding-base-url: ${EMBEDDING_BASE_URL:http://127.0.0.1:18128}
+    embedding-api-key: ${EMBEDDING_API_KEY:local}
+    embedding-model: ${EMBEDDING_MODEL:sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+    index-dir: ${RAG_INDEX_DIR:tmp/rag}
   tools:
     extended-enabled: ${EXTENDED_TOOLS_ENABLED:false}
     terminal-enabled: ${TERMINAL_ENABLED:false}

@@ -12,8 +12,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest package
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
+      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest package
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

@@ -97,7 +97,7 @@ python -m unittest discover -s deploy/turing -p "test_*.py"
 - 相同城市/日期缓存 10 分钟，最大 128 项。外部服务失败时只保留可用依据并提示；不会把缺失天气当成晴天。对外仅发送城市/坐标与天气参数，不发送对话、私有知识库或个人偏好。
 - 模型返回的 `placeId` 必须来自实际候选集合，否则拒绝保存；UI 和 PDF 显示服务端保存的来源快照。模型其余文本仍可能出错，费用始终为估算。
 - 高德 Key 只放在服务器私有 `secrets.json` 的 `env.AMAP_API_KEY` 或后端环境变量中，不放前端或 Git。控制台需选择 Web 服务类型并配置真实公网出口 IP 白名单。高德失败结果缓存 1 分钟后可重试，正常结果缓存 10 分钟；额度与接口授权取决于高德账号。
-- Open-Meteo 免费接口有非商业使用限制，Photon 无可用性保证。公开运营需选用适当套餐或自建服务。2026-10-16 本次高德实测被出口 IP 白名单拒绝（10005），当前保留开放地图回退，不能宣称高德真实地点验收已通过。运维复验：`python deploy/turing/amap-smoke.py`，输出明确区分 `amap_live` 与 `fallback_live`。
+- Open-Meteo 免费接口有非商业使用限制，Photon 无可用性保证。公开运营需选用适当套餐或自建服务。2026-10-16 首次高德实测被出口 IP 白名单拒绝（10005）；用户修改白名单后，规划服务真实返回上海 12 个高德地点，浏览器来源展示通过。运维复验：`python deploy/turing/amap-smoke.py`，输出明确区分 `amap_live` 与 `fallback_live`。
 - 数据源文档：[Open-Meteo](https://open-meteo.com/en/docs)、[GeoNames 定位](https://open-meteo.com/en/docs/geocoding-api)、[Photon](https://github.com/komoot/photon/blob/master/docs/api-v1.md)、[OpenStreetMap 署名](https://www.openstreetmap.org/copyright)、[高德 POI](https://lbs.amap.com/api/webservice/guide/api-advanced/search)、[高德地图链接](https://lbs.amap.com/api/uri-api/guide/mobile-web/point)、[高德错误码](https://lbs.amap.com/api/webservice/guide/tools/info)。
 - 可配置服务端地址：`app.planning.geocoding-url`、`app.planning.forecast-url`、`app.planning.places-url`。这些地址仅由运维配置，不接受浏览器传入 URL。
 

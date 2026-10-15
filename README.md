@@ -47,11 +47,11 @@ npm run dev
 
 ```bash
 mvn -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest package
+mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest package
 cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```
 
-上述 12 项测试使用本地模拟模型服务，不调用收费 API，覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
+当前 CI 共 38 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)
 
@@ -71,7 +71,7 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 
 ```sh
 mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest package
+mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest package
 python -m pip install -r deploy/turing/requirements.txt
 python -m unittest discover -s deploy/turing -p "test_*.py"
 ```
@@ -98,3 +98,5 @@ python -m unittest discover -s deploy/turing -p "test_*.py"
 - 仅使用免 Key 公共接口，适合低流量非商业学习演示；Open-Meteo 免费接口有非商业使用限制，Photon 无可用性保证。公开运营需选用适当套餐或自建服务。目前未接入高德 Key。
 - 数据源文档：[Open-Meteo](https://open-meteo.com/en/docs)、[GeoNames 定位](https://open-meteo.com/en/docs/geocoding-api)、[Photon](https://github.com/komoot/photon/blob/master/docs/api-v1.md)、[OpenStreetMap 署名](https://www.openstreetmap.org/copyright)。
 - 可配置服务端地址：`app.planning.geocoding-url`、`app.planning.forecast-url`、`app.planning.places-url`。这些地址仅由运维配置，不接受浏览器传入 URL。
+
+[2026-10-16 持久会话与实时规划实际验收](docs/MEMORY-LIVE-VALIDATION.md)

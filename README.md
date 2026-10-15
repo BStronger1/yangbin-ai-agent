@@ -51,7 +51,7 @@ mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest
 cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```
 
-当前 CI 共 38 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
+当前 CI 配置 44 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)
 
@@ -65,7 +65,7 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 
 上传文档存于 `tmp/knowledge/`（可用 `app.rag.upload-dir` 覆盖），重启后重新加载并索引；方案各版本存于 `tmp/plans/`（`app.plans.dir`）。部署升级保留 `tmp/`，备份时应包含这两个目录。上传文档用于 RAG；独立 MCP 文档工具读取 `KNOWLEDGE_DIR` 指定的内置 Markdown 目录。
 
-当前部署支持邀请制账号与数据隔离。已增加 Open-Meteo 天气预报及 Photon / OpenStreetMap 候选地点；商家实时价格、路线、当天营业状态与 Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；普通用户无法调用通用终端；管理员终端仍需谨慎使用。混合检索与重排留作后续评测驱动的优化。
+当前部署支持邀请制账号与数据隔离。已增加 Open-Meteo 天气预报、高德候选地点及 Photon / OpenStreetMap 回退；商家实时价格、路线、当天营业状态与 Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；普通用户无法调用通用终端；管理员终端仍需谨慎使用。混合检索与重排留作后续评测驱动的优化。
 
 验证命令：
 
@@ -92,11 +92,13 @@ python -m unittest discover -s deploy/turing -p "test_*.py"
 - 数据目录 `tmp/chat-memory-v2/`（`app.memory.dir` 可改），采用临时文件 + 原子替换；单实例内阻止同一流式会话并发生成，生成中禁止删除。多实例部署需改用共享数据库与分布式并发控制。备份时加入此目录。
 - 设置 `PLANNING_LIVE_ENABLED=true` 启用规划依据。`/planner` 可先点“查询天气与地点依据”；生成/修改也自动查询并把快照保存在该版本。旧版本不回填最新天气。
 - 当前限定中国城市：Open-Meteo / GeoNames 定位，优先城市级同名记录；仍有歧义时不猜测坐标。天气按城市时区匹配日期，仅接受今天至未来 15 天的预报，超范围明确不可用。
-- 地点使用 Photon 查询 OpenStreetMap 的咖啡馆、餐厅、公园、博物馆候选，范围为城市定位点周边约 3 公里，最多 12 个；不是用户当前位置，不提供路线规划。显示地图来源、地址及来源可用时的营业时间；地图数据可能过时，不能当作实时商家确认。
+- 配置服务端 `AMAP_API_KEY` 后，地点优先使用高德 Web 服务地理编码与周边搜索，范围为定位点约 3 公里，最多 12 个餐饮、公园、博物馆候选；没有 Key 或高德失败时回退 Photon / OpenStreetMap，并显示失败原因。未计算路线或用户当前位置。来源、地址、坐标系及可用的营业时间保存进方案快照；不把地图记录当作实时营业确认。
+- 高德坐标保持 GCJ-02，地图链接使用 POI ID 或显式 `coordinate=gaode`；天气仍独立使用 GeoNames 的 WGS84 城市定位，不把高德坐标传给 Open-Meteo。城市级天气定位失败不阻断高德地点查询。原方案快照继续可读。
 - 相同城市/日期缓存 10 分钟，最大 128 项。外部服务失败时只保留可用依据并提示；不会把缺失天气当成晴天。对外仅发送城市/坐标与天气参数，不发送对话、私有知识库或个人偏好。
 - 模型返回的 `placeId` 必须来自实际候选集合，否则拒绝保存；UI 和 PDF 显示服务端保存的来源快照。模型其余文本仍可能出错，费用始终为估算。
-- 仅使用免 Key 公共接口，适合低流量非商业学习演示；Open-Meteo 免费接口有非商业使用限制，Photon 无可用性保证。公开运营需选用适当套餐或自建服务。目前未接入高德 Key。
-- 数据源文档：[Open-Meteo](https://open-meteo.com/en/docs)、[GeoNames 定位](https://open-meteo.com/en/docs/geocoding-api)、[Photon](https://github.com/komoot/photon/blob/master/docs/api-v1.md)、[OpenStreetMap 署名](https://www.openstreetmap.org/copyright)。
+- 高德 Key 只放在服务器私有 `secrets.json` 的 `env.AMAP_API_KEY` 或后端环境变量中，不放前端或 Git。控制台需选择 Web 服务类型并配置真实公网出口 IP 白名单。高德失败结果缓存 1 分钟后可重试，正常结果缓存 10 分钟；额度与接口授权取决于高德账号。
+- Open-Meteo 免费接口有非商业使用限制，Photon 无可用性保证。公开运营需选用适当套餐或自建服务。2026-10-16 本次高德实测被出口 IP 白名单拒绝（10005），当前保留开放地图回退，不能宣称高德真实地点验收已通过。运维复验：`python deploy/turing/amap-smoke.py`，输出明确区分 `amap_live` 与 `fallback_live`。
+- 数据源文档：[Open-Meteo](https://open-meteo.com/en/docs)、[GeoNames 定位](https://open-meteo.com/en/docs/geocoding-api)、[Photon](https://github.com/komoot/photon/blob/master/docs/api-v1.md)、[OpenStreetMap 署名](https://www.openstreetmap.org/copyright)、[高德 POI](https://lbs.amap.com/api/webservice/guide/api-advanced/search)、[高德地图链接](https://lbs.amap.com/api/uri-api/guide/mobile-web/point)、[高德错误码](https://lbs.amap.com/api/webservice/guide/tools/info)。
 - 可配置服务端地址：`app.planning.geocoding-url`、`app.planning.forecast-url`、`app.planning.places-url`。这些地址仅由运维配置，不接受浏览器传入 URL。
 
 [2026-10-16 持久会话与实时规划实际验收](docs/MEMORY-LIVE-VALIDATION.md)

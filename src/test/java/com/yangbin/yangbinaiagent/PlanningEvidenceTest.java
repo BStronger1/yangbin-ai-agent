@@ -47,4 +47,13 @@ class PlanningEvidenceTest {
  @Test void legacyEvidenceRemainsReadable()throws Exception{
   var mapper=new ObjectMapper();var original=service().fetch("上海",date);String raw=mapper.writeValueAsString(original).replace(",\"coordinateSystem\":\"WGS84\"","");var old=mapper.readValue(raw,PlanningEvidence.Snapshot.class);assertThat(old.places().get(0).url()).isEqualTo(original.places().get(0).url());
  }
+
+ @Test void manualRetryRecoversWeatherImmediatelyInsteadOfCachingTheFailure(){
+  var service=service();failWeather=true;var failed=service.fetch("北京",date);
+  assertThat(failed.weatherStatus()).isEqualTo("unavailable");assertThat(failed.places()).hasSize(1);
+  failWeather=false;var recovered=service.fetch("北京",date);
+  assertThat(recovered.weatherStatus()).isEqualTo("available");assertThat(recovered.weather()).isNotNull();
+  assertThat(recovered.notices()).noneMatch(n->n.contains("天气服务暂不可用"));assertThat(weatherCalls.get()).isEqualTo(2);
+  assertThat(service.fetch("北京",date)).isSameAs(recovered);assertThat(weatherCalls.get()).isEqualTo(2);
+ }
 }

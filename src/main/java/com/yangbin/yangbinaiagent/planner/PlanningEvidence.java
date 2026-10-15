@@ -67,6 +67,7 @@ public class PlanningEvidence {
    if(places.isEmpty())notes.add("高德在定位点约 3 公里内未返回候选地点；这不表示实际没有地点。");
   }
   if(places.stream().anyMatch(p->!p.id().startsWith("amap/")))notes.add("地点由 Photon 检索 OpenStreetMap 数据，© OpenStreetMap contributors；定位 GeoNames，坐标系 WGS84。");
-  Snapshot value=new Snapshot(now,location,weather,List.copyOf(places),ws,ps,List.copyOf(notes));if(cache.size()>=128)cache.clear();cache.put(key,value);return value;
+  Snapshot value=new Snapshot(now,location,weather,List.copyOf(places),ws,ps,List.copyOf(notes));// A transient failure must not trap manual retries in a ten-minute failure cache.
+  if(!ws.equals("unavailable")&&!ps.equals("unavailable")){if(cache.size()>=128)cache.clear();cache.put(key,value);}return value;
  }
 }

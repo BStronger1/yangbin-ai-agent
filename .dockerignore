@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/target
+**/dist
+.env*
+!.env.example
+secrets.json
+logs
+tmp

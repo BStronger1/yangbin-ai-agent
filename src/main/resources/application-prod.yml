@@ -1,0 +1,26 @@
+spring:
+  mvc:
+    async:
+      request-timeout: 300000
+  ai:
+    mcp:
+      client:
+        enabled: false
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+knife4j:
+  enable: false
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+logging:
+  file:
+    name: logs/application.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7

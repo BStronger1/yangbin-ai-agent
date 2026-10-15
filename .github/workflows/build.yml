@@ -13,7 +13,7 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest package
+      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest package
       - run: python -m pip install -r deploy/turing/requirements.txt
       - run: python -m unittest discover -s deploy/turing -p "test_*.py"
       - uses: actions/setup-node@v4

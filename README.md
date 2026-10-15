@@ -34,7 +34,7 @@ npm run dev
 
 ## 功能与边界
 
-- 基础聊天支持 SSE，多轮对话记忆保存在进程内，重启后清空。
+- 基础聊天支持 SSE，恋爱问答的多轮记忆按账号、会话及模式原子保存为 JSON，保留最多 20 条上下文，支持刷新及服务重启后恢复。超级智能体仍按单次任务执行。
 - 智能体逐步调用工具；普通回答完成后结束，最多执行 20 步。
 - 默认注册 PDF 生成和结束工具；配置 `SEARCH_API_KEY` 后启用网页搜索。
 - 中文 PDF 输出到 `tmp/pdf/`，通过 `/api/files/文件名.pdf` 下载。
@@ -65,7 +65,7 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 
 上传文档存于 `tmp/knowledge/`（可用 `app.rag.upload-dir` 覆盖），重启后重新加载并索引；方案各版本存于 `tmp/plans/`（`app.plans.dir`）。部署升级保留 `tmp/`，备份时应包含这两个目录。上传文档用于 RAG；独立 MCP 文档工具读取 `KNOWLEDGE_DIR` 指定的内置 Markdown 目录。
 
-当前部署支持邀请制账号与数据隔离。地图、实时天气、商家信息、Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；普通用户无法调用通用终端；管理员终端仍需谨慎使用。混合检索与重排留作后续评测驱动的优化。
+当前部署支持邀请制账号与数据隔离。已增加 Open-Meteo 天气预报及 Photon / OpenStreetMap 候选地点；商家实时价格、路线、当天营业状态与 Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；普通用户无法调用通用终端；管理员终端仍需谨慎使用。混合检索与重排留作后续评测驱动的优化。
 
 验证命令：
 
@@ -85,3 +85,16 @@ python -m unittest discover -s deploy/turing -p "test_*.py"
 - 代理丢弃客户端提供的身份头，以已认证会话重新注入身份；后端要求代理密钥和合法身份。前端路由跳转仅用于体验，数据权限由服务端校验。登录有尝试次数限制，写操作要求同源和 CSRF 校验。
 - 当前 Turing 入口是内网 HTTP。公网使用须配置 HTTPS，并设置 `SESSION_COOKIE_SECURE=true`；不要直接暴露 Java/MCP/embedding 端口。若前置 TLS 代理，请同时正确处理应用的来源地址和协议。
 - 备份 `tmp/auth/`、`tmp/knowledge/`、`tmp/plans/`、`tmp/pdf/` 与私有部署配置。测试脚本通过正常登录接口验证；管理员改密后，应使用新口令执行运维验收，环境初始口令不会覆盖数据库。
+
+## 持久会话与规划依据
+
+- 恋爱问答页提供历史会话、新建、删除。普通聊天 / RAG / MCP 上下文互相独立，按账号隔离；聊天窗口最多保留 20 条消息，不是完整无限聊天档案，也不是自动提炼的跨会话长期记忆。旧版仅在内存中的会话无法追溯恢复。
+- 数据目录 `tmp/chat-memory-v2/`（`app.memory.dir` 可改），采用临时文件 + 原子替换；单实例内阻止同一流式会话并发生成，生成中禁止删除。多实例部署需改用共享数据库与分布式并发控制。备份时加入此目录。
+- 设置 `PLANNING_LIVE_ENABLED=true` 启用规划依据。`/planner` 可先点“查询天气与地点依据”；生成/修改也自动查询并把快照保存在该版本。旧版本不回填最新天气。
+- 当前限定中国城市：Open-Meteo / GeoNames 定位，优先城市级同名记录；仍有歧义时不猜测坐标。天气按城市时区匹配日期，仅接受今天至未来 15 天的预报，超范围明确不可用。
+- 地点使用 Photon 查询 OpenStreetMap 的咖啡馆、餐厅、公园、博物馆候选，范围为城市定位点周边约 3 公里，最多 12 个；不是用户当前位置，不提供路线规划。显示地图来源、地址及来源可用时的营业时间；地图数据可能过时，不能当作实时商家确认。
+- 相同城市/日期缓存 10 分钟，最大 128 项。外部服务失败时只保留可用依据并提示；不会把缺失天气当成晴天。对外仅发送城市/坐标与天气参数，不发送对话、私有知识库或个人偏好。
+- 模型返回的 `placeId` 必须来自实际候选集合，否则拒绝保存；UI 和 PDF 显示服务端保存的来源快照。模型其余文本仍可能出错，费用始终为估算。
+- 仅使用免 Key 公共接口，适合低流量非商业学习演示；Open-Meteo 免费接口有非商业使用限制，Photon 无可用性保证。公开运营需选用适当套餐或自建服务。目前未接入高德 Key。
+- 数据源文档：[Open-Meteo](https://open-meteo.com/en/docs)、[GeoNames 定位](https://open-meteo.com/en/docs/geocoding-api)、[Photon](https://github.com/komoot/photon/blob/master/docs/api-v1.md)、[OpenStreetMap 署名](https://www.openstreetmap.org/copyright)。
+- 可配置服务端地址：`app.planning.geocoding-url`、`app.planning.forecast-url`、`app.planning.places-url`。这些地址仅由运维配置，不接受浏览器传入 URL。

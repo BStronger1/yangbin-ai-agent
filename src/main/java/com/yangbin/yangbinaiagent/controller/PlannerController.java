@@ -4,7 +4,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 @RestController @RequestMapping("/ai/plans")
 public class PlannerController {
- private final PlannerService service;public PlannerController(PlannerService s){service=s;}
+ private final PlannerService service;private final com.yangbin.yangbinaiagent.planner.PlanningEvidence evidence;public PlannerController(PlannerService s,com.yangbin.yangbinaiagent.planner.PlanningEvidence evidence){service=s;this.evidence=evidence;}
+ @GetMapping("/evidence") public Object evidence(@RequestParam String city,@RequestParam String date){return evidence.fetch(city,date);}
  @GetMapping public Object list()throws Exception{return service.list();}
  @PostMapping public Object create(@RequestBody PlannerService.Requirements r)throws Exception{return service.generate(r,null,null);}
  @GetMapping("/{id}") public Object versions(@PathVariable String id)throws Exception{return service.versions(id);}

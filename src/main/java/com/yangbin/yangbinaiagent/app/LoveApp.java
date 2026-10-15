@@ -49,15 +49,11 @@ public class LoveApp {
      *
      * @param appChatModel
      */
-    public LoveApp(ChatModel appChatModel) {
-//        // 初始化基于文件的对话记忆
-//        String fileDir = System.getProperty("user.dir") + "/tmp/chat-memory";
-//        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
-        // 初始化基于内存的对话记忆
+    private final com.yangbin.yangbinaiagent.chatmemory.PersistentChatRepository memory;
+    public LoveApp(ChatModel appChatModel,com.yangbin.yangbinaiagent.chatmemory.PersistentChatRepository memory) {
+        this.memory=memory;
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
-                .chatMemoryRepository(new InMemoryChatMemoryRepository())
-                .maxMessages(20)
-                .build();
+                .chatMemoryRepository(memory).maxMessages(20).build();
         chatClient = ChatClient.builder(appChatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(
@@ -139,7 +135,8 @@ public class LoveApp {
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unknown chat mode");
         }
-        return request.stream().content();
+        String key=scopedChatId+":"+mode;
+        return Flux.using(()->{if(!memory.begin(key))throw new IllegalStateException("此会话正在生成，请稍后重试");return key;},ignored->request.stream().content(),memory::end);
       });
     }
 

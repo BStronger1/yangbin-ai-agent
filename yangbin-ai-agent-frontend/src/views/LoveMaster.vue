@@ -7,12 +7,13 @@
     </div>
 
     <label class="mode-picker">回答方式
-      <select v-model="mode" :disabled="connectionStatus === 'connecting'">
+      <select v-model="mode" @change="newConversation" :disabled="connectionStatus === 'connecting'">
         <option value="chat">普通聊天</option>
         <option value="rag" :disabled="!capabilities.rag">知识库问答（RAG）</option>
         <option value="mcp" :disabled="!capabilities.mcpTools.length">MCP 工具</option>
       </select>
     </label>
+    <div class="mode-picker history-picker"><label>历史会话 <select aria-label="历史会话" :value="chatId" :disabled="connectionStatus === 'connecting'" @change="openConversation($event.target.value)"><option :value="chatId" v-if="!conversations.some(c=>c.id===chatId)">新会话</option><option v-for="c in conversations" :key="c.id+':'+c.mode" :value="c.id">{{c.title}} · {{c.mode}}</option></select></label><button @click="newConversation" :disabled="connectionStatus === 'connecting'">新建会话</button><button @click="deleteConversation" :disabled="connectionStatus === 'connecting'">删除当前会话</button><small>按账号保存最近 20 条上下文，支持刷新和重启后恢复。</small><span role="alert" v-if="historyError">{{historyError}}</span></div>
     <ExecutionTrace :events="traceEvents" />
     <div class="content-wrapper">
       <div class="chat-area">
@@ -37,6 +38,7 @@ import { useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import ChatRoom from '../components/ChatRoom.vue'
 import {checkSession} from '../auth'
+import {api,errorMessage} from '../workspace-api'
 import ExecutionTrace from '../components/ExecutionTrace.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { chatWithLoveApp, getCapabilities } from '../api'
@@ -65,8 +67,14 @@ onMounted(async () => {
   try {
     capabilities.value = await getCapabilities()
     if (capabilities.value.rag) mode.value = 'rag'
+    await refreshConversations();if(conversations.value.length)await openConversation(conversations.value[0].id);else newConversation()
   } catch (error) { console.error('Capabilities unavailable', error) }
 })
+const conversations=ref([]),historyError=ref('')
+async function refreshConversations(){conversations.value=(await api.get('/ai/conversations')).data}
+function newConversation(){chatId.value=generateChatId();messages.value=[];traceEvents.value=[];historyError.value=''}
+async function openConversation(id){try{const c=conversations.value.find(c=>c.id===id);if(!c)return;const response=await api.get('/ai/conversations/'+id,{params:{mode:c.mode}});chatId.value=id;mode.value=c.mode;messages.value=response.data.map(m=>({content:m.content,isUser:m.role==='USER',time:Date.now()}));traceEvents.value=[]}catch(e){historyError.value=errorMessage(e)}}
+async function deleteConversation(){if(!confirm('删除当前会话及保存的上下文？'))return;try{await api.delete('/ai/conversations/'+chatId.value,{params:{mode:mode.value}});newConversation();await refreshConversations()}catch(e){historyError.value=errorMessage(e)}}
 const chatId = ref('')
 const connectionStatus = ref('disconnected')
 let eventSource = null
@@ -124,6 +132,7 @@ const sendMessage = (message) => {
     if (data === '[DONE]') {
       connectionStatus.value = 'disconnected'
       eventSource.close()
+      refreshConversations().catch(e=>historyError.value=errorMessage(e))
     }
   }
 
@@ -160,6 +169,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.history-picker {flex-wrap:wrap}.history-picker select{max-width:300px}.history-picker button{padding:8px;border:1px solid #ddd;background:white;border-radius:6px}.history-picker small{width:100%;text-align:center;color:#666}
 .mode-picker { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px; color: #333; background: #fff; }
 .mode-picker select { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
 .love-master-container {

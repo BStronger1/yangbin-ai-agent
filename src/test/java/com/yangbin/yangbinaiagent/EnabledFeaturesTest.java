@@ -199,4 +199,15 @@ class EnabledFeaturesTest {
         var result=http.postForObject("/ai/mcp/call",new org.springframework.http.HttpEntity<>(Map.of("name",name,"arguments",Map.of("timezone","Asia/Shanghai")),tenant(a)),String.class);
         String id=json.readTree(result).get("id").asText();assertThat(tenantGet("/ai/mcp/history",a)).contains(id);assertThat(tenantGet("/ai/mcp/history",b)).doesNotContain(id);
     }
+    @Test void savedConversationEndpointsEnforceOwnerAndDeletion()throws Exception{
+        String a="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",b="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",id="history-"+java.util.UUID.randomUUID();
+        tenantGet("/ai/love_app/chat/events?message=PRIVATE_HISTORY_MARKER&chatId="+id+"&mode=chat",a);
+        assertThat(tenantGet("/ai/conversations/"+id+"?mode=chat",a)).contains("PRIVATE_HISTORY_MARKER","feature-ok");
+        assertThat(tenantGet("/ai/conversations/"+id+"?mode=chat",b)).isEqualTo("[]");
+        http.exchange("/ai/conversations/"+id+"?mode=chat",org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(b)),String.class);
+        assertThat(tenantGet("/ai/conversations",a)).contains(id);assertThat(tenantGet("/ai/conversations",b)).doesNotContain(id);
+        http.exchange("/ai/conversations/"+id+"?mode=chat",org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(a)),String.class);
+        assertThat(tenantGet("/ai/conversations/"+id+"?mode=chat",a)).isEqualTo("[]");
+    }
+
 }

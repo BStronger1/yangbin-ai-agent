@@ -72,5 +72,6 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```sh
 mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
 mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest package
-python -m unittest discover -s deploy/turing -p test_embedding_http.py
+python -m pip install -r deploy/turing/requirements.txt
+python -m unittest discover -s deploy/turing -p "test_*.py"
 ```

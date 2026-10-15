@@ -6,6 +6,7 @@
       <div class="placeholder"></div>
     </div>
 
+    <ExecutionTrace :events="traceEvents" />
     <div class="content-wrapper">
       <div class="chat-area">
         <ChatRoom
@@ -28,6 +29,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import ChatRoom from '../components/ChatRoom.vue'
+import ExecutionTrace from '../components/ExecutionTrace.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { chatWithManus } from '../api'
 
@@ -48,6 +50,7 @@ useHead({
 
 const router = useRouter()
 const messages = ref([])
+const traceEvents=ref([])
 const connectionStatus = ref('disconnected')
 let eventSource = null
 
@@ -63,6 +66,7 @@ const addMessage = (content, isUser, type = '') => {
 
 // 发送消息
 const sendMessage = (message) => {
+  traceEvents.value=[]
   addMessage(message, true, 'user-question')
 
   // 连接SSE
@@ -109,6 +113,15 @@ const sendMessage = (message) => {
 
   eventSource = chatWithManus(message)
 
+  eventSource.addEventListener('trace', event => {
+    const item=JSON.parse(event.data),index=traceEvents.value.findIndex(e=>e.id===item.id)
+    if(index>=0) traceEvents.value[index]=item
+    else {traceEvents.value.push(item);if(traceEvents.value.length>80)traceEvents.value.shift()}
+  })
+  eventSource.addEventListener('failure', event => {
+    traceEvents.value=traceEvents.value.map(e=>e.status==='running'?{...e,status:'failed'}:e);addMessage(event.data,false);connectionStatus.value='error';eventSource.close()
+  })
+
   // 监听SSE消息
   eventSource.onmessage = (event) => {
     const data = event.data
@@ -144,6 +157,7 @@ const sendMessage = (message) => {
 
   // 监听SSE错误
   eventSource.onerror = (error) => {
+    traceEvents.value=traceEvents.value.map(e=>e.status==='running'?{...e,status:'failed'}:e)
     console.error('SSE Error:', error)
     connectionStatus.value = 'error'
     eventSource.close()

@@ -52,7 +52,7 @@ async def frontend(request):
         target = root / "index.html"
     return web.FileResponse(target, headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
 
-app = web.Application(middlewares=[authenticate], client_max_size=1024*1024)
+app = web.Application(middlewares=[authenticate], client_max_size=2*1024*1024)
 app.cleanup_ctx.append(clients)
 app.router.add_route("*", "/api/{path:.*}", api)
 app.router.add_get("/{path:.*}", frontend)

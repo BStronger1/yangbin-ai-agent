@@ -43,11 +43,14 @@ public class ToolCallAgent extends ReActAgent {
 
     public ToolCallAgent(ToolCallback[] availableTools) {
         super();
-        this.availableTools = availableTools;
+        this.availableTools = com.yangbin.yangbinaiagent.tools.TracedTools.wrap(availableTools,event -> {
+            if(getTraceEmitter()!=null) try {getTraceEmitter().send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("trace").data(event));}
+            catch(java.io.IOException e){throw new IllegalStateException("Client disconnected",e);}
+        });
         this.toolCallingManager = ToolCallingManager.builder().build();
         // 禁用 Spring AI 内置的工具调用机制，自己维护选项和消息上下文
         this.chatOptions = ToolCallingChatOptions.builder()
-                .toolCallbacks(availableTools)
+                .toolCallbacks(this.availableTools)
                 .internalToolExecutionEnabled(false)
                 .build();
     }
@@ -70,7 +73,7 @@ public class ToolCallAgent extends ReActAgent {
         try {
             ChatResponse chatResponse = getChatClient().prompt(prompt)
                     .system(getSystemPrompt())
-                    .toolCallbacks(availableTools)
+                    .toolCallbacks(this.availableTools)
                     .call()
                     .chatResponse();
             // 记录响应，用于等下 Act

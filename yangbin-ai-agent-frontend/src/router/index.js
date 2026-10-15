@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
+  {path:'/knowledge',component:()=>import('../views/Knowledge.vue'),meta:{title:'知识库 RAG · yangbin AI'}},
+  {path:'/mcp',component:()=>import('../views/Mcp.vue'),meta:{title:'MCP 工具 · yangbin AI'}},
+  {path:'/planner',component:()=>import('../views/Planner.vue'),meta:{title:'约会规划 · yangbin AI'}},
   {
     path: '/',
     name: 'Home',

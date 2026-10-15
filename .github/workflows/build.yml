@@ -13,7 +13,7 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest package
+      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest package
       - run: python -m unittest discover -s deploy/turing -p test_embedding_http.py
       - uses: actions/setup-node@v4
         with:

@@ -1,8 +1,9 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import WorkspaceNav from './components/WorkspaceNav.vue'
 </script>
 
 <template>
+  <WorkspaceNav />
   <router-view />
 </template>
 

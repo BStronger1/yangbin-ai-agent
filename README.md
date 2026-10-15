@@ -54,3 +54,23 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 上述 12 项测试使用本地模拟模型服务，不调用收费 API，覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)
+
+## 工作台扩展
+
+- `/knowledge`：上传 UTF-8 Markdown/TXT 或含文本的 PDF（单文件 1 MB、最多 100 页、解析后 60000 字符），预览、重新索引和删除上传文档。内置文档只读。扫描 PDF 需先 OCR。
+- `/mcp`：查看发现的工具和参数定义，测试内置文档列表/读取及时间查询，记录真实结果、成功状态与耗时。手动测试历史保留 50 条，重启后清空；不会暴露通用终端的手动执行接口。
+- `/planner`：输入城市、日期、两人总预算、时间、交通和偏好，生成方案、修改并保留版本、导出中文 PDF。服务端检查金额与时间顺序；并发修改旧版本返回冲突。
+- 恋爱问答与超级智能体显示真实执行事件。RAG 显示实际召回的片段与相似度；MCP/智能体显示实际工具参数、结果摘要和耗时。执行记录不是模型推理过程。
+- 知识库页包含固定 6 题 Hit@3 测试，仅检测预期文件是否进入前三项，不等于答案正确率，也不调用聊天模型。
+
+上传文档存于 `tmp/knowledge/`（可用 `app.rag.upload-dir` 覆盖），重启后重新加载并索引；方案各版本存于 `tmp/plans/`（`app.plans.dir`）。部署升级保留 `tmp/`，备份时应包含这两个目录。上传文档用于 RAG；独立 MCP 文档工具读取 `KNOWLEDGE_DIR` 指定的内置 Markdown 目录。
+
+当前部署面向单一账号，页面数据共享。地图、实时天气、商家信息、Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；公开多用户部署前需要独立身份、数据隔离和执行沙箱。混合检索与重排留作后续评测驱动的优化。
+
+验证命令：
+
+```sh
+mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
+mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest package
+python -m unittest discover -s deploy/turing -p test_embedding_http.py
+```

@@ -1,0 +1,1 @@
+<template><main class="workspace"><header class="workspace-heading"><div class="eyebrow">YANGBIN / AI WORKSPACE</div><h1>{{ title }}</h1><p>{{ description }}</p></header><slot /></main></template><script setup>import '../workspace.css';defineProps({title:String,description:String})</script>

@@ -29,6 +29,19 @@ public class AiController {
     @Resource
     private ChatModel appChatModel;
 
+    @GetMapping(value="/love_app/chat/events",produces=MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<Object>> events(String message,String chatId,@RequestParam(defaultValue="rag") String mode) {
+        return Flux.<ServerSentEvent<Object>>create(sink -> {
+            var subscription=reactor.core.Disposables.swap();
+            sink.onDispose(subscription);
+            subscription.update(loveApp.doChatByStream(message,chatId,mode,event -> sink.next(ServerSentEvent.builder((Object)event).event("trace").build()))
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .subscribe(chunk -> sink.next(ServerSentEvent.builder((Object)chunk).build()),
+                    error -> {sink.next(ServerSentEvent.builder((Object)"请求未完成，请检查服务状态后重试").event("failure").build());sink.complete();},
+                    () -> {sink.next(ServerSentEvent.builder((Object)"[DONE]").build());sink.complete();}));
+        });
+    }
+
     /**
      * 同步调用 AI 恋爱大师应用
      *

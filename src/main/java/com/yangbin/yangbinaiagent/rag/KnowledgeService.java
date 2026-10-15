@@ -15,7 +15,7 @@ public class KnowledgeService {
     public KnowledgeService(@Qualifier("loveAppVectorStore") VectorStore store) { this.store=store; }
     public List<Document> search(String query) {
         if(query==null || query.isBlank() || query.length()>4000) throw new IllegalArgumentException("Query must contain 1-4000 characters");
-        return store.similaritySearch(SearchRequest.builder().query(query).topK(3).similarityThreshold(0.25).build());
+        synchronized(store) { return store.similaritySearch(SearchRequest.builder().query(query).topK(3).similarityThreshold(0.25).build()); }
     }
     public String context(String query) {
         var documents=search(query);

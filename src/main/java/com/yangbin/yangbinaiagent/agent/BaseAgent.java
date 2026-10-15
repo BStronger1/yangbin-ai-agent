@@ -24,6 +24,8 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public abstract class BaseAgent {
 
+    private transient SseEmitter traceEmitter;
+
     // 核心属性
     private String name;
 
@@ -99,7 +101,8 @@ public abstract class BaseAgent {
      */
     public SseEmitter runStream(String userPrompt) {
         // 创建一个超时时间较长的 SseEmitter
-        SseEmitter sseEmitter = new SseEmitter(300000L); // 5 分钟超时
+        SseEmitter sseEmitter = new SseEmitter(300000L);
+        this.traceEmitter=sseEmitter; // 5 分钟超时
         // 使用线程异步处理，避免阻塞主线程
         CompletableFuture.runAsync(() -> {
             // 1、基础校验

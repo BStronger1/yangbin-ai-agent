@@ -17,9 +17,28 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path!="/v1/embeddings":return self.response(404,{"error":"Not found"})
         try:
-            size=int(self.headers.get("Content-Length","0"))
-            if size<1 or size>1024*1024:return self.response(413,{"error":"Request too large"})
-            data=json.loads(self.rfile.read(size));texts=data["input"]
+            self.connection.settimeout(30)
+            limit=1024*1024
+            if self.headers.get("Transfer-Encoding","").lower()=="chunked":
+                if self.headers.get("Content-Length"):return self.response(400,{"error":"Ambiguous request framing"})
+                parts=[];total=0
+                while True:
+                    line=self.rfile.readline(128)
+                    if not line.endswith(b"\r\n"):return self.response(400,{"error":"Invalid chunk header"})
+                    size=int(line.split(b";",1)[0].strip(),16)
+                    if size<0 or total+size>limit:return self.response(413,{"error":"Request too large"})
+                    if size==0:
+                        # The response closes this connection; trailers are not reused.
+                        break
+                    part=self.rfile.read(size)
+                    if len(part)!=size or self.rfile.read(2)!=b"\r\n":return self.response(400,{"error":"Invalid chunk body"})
+                    parts.append(part);total+=size
+                raw=b"".join(parts)
+            else:
+                size=int(self.headers.get("Content-Length","0"))
+                if size<1 or size>limit:return self.response(413,{"error":"Request too large"})
+                raw=self.rfile.read(size)
+            data=json.loads(raw);texts=data["input"]
             if isinstance(texts,str):texts=[texts]
             if data.get("model")!=MODEL or not isinstance(texts,list) or not 1<=len(texts)<=128 or any(not isinstance(t,str) or len(t)>16000 for t in texts):
                 return self.response(400,{"error":"Invalid model or input"})

@@ -32,3 +32,16 @@ python3 ~/apps/yangbin-ai-agent/deploy/turing/amap-smoke.py
 输出应为 `amap_live: true`，否则不能宣称高德已可用。脚本仅打印状态、数量，不打印密钥。浏览器复验使用 `deploy/turing/amap-browser.py`，需部署环境的 Playwright 运行时。
 
 运维证据：服务器 `logs/amap-verification.json` 与 `logs/screenshots/amap-planning-mobile.png`；本地 `tmp/amap-evidence/`；部署回滚包 `releases/before-workspace-5c7e7503`。密钥不在仓库或本文档。
+
+
+## 2026-10-16 北京天气失败缓存修复
+
+用户报告北京天气不可用。本次复现同日“北京”读到天气失败快照，而“北京市”重新查询成功；直接天气接口返回完整当日预报。确认原实现将暂不可用结果与正常结果同样缓存 10 分钟，放大了单次请求失败。首次请求失败的网络/上游原因未确认，不将其归因高德 Key。
+
+修复提交 `ea1fc5d`：天气或地点暂不可用时不写入查询缓存，用户可立即重试；成功结果仍缓存。前端新增失败重试按钮，明确区分本次查询和历史快照，切换方案或新建时清理旧预览。历史版本的数据不被覆盖。
+
+本次本地 45 项 Java 测试与生产构建通过，其中新测试模拟天气失败→同城同日立即恢复→成功结果继续缓存。前端构建通过。Turing 已部署，回滚版本 `releases/before-workspace-71f9caa2`。
+
+线上浏览器先模拟一次失败响应，再通过重试按钮访问真实后端：北京 2026-10-16 返回雨、13.2–18.1℃、最大降水概率 47%，12 条高德候选；历史快照标注、390px 布局、无 JS 错误通过。天气数字只代表本次查询时的预报。没有新增模型调用或生成方案。
+
+证据：`logs/beijing-weather-verification.json`、`logs/screenshots/beijing-weather-fixed.png`；复验脚本 `deploy/turing/weather-browser.py`，本地副本 `tmp/weather-fix-evidence/`。

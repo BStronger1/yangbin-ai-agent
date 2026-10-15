@@ -11,6 +11,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class KnowledgeDocumentsTest {
+    com.yangbin.yangbinaiagent.security.UserContext.Scope identity;
+    @org.junit.jupiter.api.BeforeEach void identity(){identity=com.yangbin.yangbinaiagent.security.UserContext.open(com.yangbin.yangbinaiagent.security.UserContext.ADMIN);}
+    @org.junit.jupiter.api.AfterEach void clearIdentity(){identity.close();}
  @TempDir Path root;
  KnowledgeDocuments manager(VectorStore store)throws Exception{var loader=mock(LoveAppDocumentLoader.class);when(loader.loadMarkdowns()).thenReturn(List.of());return new KnowledgeDocuments(store,loader,new ObjectMapper(),root.toString());}
  @Test void savedDocumentsAreReindexedOnRestartAndDeletedFromDisk()throws Exception{

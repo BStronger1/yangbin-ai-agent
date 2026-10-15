@@ -65,7 +65,7 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 
 上传文档存于 `tmp/knowledge/`（可用 `app.rag.upload-dir` 覆盖），重启后重新加载并索引；方案各版本存于 `tmp/plans/`（`app.plans.dir`）。部署升级保留 `tmp/`，备份时应包含这两个目录。上传文档用于 RAG；独立 MCP 文档工具读取 `KNOWLEDGE_DIR` 指定的内置 Markdown 目录。
 
-当前部署面向单一账号，页面数据共享。地图、实时天气、商家信息、Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；公开多用户部署前需要独立身份、数据隔离和执行沙箱。混合检索与重排留作后续评测驱动的优化。
+当前部署支持邀请制账号与数据隔离。地图、实时天气、商家信息、Pexels 图片搜索尚未接通；规划费用是估算，不能作为已验证的地点或价格。通用终端仍以服务账号运行，不能当作隔离沙箱；普通用户无法调用通用终端；管理员终端仍需谨慎使用。混合检索与重排留作后续评测驱动的优化。
 
 验证命令：
 
@@ -75,3 +75,13 @@ mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationTool
 python -m pip install -r deploy/turing/requirements.txt
 python -m unittest discover -s deploy/turing -p "test_*.py"
 ```
+
+## 邀请制账号系统
+
+- `/login` 登录，`/register` 使用邀请码注册，`/account` 修改密码。管理员还可创建/撤销邀请码、停用/启用普通账号。
+- 首次启动将部署环境 `ACCESS_USER` / `ACCESS_PASSWORD` 导入为管理员（固定内部 ID `admin`）。以后重启不会重置已修改的密码；原有文档、方案与 PDF 只归管理员访问。
+- 账号、邀请码哈希与会话存于 `tmp/auth/accounts.sqlite`。密码用独立随机盐和 scrypt 哈希；会话使用随机 HttpOnly / SameSite=Strict Cookie，有效期 24 小时。退出、改密或停用会撤销相应会话。不要删除此数据库，否则会重新初始化管理员。
+- 私有文档的向量检索在查询阶段按归属过滤，内置资料共享；方案、下载、聊天记忆和 MCP 测试历史按账号隔离。流式聊天与后台工具调用显式传递身份。普通用户只获得知识检索、内置 MCP 时间/文档工具、PDF 和终止工具；终端及其他文件/网络工具仅管理员可用。
+- 代理丢弃客户端提供的身份头，以已认证会话重新注入身份；后端要求代理密钥和合法身份。前端路由跳转仅用于体验，数据权限由服务端校验。登录有尝试次数限制，写操作要求同源和 CSRF 校验。
+- 当前 Turing 入口是内网 HTTP。公网使用须配置 HTTPS，并设置 `SESSION_COOKIE_SECURE=true`；不要直接暴露 Java/MCP/embedding 端口。若前置 TLS 代理，请同时正确处理应用的来源地址和协议。
+- 备份 `tmp/auth/`、`tmp/knowledge/`、`tmp/plans/`、`tmp/pdf/` 与私有部署配置。测试脚本通过正常登录接口验证；管理员改密后，应使用新口令执行运维验收，环境初始口令不会覆盖数据库。

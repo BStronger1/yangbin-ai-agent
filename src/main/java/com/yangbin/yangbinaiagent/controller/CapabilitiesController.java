@@ -21,8 +21,9 @@ public class CapabilitiesController {
     }
     @GetMapping("/capabilities")
     public Map<String,Object> capabilities() {
-        var names=Arrays.stream(tools).map(t->t.getToolDefinition().name()).toList();
-        var mcpNames=mcp.getIfAvailable()==null?List.of():Arrays.stream(mcp.getObject().getToolCallbacks()).map(t->t.getToolDefinition().name()).toList();
+        var user=com.yangbin.yangbinaiagent.security.UserContext.current();
+        var names=Arrays.stream(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(tools,user)).map(t->t.getToolDefinition().name()).toList();
+        var mcpNames=mcp.getIfAvailable()==null?List.of():Arrays.stream(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(mcp.getObject().getToolCallbacks(),user)).map(t->t.getToolDefinition().name()).toList();
         return Map.of("rag",knowledge.getIfAvailable()!=null,"mcpTools",mcpNames,"terminal",names.contains("executeTerminalCommand"),"tools",names);
     }
     @GetMapping("/rag/search")

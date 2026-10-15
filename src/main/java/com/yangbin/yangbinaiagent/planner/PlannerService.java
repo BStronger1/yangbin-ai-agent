@@ -1,5 +1,6 @@
 package com.yangbin.yangbinaiagent.planner;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yangbin.yangbinaiagent.security.UserContext;
 import com.yangbin.yangbinaiagent.rag.KnowledgeService;
 import com.yangbin.yangbinaiagent.tools.PDFGenerationTool;
 import org.springframework.ai.chat.client.ChatClient;
@@ -16,7 +17,7 @@ public class PlannerService {
  public record Requirements(String city,int budget,String date,String startTime,int hours,String interests,String transport,String revision){}
  public record Stop(String time,String activity,int estimatedCost,String note){}
  public record Itinerary(String title,String summary,List<Stop> stops,List<String> alternatives,List<String> cautions){}
- public record Plan(String id,int version,String createdAt,Requirements requirements,Itinerary itinerary,List<Map<String,Object>> sources){}
+ public record Plan(String id,int version,String createdAt,Requirements requirements,Itinerary itinerary,List<Map<String,Object>> sources,String owner){public Plan {if(owner==null)owner="admin";}}
  private final Path root;private final ObjectMapper json;private final ChatClient client;private final ObjectProvider<KnowledgeService> knowledge;
  public PlannerService(ChatModel appChatModel,ObjectMapper json,ObjectProvider<KnowledgeService> knowledge,@Value("${app.plans.dir:tmp/plans}") String dir)throws Exception{
   this.json=json;this.root=Path.of(dir);Files.createDirectories(root);client=ChatClient.create(appChatModel);this.knowledge=knowledge;
@@ -49,15 +50,15 @@ public class PlannerService {
   if(json.writeValueAsString(output).length()>30000)throw new IllegalStateException("方案过长，请重试");
   synchronized(this){
    if(previous!=null&&latest(id).version()!=expected)throw new IllegalStateException("方案已有新版本，请刷新后重试");
-   Plan plan=new Plan(id==null?UUID.randomUUID().toString():id,previous==null?1:previous.version()+1,Instant.now().toString(),r,output,sources);
+   Plan plan=new Plan(id==null?UUID.randomUUID().toString():id,previous==null?1:previous.version()+1,Instant.now().toString(),r,output,sources,UserContext.current().id());
    Path temp=Files.createTempFile(root,"plan-",".tmp");try{json.writeValue(temp.toFile(),plan);Files.move(temp,path(plan.id(),plan.version()),StandardCopyOption.ATOMIC_MOVE);}finally{Files.deleteIfExists(temp);}return plan;
   }
  }
  private Path path(String id,int version){if(id==null||!id.matches("[a-f0-9-]{36}")||version<1)throw new IllegalArgumentException("无效方案编号");return root.resolve(id+"-"+version+".json");}
- public Plan get(String id,int version)throws Exception{Path p=path(id,version);if(!Files.isRegularFile(p))throw new IllegalArgumentException("方案不存在");return json.readValue(p.toFile(),Plan.class);}
- public List<Plan> versions(String id)throws Exception{path(id,1);try(var files=Files.list(root)){var out=new ArrayList<Plan>();for(var p:files.filter(p->p.getFileName().toString().startsWith(id+"-")&&p.toString().endsWith(".json")).toList())out.add(json.readValue(p.toFile(),Plan.class));return out.stream().sorted(Comparator.comparingInt(Plan::version).reversed()).toList();}}
+ public Plan get(String id,int version)throws Exception{Path p=path(id,version);if(!Files.isRegularFile(p))throw new IllegalArgumentException("方案不存在");Plan plan=json.readValue(p.toFile(),Plan.class);if(!plan.owner().equals(UserContext.current().id()))throw new IllegalArgumentException("方案不存在");return plan;}
+ public List<Plan> versions(String id)throws Exception{path(id,1);try(var files=Files.list(root)){var out=new ArrayList<Plan>();for(var p:files.filter(p->p.getFileName().toString().startsWith(id+"-")&&p.toString().endsWith(".json")).toList())out.add(json.readValue(p.toFile(),Plan.class));return out.stream().filter(p->p.owner().equals(UserContext.current().id())).sorted(Comparator.comparingInt(Plan::version).reversed()).toList();}}
  public Plan latest(String id)throws Exception{return versions(id).stream().findFirst().orElseThrow(()->new IllegalArgumentException("方案不存在"));}
- public Object list()throws Exception{var latest=new HashMap<String,Plan>();try(var files=Files.list(root)){for(var p:files.filter(p->p.getFileName().toString().matches("[a-f0-9-]{36}-[0-9]+\\.json")).toList()){Plan plan=json.readValue(p.toFile(),Plan.class);if(!latest.containsKey(plan.id())||latest.get(plan.id()).version()<plan.version())latest.put(plan.id(),plan);}}return latest.values().stream().sorted(Comparator.comparing(Plan::createdAt).reversed()).limit(100).map(p->Map.of("id",p.id(),"version",p.version(),"title",p.itinerary().title(),"createdAt",p.createdAt())).toList();}
+ public Object list()throws Exception{var latest=new HashMap<String,Plan>();try(var files=Files.list(root)){for(var p:files.filter(p->p.getFileName().toString().matches("[a-f0-9-]{36}-[0-9]+\\.json")).toList()){Plan plan=json.readValue(p.toFile(),Plan.class);if(!plan.owner().equals(UserContext.current().id()))continue;if(!latest.containsKey(plan.id())||latest.get(plan.id()).version()<plan.version())latest.put(plan.id(),plan);}}return latest.values().stream().sorted(Comparator.comparing(Plan::createdAt).reversed()).limit(100).map(p->Map.of("id",p.id(),"version",p.version(),"title",p.itinerary().title(),"createdAt",p.createdAt())).toList();}
  public String export(String id,int version)throws Exception{
   Plan p=get(id,version);var i=p.itinerary();StringBuilder text=new StringBuilder(i.title()+"\n版本 "+version+" · "+p.requirements().date()+" · "+p.requirements().city()+"\n两人总预算："+p.requirements().budget()+" 元\n\n"+i.summary()+"\n");
   int total=0;for(var stop:i.stops()){total+=stop.estimatedCost();text.append("\n").append(stop.time()).append("  ").append(stop.activity()).append("\n估算费用：").append(stop.estimatedCost()).append(" 元\n").append(stop.note()).append("\n");}

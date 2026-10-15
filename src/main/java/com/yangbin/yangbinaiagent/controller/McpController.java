@@ -9,7 +9,8 @@ import java.util.*;
 public class McpController {
  private final ObjectProvider<SyncMcpToolCallbackProvider> provider;
  private final ObjectMapper json;
- private final Deque<Map<String,Object>> history=new ArrayDeque<>();
+ private final Map<String,Deque<Map<String,Object>>> histories=new java.util.concurrent.ConcurrentHashMap<>();
+ private Deque<Map<String,Object>> history(){return histories.computeIfAbsent(com.yangbin.yangbinaiagent.security.UserContext.current().id(),id->new ArrayDeque<>());}
  public McpController(ObjectProvider<SyncMcpToolCallbackProvider> p,ObjectMapper j){provider=p;json=j;}
  private ToolCallback[] callbacks(){var p=provider.getIfAvailable();return p==null?new ToolCallback[0]:p.getToolCallbacks();}
  private boolean testable(String name){return name.endsWith("_currentTime")||name.endsWith("_listKnowledgeDocuments")||name.endsWith("_readKnowledgeDocument");}
@@ -26,7 +27,7 @@ public class McpController {
    try {result=tool.call(args.toString());try{ok=!json.readTree(result).path("isError").asBoolean(false);}catch(Exception ignored){} if(result.startsWith("Error")||result.startsWith("错误"))ok=false;}
    catch(Exception e){ok=false;result="工具调用失败，请检查参数和 MCP 服务";}
    var entry=Map.<String,Object>of("id",UUID.randomUUID().toString(),"name",request.name(),"arguments",args,"success",ok,"result",result.length()>16000?result.substring(0,16000)+"\n[结果已截断]":result,"durationMs",(System.nanoTime()-start)/1000000,"time",java.time.Instant.now().toString());
-   synchronized(history){history.addFirst(entry);while(history.size()>50)history.removeLast();}return entry;
+   var history=history();synchronized(history){history.addFirst(entry);while(history.size()>50)history.removeLast();}return entry;
  }
- @GetMapping("/history") public Object history(){synchronized(history){return List.copyOf(history);}}
+ @GetMapping("/history") public Object listHistory(){var history=history();synchronized(history){return List.copyOf(history);}}
 }

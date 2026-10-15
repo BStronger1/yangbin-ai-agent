@@ -10,7 +10,7 @@ import java.util.*;
 /** Explicit operator CLI: checks real local dependencies without paid model calls. */
 public class FeatureVerificationMain {
     public static void main(String[] args) throws Exception {
-        try(var context=new SpringApplicationBuilder(YangbinAiAgentApplication.class).web(WebApplicationType.NONE).profiles("prod").run(args)) {
+        try(var identity=com.yangbin.yangbinaiagent.security.UserContext.open(com.yangbin.yangbinaiagent.security.UserContext.ADMIN);var context=new SpringApplicationBuilder(YangbinAiAgentApplication.class).web(WebApplicationType.NONE).profiles("prod").run(args)) {
             ToolCallback[] tools=context.getBean("allTools",ToolCallback[].class);
             var result=new LinkedHashMap<String,Object>();
             var docs=context.getBean(KnowledgeService.class).search("夫妻之间如何有效沟通");

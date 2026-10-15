@@ -29,6 +29,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import ChatRoom from '../components/ChatRoom.vue'
+import {checkSession} from '../auth'
 import ExecutionTrace from '../components/ExecutionTrace.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { chatWithManus } from '../api'
@@ -158,6 +159,7 @@ const sendMessage = (message) => {
   // 监听SSE错误
   eventSource.onerror = (error) => {
     traceEvents.value=traceEvents.value.map(e=>e.status==='running'?{...e,status:'failed'}:e)
+    checkSession()
     console.error('SSE Error:', error)
     connectionStatus.value = 'error'
     eventSource.close()

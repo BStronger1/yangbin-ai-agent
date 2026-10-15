@@ -1,5 +1,6 @@
 package com.yangbin.yangbinaiagent.config;
 import jakarta.servlet.FilterChain;
+import com.yangbin.yangbinaiagent.security.UserContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,13 +17,19 @@ public class InternalApiTokenFilter extends OncePerRequestFilter {
     public InternalApiTokenFilter(@Value("${app.internal-api-token:}") String token){this.token=token;}
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain)
             throws ServletException,IOException {
-        if(token.isBlank() || (request.getMethod().equals("GET") && request.getRequestURI().equals(request.getContextPath()+"/health"))) {
+        if(request.getMethod().equals("GET") && request.getRequestURI().equals(request.getContextPath()+"/health")) {
             chain.doFilter(request,response);return;
         }
-        String supplied=request.getHeader("X-Internal-Token");
-        if(supplied==null || !MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8),supplied.getBytes(StandardCharsets.UTF_8))) {
-            response.sendError(401);return;
+        UserContext.User user;
+        if(token.isBlank()) {
+            // Local development only: production sets an internal proxy token.
+            user=UserContext.ADMIN;
+        } else {
+            String supplied=request.getHeader("X-Internal-Token");
+            if(supplied==null || !MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8),supplied.getBytes(StandardCharsets.UTF_8))) {response.sendError(401);return;}
+            try {user=new UserContext.User(request.getHeader("X-User-Id"),request.getHeader("X-User-Role"));}
+            catch(Exception e){response.sendError(401);return;}
         }
-        chain.doFilter(request,response);
+        try(var ignored=UserContext.open(user)){chain.doFilter(request,response);}
     }
 }

@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import {auth,loadUser,safeNext} from '../auth'
 
 const routes = [
+  {path:'/login',component:()=>import('../views/Auth.vue'),meta:{public:true,title:'登录 · yangbin AI'}},
+  {path:'/register',component:()=>import('../views/Auth.vue'),meta:{public:true,title:'注册 · yangbin AI'}},
+  {path:'/account',component:()=>import('../views/Account.vue'),meta:{title:'账号管理 · yangbin AI'}},
   {path:'/knowledge',component:()=>import('../views/Knowledge.vue'),meta:{title:'知识库 RAG · yangbin AI'}},
   {path:'/mcp',component:()=>import('../views/Mcp.vue'),meta:{title:'MCP 工具 · yangbin AI'}},
   {path:'/planner',component:()=>import('../views/Planner.vue'),meta:{title:'约会规划 · yangbin AI'}},
@@ -39,12 +43,11 @@ const router = createRouter({
 })
 
 // 全局导航守卫，设置文档标题
-router.beforeEach((to, from, next) => {
-  // 设置页面标题
-  if (to.meta.title) {
-    document.title = to.meta.title
-  }
-  next()
+router.beforeEach(async to => {
+  if(to.meta.title)document.title=to.meta.title
+  try{await loadUser()}catch{if(!to.meta.public)return {path:'/login',query:{next:to.fullPath}}}
+  if(!to.meta.public&&!auth.user)return {path:'/login',query:{next:to.fullPath}}
+  if(to.meta.public&&auth.user)return safeNext(to.query.next)
 })
 
 export default router

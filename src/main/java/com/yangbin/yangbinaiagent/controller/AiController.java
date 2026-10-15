@@ -31,10 +31,11 @@ public class AiController {
 
     @GetMapping(value="/love_app/chat/events",produces=MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<Object>> events(String message,String chatId,@RequestParam(defaultValue="rag") String mode) {
+        var user=com.yangbin.yangbinaiagent.security.UserContext.current();
         return Flux.<ServerSentEvent<Object>>create(sink -> {
             var subscription=reactor.core.Disposables.swap();
             sink.onDispose(subscription);
-            subscription.update(loveApp.doChatByStream(message,chatId,mode,event -> sink.next(ServerSentEvent.builder((Object)event).event("trace").build()))
+            subscription.update(com.yangbin.yangbinaiagent.security.UserContext.call(user,()->loveApp.doChatByStream(message,chatId,mode,event -> sink.next(ServerSentEvent.builder((Object)event).event("trace").build())))
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .subscribe(chunk -> sink.next(ServerSentEvent.builder((Object)chunk).build()),
                     error -> {sink.next(ServerSentEvent.builder((Object)"请求未完成，请检查服务状态后重试").event("failure").build());sink.complete();},
@@ -114,7 +115,7 @@ public class AiController {
      */
     @GetMapping("/manus/chat")
     public SseEmitter doChatWithManus(String message) {
-        YangbinManus yangbinManus = new YangbinManus(allTools, appChatModel);
+        YangbinManus yangbinManus = new YangbinManus(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(allTools,com.yangbin.yangbinaiagent.security.UserContext.current()), appChatModel);
         return yangbinManus.runStream(message);
     }
 }

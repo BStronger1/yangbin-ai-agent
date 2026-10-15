@@ -3,7 +3,7 @@ import WorkspaceNav from './components/WorkspaceNav.vue'
 </script>
 
 <template>
-  <WorkspaceNav />
+  <WorkspaceNav v-if="!$route.meta.public" />
   <router-view />
 </template>
 

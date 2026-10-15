@@ -17,7 +17,9 @@ public class FileController {
     @GetMapping("/files/{name}")
     public ResponseEntity<FileSystemResource> download(@PathVariable String name) {
         if (!name.matches("[A-Za-z0-9_-]+[.]pdf")) return ResponseEntity.badRequest().build();
-        Path path = Path.of(FileConstant.FILE_SAVE_DIR, "pdf", name);
+        var user=com.yangbin.yangbinaiagent.security.UserContext.current();
+        Path path = Path.of(FileConstant.FILE_SAVE_DIR, "pdf",user.id(), name);
+        if(!Files.isRegularFile(path)&&user.admin())path=Path.of(FileConstant.FILE_SAVE_DIR,"pdf",name);
         if (!Files.isRegularFile(path) || Files.isSymbolicLink(path)) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(name).build().toString())

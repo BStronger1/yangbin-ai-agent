@@ -7,15 +7,18 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import com.yangbin.yangbinaiagent.security.UserContext;
 
 @Service
 @ConditionalOnProperty(name="app.rag.enabled",havingValue="true")
 public class KnowledgeService {
     private final VectorStore store;
     public KnowledgeService(@Qualifier("loveAppVectorStore") VectorStore store) { this.store=store; }
-    public List<Document> search(String query) {
+    public List<Document> search(String query) {return search(query,UserContext.current().id());}
+    public List<Document> search(String query,String owner) {
+        if(!UserContext.validId(owner))throw new IllegalArgumentException("Invalid owner");
         if(query==null || query.isBlank() || query.length()>4000) throw new IllegalArgumentException("Query must contain 1-4000 characters");
-        synchronized(store) { return store.similaritySearch(SearchRequest.builder().query(query).topK(3).similarityThreshold(0.25).build()); }
+        synchronized(store) { return store.similaritySearch(SearchRequest.builder().query(query).topK(3).similarityThreshold(0.25).filterExpression("owner == 'public' || owner == '"+owner+"'").build()); }
     }
     public String context(String query) {
         var documents=search(query);

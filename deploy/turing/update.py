@@ -35,11 +35,13 @@ def replace(source):
 def start():subprocess.run(["bash",str(ROOT/"deploy/turing/start.sh")],check=True)
 def ready():
  env=json.loads((ROOT/"secrets.json").read_text())["env"]
- request=urllib.request.Request("http://127.0.0.1:18126/api/ai/knowledge",headers={"X-Internal-Token":env["INTERNAL_API_TOKEN"]})
+ request=urllib.request.Request("http://127.0.0.1:18126/api/ai/knowledge",headers={"X-Internal-Token":env["INTERNAL_API_TOKEN"],"X-User-Id":"admin","X-User-Role":"admin"})
  for _ in range(150):
   try:
    with urllib.request.urlopen(request,timeout=2) as response:
-    if response.status==200 and isinstance(json.load(response),list):return
+    if response.status==200 and isinstance(json.load(response),list):
+     with urllib.request.urlopen("http://"+env["PUBLIC_BIND"]+":"+env["PUBLIC_PORT"]+"/api/auth/me",timeout=2) as auth:
+      if auth.status==200 and json.load(auth).get("user") is None:return
   except Exception:pass
   time.sleep(1)
  raise RuntimeError("New application did not become ready")

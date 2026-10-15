@@ -6,6 +6,8 @@ import com.yangbin.yangbinaiagent.chatmemory.FileBasedChatMemory;
 import com.yangbin.yangbinaiagent.rag.LoveAppRagCustomAdvisorFactory;
 import com.yangbin.yangbinaiagent.rag.QueryRewriter;
 import jakarta.annotation.Resource;
+import com.yangbin.yangbinaiagent.security.UserContext;
+import com.yangbin.yangbinaiagent.security.ToolAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +81,7 @@ public class LoveApp {
         ChatResponse chatResponse = chatClient
                 .prompt()
                 .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, UserContext.chatId(chatId)))
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
@@ -108,11 +110,13 @@ public class LoveApp {
         return doChatByStream(message,chatId,mode,event -> {});
     }
     public Flux<String> doChatByStream(String message,String chatId,String mode,java.util.function.Consumer<java.util.Map<String,Object>> events) {
+      var user=UserContext.current();
+      String scopedChatId=UserContext.chatId(chatId);
       return Flux.defer(() -> {
         if(message==null||message.isBlank()||message.length()>8000||chatId==null||chatId.length()>100)
             throw new IllegalArgumentException("请输入 1-8000 字符，且会话 ID 不超过 100 字符");
         var request=chatClient.prompt().user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID,chatId+":"+mode));
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID,scopedChatId+":"+mode));
         switch(mode) {
             case "chat" -> { }
             case "rag" -> {
@@ -120,7 +124,7 @@ public class LoveApp {
                 long start=System.nanoTime();
                 String traceId=java.util.UUID.randomUUID().toString();
                 events.accept(java.util.Map.of("id",traceId,"type","retrieval","name","知识库检索","status","running"));
-                var documents=knowledge.getObject().search(message);
+                var documents=knowledge.getObject().search(message,user.id());
                 var sources=documents.stream().map(d -> java.util.Map.of("source",d.getMetadata().getOrDefault("filename","unknown"),"content",d.getText(),"score",d.getScore()==null?0:d.getScore())).toList();
                 events.accept(java.util.Map.of("id",traceId,"type","retrieval","name","知识库检索","status","completed","sources",sources,"durationMs",(System.nanoTime()-start)/1000000));
                 StringBuilder context=new StringBuilder();
@@ -131,7 +135,7 @@ public class LoveApp {
             case "mcp" -> {
                 if(mcp.getIfAvailable()==null || mcp.getObject().getToolCallbacks().length==0)
                     throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"MCP is unavailable");
-                request.toolCallbacks(com.yangbin.yangbinaiagent.tools.TracedTools.wrap(mcp.getObject().getToolCallbacks(),events));
+                request.toolCallbacks(com.yangbin.yangbinaiagent.tools.TracedTools.wrap(ToolAccess.forUser(mcp.getObject().getToolCallbacks(),user),events));
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unknown chat mode");
         }
@@ -155,7 +159,7 @@ public class LoveApp {
                 .prompt()
                 .system(SYSTEM_PROMPT + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表")
                 .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, UserContext.chatId(chatId)))
                 .call()
                 .entity(LoveReport.class);
         log.info("loveReport: {}", loveReport);
@@ -194,7 +198,7 @@ public class LoveApp {
                 .prompt()
                 // 使用改写后的查询
                 .user(rewrittenMessage)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, UserContext.chatId(chatId)))
                 // 开启日志，便于观察效果
                 .advisors(new MyLoggerAdvisor())
                 // 应用 RAG 知识库问答
@@ -231,10 +235,10 @@ public class LoveApp {
         ChatResponse chatResponse = chatClient
                 .prompt()
                 .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, UserContext.chatId(chatId)))
                 // 开启日志，便于观察效果
                 .advisors(new MyLoggerAdvisor())
-                .toolCallbacks(allTools)
+                .toolCallbacks(ToolAccess.forUser(allTools,UserContext.current()))
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
@@ -260,7 +264,7 @@ public class LoveApp {
         ChatResponse chatResponse = chatClient
                 .prompt()
                 .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, UserContext.chatId(chatId)))
                 // 开启日志，便于观察效果
                 .advisors(new MyLoggerAdvisor())
                 .toolCallbacks(toolCallbackProvider)

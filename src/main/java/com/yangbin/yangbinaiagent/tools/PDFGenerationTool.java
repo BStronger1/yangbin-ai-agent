@@ -25,7 +25,7 @@ public class PDFGenerationTool {
         if (fileName == null || !fileName.matches("[A-Za-z0-9_-]+[.]pdf")) {
             return "Error: use an ASCII PDF filename without directory components";
         }
-        String fileDir = FileConstant.FILE_SAVE_DIR + "/pdf";
+        String fileDir = FileConstant.FILE_SAVE_DIR + "/pdf/" + com.yangbin.yangbinaiagent.security.UserContext.current().id();
         String filePath = fileDir + "/" + fileName;
         try {
             // 创建目录

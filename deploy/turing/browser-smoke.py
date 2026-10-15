@@ -7,9 +7,11 @@ e=json.loads((ROOT/"secrets.json").read_text())["env"]
 base="http://"+e["PUBLIC_BIND"]+":"+e["PUBLIC_PORT"]
 with sync_playwright() as p:
     browser=p.chromium.launch(executable_path=str(Path.home()/"apps/agent-workbench/runtime/browsers/chromium-1194/chrome-linux/chrome"),headless=True,args=["--no-sandbox"])
-    context=browser.new_context(http_credentials={"username":e["ACCESS_USER"],"password":e["ACCESS_PASSWORD"]},viewport={"width":1360,"height":900})
+    context=browser.new_context(viewport={"width":1360,"height":900})
     context.route(re.compile(r"/api/ai/(love_app|manus)/chat"), lambda route: route.fulfill(status=200,content_type="text/event-stream",body="data: browser-stream-ok\n\ndata: [DONE]\n\n"))
     page=context.new_page();errors=[]
+    login=context.request.post(base+"/api/auth/login",headers={"Origin":base},data={"username":e["ACCESS_USER"],"password":e["ACCESS_PASSWORD"]})
+    assert login.status==200,"Operator login failed"
     page.on("pageerror",lambda error: errors.append(str(error)))
     assert page.goto(base,wait_until="domcontentloaded").status==200
     expect(page.locator("h1")).to_contain_text("yangbin")

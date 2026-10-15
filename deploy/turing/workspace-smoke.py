@@ -4,13 +4,9 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 e=json.loads((ROOT/"secrets.json").read_text())["env"]
 base="http://"+e["PUBLIC_BIND"]+":"+e["PUBLIC_PORT"]
-auth="Basic "+base64.b64encode((e["ACCESS_USER"]+":"+e["ACCESS_PASSWORD"]).encode()).decode()
-def call(path,method="GET",data=None,content_type="application/json"):
- raw=None if data is None else data if isinstance(data,bytes) else json.dumps(data,ensure_ascii=False).encode()
- request=urllib.request.Request(base+path,data=raw,method=method,headers={"Authorization":auth,"Content-Type":content_type})
- with urllib.request.urlopen(request,timeout=180) as response:
-  body=response.read()
-  return json.loads(body) if "json" in response.headers.get("Content-Type","") else body
+from session_client import SessionClient
+session=SessionClient(base,e['ACCESS_USER'],e['ACCESS_PASSWORD'])
+call=session.call
 report={"paid_model_calls":0}
 docs=call("/api/ai/knowledge");assert len(docs)>=3
 report["documents"]=len(docs)

@@ -20,11 +20,21 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={
-    "spring.profiles.active=prod","app.model.provider=openai","app.model.api-key=test-key","app.model.name=test-model",
+    "spring.profiles.active=prod","app.internal-api-token=tenant-test-token","app.model.provider=openai","app.model.api-key=test-key","app.model.name=test-model",
     "app.rag.enabled=true","app.rag.embedding-model=local-test","app.tools.terminal-enabled=true",
     "spring.ai.mcp.client.enabled=true","spring.ai.mcp.client.request-timeout=10s"
 })
 class EnabledFeaturesTest {
+    com.yangbin.yangbinaiagent.security.UserContext.Scope identity;
+    @org.junit.jupiter.api.BeforeEach void identity(){identity=com.yangbin.yangbinaiagent.security.UserContext.open(com.yangbin.yangbinaiagent.security.UserContext.ADMIN);
+        http.getRestTemplate().getInterceptors().clear();
+        http.getRestTemplate().getInterceptors().add((request,body,execution)->{
+            request.getHeaders().set("X-Internal-Token","tenant-test-token");
+            if(!request.getHeaders().containsKey("X-User-Id")){request.getHeaders().set("X-User-Id","admin");request.getHeaders().set("X-User-Role","admin");}
+            return execution.execute(request,body);
+        });
+    }
+    @org.junit.jupiter.api.AfterEach void clearIdentity(){identity.close();}
     static final ObjectMapper json=new ObjectMapper();
     static final AtomicReference<String> lastChat=new AtomicReference<>();
     static HttpServer provider;
@@ -148,5 +158,45 @@ class EnabledFeaturesTest {
         byte[] pdf=http.getForObject(url.replaceFirst("^/api",""),byte[].class);
         assertThat(new String(pdf,0,4,StandardCharsets.US_ASCII)).isEqualTo("%PDF");
         assertThat(http.getForObject("/ai/plans",String.class)).contains(id);
+    }
+
+    private org.springframework.http.HttpHeaders tenant(String id){var h=new org.springframework.http.HttpHeaders();h.set("X-User-Id",id);h.set("X-User-Role","user");return h;}
+    private String tenantGet(String url,String id){return http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(id)),String.class).getBody();}
+    @Test void privateDocumentsAndAsyncRetrievalStayWithinOwner()throws Exception{
+        String a="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",b="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        var body=new org.springframework.util.LinkedMultiValueMap<String,Object>();
+        body.add("file",new org.springframework.core.io.ByteArrayResource("UNIQUE-KB-ALPHA private evidence".getBytes(StandardCharsets.UTF_8)){public String getFilename(){return "private-a.md";}});
+        var h=tenant(a);h.setContentType(org.springframework.http.MediaType.MULTIPART_FORM_DATA);
+        var upload=http.postForEntity("/ai/knowledge",new org.springframework.http.HttpEntity<>(body,h),String.class);
+        assertThat(upload.getStatusCode().value()).isEqualTo(200);String id=json.readTree(upload.getBody()).get("id").asText();
+        assertThat(tenantGet("/ai/knowledge",a)).contains("private-a.md");assertThat(tenantGet("/ai/knowledge",b)).doesNotContain("private-a.md");
+        assertThat(tenantGet("/ai/rag/search?query=UNIQUE-KB-ALPHA",a)).contains("private-a.md");
+        assertThat(tenantGet("/ai/rag/search?query=UNIQUE-KB-ALPHA",b)).doesNotContain("private-a.md");
+        assertThat(tenantGet("/ai/love_app/chat/events?message=UNIQUE-KB-ALPHA&chatId=shared&mode=rag",a)).contains("private-a.md","[DONE]");
+        assertThat(tenantGet("/ai/love_app/chat/events?message=UNIQUE-KB-ALPHA&chatId=shared&mode=rag",b)).doesNotContain("private-a.md").contains("[DONE]");
+        assertThat(http.exchange("/ai/knowledge/"+id,org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(b)),String.class).getStatusCode().value()).isEqualTo(400);
+        assertThat(tenantGet("/ai/knowledge/"+id,a)).contains("private evidence");
+        http.exchange("/ai/knowledge/"+id,org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(a)),String.class);
+    }
+    @Test void planVersionsPdfAndConversationMemoryArePrivate()throws Exception{
+        String a="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",b="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        var requirements=Map.of("city","上海","budget",500,"date","2026-10-20","startTime","14:00","hours",6,"interests","咖啡","transport","公共交通","revision","");
+        String result=http.postForObject("/ai/plans",new org.springframework.http.HttpEntity<>(requirements,tenant(a)),String.class);
+        String id=json.readTree(result).get("id").asText();
+        assertThat(tenantGet("/ai/plans",b)).doesNotContain(id);assertThat(tenantGet("/ai/plans/"+id,b)).isEqualTo("[]");
+        assertThat(http.postForEntity("/ai/plans/"+id+"/1/pdf",new org.springframework.http.HttpEntity<>(tenant(b)),String.class).getStatusCode().value()).isEqualTo(400);
+        String url=json.readTree(http.postForObject("/ai/plans/"+id+"/1/pdf",new org.springframework.http.HttpEntity<>(tenant(a)),String.class)).get("url").asText().replaceFirst("^/api","");
+        assertThat(http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(b)),byte[].class).getStatusCode().value()).isEqualTo(404);
+        assertThat(http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(a)),byte[].class).getStatusCode().value()).isEqualTo(200);
+        tenantGet("/ai/love_app/chat/sync?message=PRIVATE_A_MARKER&chatId=collision",a);
+        tenantGet("/ai/love_app/chat/sync?message=hello&chatId=collision",b);assertThat(lastChat.get()).doesNotContain("PRIVATE_A_MARKER");
+        tenantGet("/ai/love_app/chat/sync?message=continue&chatId=collision",a);assertThat(lastChat.get()).contains("PRIVATE_A_MARKER");
+    }
+    @Test void toolCapabilitiesAndMcpHistoryRespectAccount()throws Exception{
+        String a="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",b="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        String caps=tenantGet("/ai/capabilities",a);assertThat(caps).contains("\"terminal\":false").doesNotContain("executeTerminalCommand");
+        String name=tool("currentTime").getToolDefinition().name();
+        var result=http.postForObject("/ai/mcp/call",new org.springframework.http.HttpEntity<>(Map.of("name",name,"arguments",Map.of("timezone","Asia/Shanghai")),tenant(a)),String.class);
+        String id=json.readTree(result).get("id").asText();assertThat(tenantGet("/ai/mcp/history",a)).contains(id);assertThat(tenantGet("/ai/mcp/history",b)).doesNotContain(id);
     }
 }

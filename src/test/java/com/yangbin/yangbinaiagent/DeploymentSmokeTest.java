@@ -21,6 +21,9 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.model.name=test-model", "app.rag.enabled=false", "app.rag.cloud-enabled=false"
 })
 class DeploymentSmokeTest {
+    com.yangbin.yangbinaiagent.security.UserContext.Scope identity;
+    @org.junit.jupiter.api.BeforeEach void identity(){identity=com.yangbin.yangbinaiagent.security.UserContext.open(com.yangbin.yangbinaiagent.security.UserContext.ADMIN);}
+    @org.junit.jupiter.api.AfterEach void clearIdentity(){identity.close();}
     static final HttpServer provider;
     static {
         try {
@@ -73,7 +76,7 @@ class DeploymentSmokeTest {
     @Test void chinesePdfDownloadsAndRejectsTraversal() throws Exception {
         PDFGenerationTool tool = new PDFGenerationTool();
         String name = "smoke-" + UUID.randomUUID() + ".pdf";
-        Path generated = Path.of("tmp", "pdf", name);
+        Path generated = Path.of("tmp", "pdf","admin", name);
         try {
             assertThat(tool.generatePDF(name, "中文部署验收 PDF")).contains("/api/files/" + name);
             var response = http.getForEntity("/files/" + name, byte[].class);

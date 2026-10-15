@@ -39,13 +39,14 @@ public class LoveAppVectorStoreConfig {
             for (int start=0; start<text.length(); start+=520) {
                 var metadata = new HashMap<>(doc.getMetadata());
                 metadata.put("offset", start);
+                metadata.put("owner","public");
                 chunks.add(new Document(text.substring(start, Math.min(start+600,text.length())), metadata));
                 if (start+600>=text.length()) break;
             }
         }
         if (chunks.isEmpty()) throw new IllegalStateException("Knowledge documents are missing");
         var digest = MessageDigest.getInstance("SHA-256");
-        digest.update((model+baseUrl+"chunk600-overlap80-v1").getBytes(StandardCharsets.UTF_8));
+        digest.update((model+baseUrl+"chunk600-overlap80-owner-v2").getBytes(StandardCharsets.UTF_8));
         for (Document d:chunks) digest.update((d.getMetadata()+d.getText()).getBytes(StandardCharsets.UTF_8));
         Path dir=Path.of(directory); Files.createDirectories(dir);
         Path file=dir.resolve(HexFormat.of().formatHex(digest.digest())+".json");

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import {configureAuth,checkSession} from '../auth'
 
 // 根据环境变量设置 API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -8,6 +9,8 @@ const request = axios.create({
   baseURL: API_BASE_URL,
   timeout: 60000
 })
+
+configureAuth(request)
 
 // 封装SSE连接
 export const connectSSE = (url, params, onMessage, onError) => {
@@ -34,6 +37,7 @@ export const connectSSE = (url, params, onMessage, onError) => {
   }
 
   eventSource.onerror = error => {
+    checkSession()
     if (onError) onError(error)
     eventSource.close()
   }

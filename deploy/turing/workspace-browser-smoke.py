@@ -8,8 +8,10 @@ base="http://"+e["PUBLIC_BIND"]+":"+e["PUBLIC_PORT"]
 out=ROOT/"logs/screenshots";out.mkdir(exist_ok=True)
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path=str(Path.home()/"apps/agent-workbench/runtime/browsers/chromium-1194/chrome-linux/chrome"),headless=True,args=["--no-sandbox"])
- context=browser.new_context(http_credentials={"username":e["ACCESS_USER"],"password":e["ACCESS_PASSWORD"]},viewport={"width":1360,"height":1000})
+ context=browser.new_context(viewport={"width":1360,"height":1000})
  page=context.new_page();errors=[];page.on("pageerror",lambda e:errors.append(str(e)))
+ login=context.request.post(base+"/api/auth/login",headers={"Origin":base},data={"username":e["ACCESS_USER"],"password":e["ACCESS_PASSWORD"]})
+ assert login.status==200,"Operator login failed"
  page.goto(base,wait_until="networkidle");expect(page.locator("h1")).to_contain_text("yangbin")
  page.goto(base+"/knowledge",wait_until="networkidle");expect(page.get_by_role("heading",name="知识库",exact=True)).to_be_visible()
  expect(page.locator("button.item")).to_have_count(3)

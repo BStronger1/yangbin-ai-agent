@@ -62,7 +62,7 @@ public class PlannerService {
   Plan p=get(id,version);var i=p.itinerary();StringBuilder text=new StringBuilder(i.title()+"\n版本 "+version+" · "+p.requirements().date()+" · "+p.requirements().city()+"\n两人总预算："+p.requirements().budget()+" 元\n\n"+i.summary()+"\n");
   int total=0;for(var stop:i.stops()){total+=stop.estimatedCost();text.append("\n").append(stop.time()).append("  ").append(stop.activity()).append("\n估算费用：").append(stop.estimatedCost()).append(" 元\n").append(stop.note()).append("\n");}
   text.append("\n估算总计：").append(total).append(" 元\n\n备选方案\n").append(String.join("\n",i.alternatives())).append("\n\n出行前确认\n").append(String.join("\n",i.cautions())).append("\n价格、地点、天气和营业时间未实时核实。\n\n参考知识库\n");
-  for(var source:p.sources())text.append(source.get("source")).append("\n");
+  for(var source:p.sources().stream().map(s->s.get("source").toString()).distinct().toList())text.append(source).append("\n");
   String name="plan-"+id+"-v"+version+".pdf";String result=new PDFGenerationTool().generatePDF(name,text.toString());if(result.startsWith("Error"))throw new IllegalStateException("PDF 生成失败");return "/api/files/"+name;
  }
 }

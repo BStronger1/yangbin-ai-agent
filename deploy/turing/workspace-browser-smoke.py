@@ -10,12 +10,20 @@ with sync_playwright() as p:
  browser=p.chromium.launch(executable_path=str(Path.home()/"apps/agent-workbench/runtime/browsers/chromium-1194/chrome-linux/chrome"),headless=True,args=["--no-sandbox"])
  context=browser.new_context(http_credentials={"username":e["ACCESS_USER"],"password":e["ACCESS_PASSWORD"]},viewport={"width":1360,"height":1000})
  page=context.new_page();errors=[];page.on("pageerror",lambda e:errors.append(str(e)))
+ page.goto(base,wait_until="networkidle");expect(page.locator("h1")).to_contain_text("yangbin")
  page.goto(base+"/knowledge",wait_until="networkidle");expect(page.get_by_role("heading",name="知识库",exact=True)).to_be_visible()
  expect(page.locator("button.item")).to_have_count(3)
  page.get_by_label("输入一个问题").fill("婚后如何分担家务")
  page.get_by_role("button",name="检索知识库",exact=True).click();expect(page.locator(".result").first).to_be_visible(timeout=20000)
  page.locator("button.item").first.click();expect(page.locator("pre")).to_be_visible()
  page.screenshot(path=str(out/"knowledge.png"),full_page=True)
+ page.get_by_label("选择文件").set_input_files({"name":"browser-upload-test.md","mimeType":"text/markdown","buffer":"紫色流星基地7391观星约会建议携带望远镜".encode()})
+ page.get_by_role("button",name="上传并建立索引",exact=True).click()
+ expect(page.locator("button.item")).to_have_count(4,timeout=30000)
+ expect(page.locator("pre")).to_contain_text("紫色流星基地7391")
+ page.once("dialog",lambda dialog:dialog.accept())
+ page.get_by_role("button",name="删除文档",exact=True).click()
+ expect(page.locator("button.item")).to_have_count(3,timeout=10000)
  page.goto(base+"/mcp",wait_until="networkidle");page.locator("button.item").filter(has_text="currentTime").click()
  page.get_by_role("button",name="运行测试",exact=True).click();expect(page.get_by_text("调用成功",exact=True)).to_be_visible(timeout=20000)
  page.screenshot(path=str(out/"mcp.png"),full_page=True)
@@ -41,6 +49,11 @@ with sync_playwright() as p:
  for route in ("/knowledge","/mcp","/planner"):
   page.set_viewport_size({"width":390,"height":844});page.goto(base+route,wait_until="networkidle")
   assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"),route+" mobile overflow"
+  page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+  page.wait_for_timeout(100)
+  assert page.evaluate("window.scrollY > 0"),route+" cannot scroll document"
+  assert page.locator(".workspace .panel").last.bounding_box()["y"] < 844,route+" final panel inaccessible"
+  page.evaluate("window.scrollTo(0,0)")
   page.screenshot(path=str(out/(route[1:]+"-mobile.png")),full_page=True)
   page.reload(wait_until="networkidle");expect(page.locator("h1")).to_be_visible()
  assert not errors,errors

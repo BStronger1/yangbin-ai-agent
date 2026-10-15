@@ -20,13 +20,15 @@ html, body {
   color: #333;
   background-color: #f0f2f5;
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 100vh;
   overflow-x: hidden;
 }
 
 #app {
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 100vh;
 }
 
 a {

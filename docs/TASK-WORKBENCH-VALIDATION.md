@@ -27,6 +27,18 @@ CI 精选 Java 测试新增 TaskWorkflowTest、TaskWorkflowIntegrationTest，Ena
 - 前端 Node 检查 6/6：提交不确定时复用 ID/原请求、刷新恢复及账号隔离、快速切换忽略旧响应、隐藏时中止、账号切换清空、卸载忽略晚响应。脚本保留在工作区 `tmp/task_frontend_contractcheck.mjs`，不计入 GitHub CI 测试数。
 - 代码提交 `153fb5d` 的 [GitHub CI run 38851374690](https://github.com/BStronger1/yangbin-ai-agent/actions/runs/38851374690) 已成功：62 Java + 20 Python + 前端构建。
 
+## Turing 实测
+
+- 最终后端/前端为任务工作台实现，启动超时修复 `0ddf68a` 的 [CI run 38852023140](https://github.com/BStronger1/yangbin-ai-agent/actions/runs/38852023140) 已通过；GitHub contributors 核对为 BStronger1。
+- 第二次更新健康检查成功，回滚备份 `releases/before-workspace-19be2685`；账号、知识库、历史方案、RAG/MCP 配置保留。
+- 正常管理员会话创建北京 2026-10-17 两人出行任务 `193bed27-9cfc-40a0-901c-296cc5182947`；同 requestId 再提交返回同任务。RUNNING 时重启后端，重启后为 INTERRUPTED，调用继续接口完成同一个任务。
+- 六步全部 SUCCEEDED，19 条事件，真实天气、12 条高德地点候选、真实模型方案与 PDF；记录 1 次模型调用、3 次逻辑工具调用、0 次失败尝试，累计步骤执行 38967 ms。该数字只对应这次定向验收，非吞吐/平均延迟 benchmark。
+- 真实 PDF 2 页，已逐页渲染检查中文、来源和排版。主行程包含候选 placeId；文本仍需出行前核实，placeId 约束不等于所有自然语言事实已验证。
+- 服务端证据：`logs/task-v1-state.json`、`logs/task-v1-verification.json`、`logs/task-v1-plan.pdf`；本地副本及渲染图在工作区 `tmp/task-v1-evidence/`。示例任务保留供演示。
+
+- 浏览器验收通过：完成任务六步、PDF 下载、刷新恢复、1360px 桌面和 390px 手机布局（无横向溢出）、真实界面提交/取消后刷新仍 CANCELLED、DOM 无高德密钥、无 JS 错误。取消示例 ID `021824ea-5771-4eac-b0ed-813d5a2516b8`，未生成 PDF。
+- 浏览器证据：`logs/task-v1-browser.json`、`logs/screenshots/task-v1-desktop.png`、`logs/screenshots/task-v1-mobile.png`；本地副本同在 `tmp/task-v1-evidence/`，已目视检查。
+
 ## 部署排障
 
 首次更新因 Turing 共享 NFS 冷读缓慢，embedding 服务超过原有 120 秒就绪期限；更新脚本已自动回滚。将依赖冷启动上限改为 600 秒、更新健康检查总期限改为 900 秒，均保持有界等待和失败回滚。未禁用 RAG。任务中断验收只重启本项目 Java 后端，保留代理、MCP 与 embedding 服务，减少无关冷启动。

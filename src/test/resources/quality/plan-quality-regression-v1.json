@@ -1,0 +1,621 @@
+{
+  "datasetId": "plan-quality-regression-v1",
+  "schemaVersion": 1,
+  "ruleVersion": "grounding-v1",
+  "fixtureDeclaration": "固定规则回归集：21例人工编写的合成输入，另3例保留上一版本真实模型输出的原文片段并置于受控来源快照中。历史片段不是新模型调用；所有来源记录与评测上下文为固定fixture。本集只度量所列规则场景的回归符合性，不代表模型准确率、总体事实核验能力或线上效果。 规则与样例共同开发，本集不是盲测。",
+  "mergeSemantics": "每例将 overrides 递归合并至 defaults；对象递归，数组整体替换，null 显式替换为 null。所有日期和来源记录均为固定合成数据，不进行网络请求。",
+  "defaults": {
+    "requirements": {
+      "city": "上海",
+      "budget": 500,
+      "date": "2026-10-20",
+      "startTime": "14:00",
+      "hours": 6,
+      "interests": "公园",
+      "transport": "公共交通",
+      "revision": ""
+    },
+    "itinerary": {
+      "title": "两人出行计划",
+      "summary": "安排两人活动，费用为估算。",
+      "stops": [
+        {
+          "time": "14:00",
+          "activity": "中山公园散步",
+          "estimatedCost": 50,
+          "note": "费用为估算，出发前确认营业时间。",
+          "placeId": "node/42"
+        }
+      ],
+      "alternatives": [
+        "如果下雨，则选择室内活动。"
+      ],
+      "cautions": [
+        "出行前确认营业状态和实际费用。"
+      ]
+    },
+    "evidence": {
+      "fetchedAt": "2026-10-16T00:00:00Z",
+      "location": {
+        "name": "上海",
+        "latitude": 31.22,
+        "longitude": 121.45,
+        "timezone": "Asia/Shanghai",
+        "url": "https://www.geonames.org/1796236",
+        "coordinateSystem": "WGS84"
+      },
+      "weather": {
+        "date": "2026-10-20",
+        "description": "晴",
+        "minC": 18,
+        "maxC": 25,
+        "rainProbability": 10,
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=31.22&longitude=121.45"
+      },
+      "places": [
+        {
+          "id": "node/42",
+          "name": "中山公园",
+          "category": "park",
+          "latitude": 31.22,
+          "longitude": 121.45,
+          "address": "上海市测试路",
+          "openingHours": "",
+          "url": "https://www.openstreetmap.org/node/42",
+          "coordinateSystem": "WGS84"
+        }
+      ],
+      "weatherStatus": "available",
+      "placesStatus": "available",
+      "notices": [
+        "预报可能变化；价格、营业和交通耗时未核实。"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "place-name-and-id-match",
+      "description": "地点 ID 和完整名称均与候选记录相符。",
+      "overrides": {},
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "borrowed-id-wrong-name",
+      "description": "真实地点 ID 被用于另一个无依据的商家名称。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "不存在咖啡馆约会",
+              "estimatedCost": 50,
+              "note": "费用为估算，出发前确认营业时间。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "PLACE_NAME_MISMATCH"
+        ],
+        "matchedStops": 0,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "unknown-place-id",
+      "description": "方案引用未出现在候选记录中的地点 ID。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "费用为估算，出发前确认营业时间。",
+              "placeId": "node/999"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "PLACE_ID_NOT_FOUND"
+        ],
+        "matchedStops": 0,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "generic-activity-without-id",
+      "description": "无地点 ID 的通用活动只应标注未核验。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "找一家咖啡店交流",
+              "estimatedCost": 50,
+              "note": "费用为估算，出发前确认营业时间。",
+              "placeId": null
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 0,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "weather-claim-without-data",
+      "description": "天气不可用却肯定声称当天晴天。",
+      "overrides": {
+        "evidence": {
+          "weather": null,
+          "weatherStatus": "unavailable"
+        },
+        "itinerary": {
+          "summary": "当天晴天，适合户外活动。"
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "WEATHER_UNSUPPORTED_CLAIM"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "weather-date-mismatch",
+      "description": "天气快照属于另一日期，即使没有天气措辞也须提示。",
+      "overrides": {
+        "evidence": {
+          "weather": {
+            "date": "2026-10-21"
+          }
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "WEATHER_DATE_MISMATCH"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "weather-date-matched",
+      "description": "所选日期与预报一致，允许引用该预报。",
+      "overrides": {
+        "itinerary": {
+          "summary": "根据所选日期预报，当天晴天，注意出行前再确认。"
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "unsupported-health-restriction",
+      "description": "没有政策来源却断言当地防疫要求。",
+      "overrides": {
+        "itinerary": {
+          "summary": "当地防疫要求佩戴口罩并持48小时核酸证明。"
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "HEALTH_RESTRICTION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "verified-price-claim",
+      "description": "地图候选不能证明已核实票价。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "已核实票价为50元。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "PRICE_VERIFICATION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "verified-opening-claim",
+      "description": "地图候选不能证明已确认当天营业。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "已确认当天正常营业。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "OPENING_VERIFICATION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "verified-travel-time-claim",
+      "description": "未调用路线核验却断言交通耗时已核实。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "已核实交通耗时20分钟。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "TRAVEL_TIME_VERIFICATION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "estimate-and-confirm-reminders",
+      "description": "估算与待确认提醒不得被当成已核实声明。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "费用为估算；营业时间、交通耗时和票价请出行前确认。",
+              "placeId": "node/42"
+            }
+          ],
+          "cautions": [
+            "价格、路线耗时和当天营业状态未核实。"
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "conditional-rain-alternative",
+      "description": "无天气依据时条件性的雨天备选不能误报。",
+      "overrides": {
+        "evidence": {
+          "weather": null,
+          "weatherStatus": "unavailable"
+        },
+        "itinerary": {
+          "summary": "按个人喜好安排活动。",
+          "alternatives": [
+            "如果下雨，则选择室内活动。"
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "budget-exceeded",
+      "description": "行程估算费用超过用户总预算。",
+      "overrides": {
+        "requirements": {
+          "budget": 40
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "BUDGET_EXCEEDED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "invalid-negative-cost",
+      "description": "负费用必须单独提示，不能抵扣总预算。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": -1,
+              "note": "费用为估算，出发前确认营业时间。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "INVALID_COST"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "missing-itinerary",
+      "description": "缺失历史行程应给出报告而不是抛异常。",
+      "overrides": {
+        "itinerary": null
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "MISSING_ITINERARY"
+        ],
+        "matchedStops": 0,
+        "totalStops": 0
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "legacy-without-snapshot",
+      "description": "旧方案没有来源快照，不得伪造已核验地点。",
+      "overrides": {
+        "evidence": null,
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "公园散步",
+              "estimatedCost": 50,
+              "note": "费用为估算，出发前确认营业时间。",
+              "placeId": null
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 0,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "name-in-note",
+      "description": "完整地点名称可在说明里出现，而不局限活动标题。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "下午散步",
+              "estimatedCost": 50,
+              "note": "地点选中山公园；费用为估算，出行前确认。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "no-health-assertion-in-reminder",
+      "description": "提醒查询防疫政策，不得被误判为政策断言。",
+      "overrides": {
+        "itinerary": {
+          "cautions": [
+            "防疫要求请以当地最新公告为准。"
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "multiple-unverified-assertions",
+      "description": "同一说明中的不同无依据已核实声明应独立呈现。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "已核实票价为50元。已确认当天正常营业。已核实交通耗时20分钟。",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "PRICE_VERIFICATION_UNSUPPORTED",
+          "OPENING_VERIFICATION_UNSUPPORTED",
+          "TRAVEL_TIME_VERIFICATION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      },
+      "sourceKind": "synthetic"
+    },
+    {
+      "id": "historical-rain-claim-without-weather",
+      "description": "历史模型原文在无天气快照下断言北京全天有雨。",
+      "sourceKind": "historical-model-excerpt",
+      "sourceNote": "父线程提供上一版本已观察的真实模型输出原文；本例以固定日期/候选/快照进行规则重放，不是模型重测。",
+      "overrides": {
+        "requirements": {
+          "city": "北京",
+          "date": "2026-10-17"
+        },
+        "evidence": {
+          "weather": null,
+          "weatherStatus": "unavailable"
+        },
+        "itinerary": {
+          "summary": "鉴于2026年10月17日北京全天预报有雨"
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "WEATHER_UNSUPPORTED_CLAIM"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      }
+    },
+    {
+      "id": "historical-pandemic-assumption-with-polite-reminder",
+      "description": "历史模型原文的“疫情期间”是现况假设，不应因同句有“请”而漏掉。",
+      "sourceKind": "historical-model-excerpt",
+      "sourceNote": "父线程提供上一版本已观察的真实模型输出原文；本例以固定日期/候选/快照进行规则重放，不是模型重测。",
+      "overrides": {
+        "itinerary": {
+          "cautions": [
+            "疫情期间请遵守当地防疫规定，佩戴口罩，保持社交距离"
+          ]
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "HEALTH_RESTRICTION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      }
+    },
+    {
+      "id": "historical-query-reminder-not-policy-assertion",
+      "description": "历史原文只是建议查询开放时间和防控要求，没有宣称已核实。",
+      "sourceKind": "historical-model-excerpt",
+      "sourceNote": "父线程提供上一版本已观察的真实模型输出原文；本例以固定日期/候选/快照进行规则重放，不是模型重测。",
+      "overrides": {
+        "itinerary": {
+          "stops": [
+            {
+              "time": "14:00",
+              "activity": "中山公园散步",
+              "estimatedCost": 50,
+              "note": "博物馆为室内场所，适合雨天游览，建议提前查询开放时间及疫情防控要求",
+              "placeId": "node/42"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
+        "matchedStops": 1,
+        "totalStops": 1
+      }
+    },
+    {
+      "id": "daily-forecast-cannot-prove-all-day-rain",
+      "description": "有同日的日级雨预报，仍不足以支持“全天有雨”的时段断言。",
+      "sourceKind": "synthetic",
+      "overrides": {
+        "evidence": {
+          "weather": {
+            "description": "雨",
+            "rainProbability": 80
+          }
+        },
+        "itinerary": {
+          "summary": "根据天气预报，当天全天有雨。"
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "WEATHER_RESOLUTION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      }
+    }
+  ]
+}

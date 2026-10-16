@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import WorkspaceLayout from '../components/WorkspaceLayout.vue'
 import PlanningEvidence from '../components/PlanningEvidence.vue'
+import PlanQuality from '../components/PlanQuality.vue'
 import { api, errorMessage } from '../workspace-api'
 import { auth } from '../auth'
 
@@ -239,6 +240,7 @@ onBeforeUnmount(() => { disposed = true; epoch++; listEpoch++; skillsEpoch++; cl
               <h3>备选方案</h3><ul><li v-for="(text,index) in task.itinerary.alternatives" :key="index">{{text}}</li></ul>
               <h3>出行前确认</h3><ul><li v-for="(text,index) in task.itinerary.cautions" :key="index">{{text}}</li></ul>
             </section>
+            <PlanQuality v-if="task.itinerary" :quality="task.quality" :pending="!task.planId && active && !task.quality" />
             <PlanningEvidence v-if="task.evidence" :evidence="task.evidence" snapshot snapshot-description="这是本任务查询时保存的依据，后续执行复用这份记录。需要查询最新情况，可前往“约会规划”页面。" />
             <section v-if="task.sources?.length" class="panel"><details><summary>参考知识库 · {{task.sources.length}} 条</summary><article v-for="(source,index) in task.sources" :key="index" class="result"><h3>{{source.source}}</h3><p>{{source.content}}</p></article></details></section>
             <section class="panel"><h2>执行记录</h2><div class="task-metrics"><div><span>累计执行耗时</span><strong>{{duration(task.metrics?.durationMs)}}</strong></div><div><span>模型调用</span><strong>{{metric(task.metrics?.modelCalls)}}</strong></div><div><span>工具调用</span><strong>{{metric(task.metrics?.toolCalls)}}</strong></div><div><span>失败尝试</span><strong>{{metric(task.metrics?.failedAttempts)}}</strong></div><div><span>输入 Token</span><strong>{{metric(task.metrics?.promptTokens)}}</strong></div><div><span>输出 Token</span><strong>{{metric(task.metrics?.completionTokens)}}</strong></div></div><p class="muted">未提供的用量不计为零，实际费用以模型服务账单为准。</p><details class="events" open><summary>事件日志 · {{events.length}} 条</summary><ol><li v-for="event in events" :key="event.sequence"><time>{{dateTime(event.time)}}</time><span>{{event.message}}</span></li></ol><p v-if="!events.length" class="muted">暂时没有执行事件。</p></details></section>

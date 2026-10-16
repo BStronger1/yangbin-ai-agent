@@ -13,7 +13,14 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest package
+      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest package
+      - name: Preserve source-rule evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-rule-evaluation
+          path: target/quality-evaluation.json
+          if-no-files-found: warn
       - run: python -m pip install -r deploy/turing/requirements.txt
       - run: python -m unittest discover -s deploy/turing -p "test_*.py"
       - uses: actions/setup-node@v4

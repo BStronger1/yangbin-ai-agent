@@ -3,6 +3,7 @@ package com.yangbin.yangbinaiagent.tasks;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yangbin.yangbinaiagent.planner.PlannerService;
 import com.yangbin.yangbinaiagent.planner.PlanningEvidence;
+import com.yangbin.yangbinaiagent.planner.PlanQualityService;
 import com.yangbin.yangbinaiagent.security.UserContext;
 import com.yangbin.yangbinaiagent.skills.SkillService;
 import jakarta.annotation.PreDestroy;
@@ -27,7 +28,7 @@ public class TaskService implements AutoCloseable {
                            PlannerService.Requirements requirements,List<Step> steps,List<Event> events,
                            String planId,Integer planVersion,String pdfUrl,String error,Metrics metrics,
                            PlanningEvidence.Snapshot evidence,List<Map<String,Object>> sources,PlannerService.Itinerary itinerary,
-                           SkillService.Skill skill,TaskPlanningService.ExecutionPlan executionPlan,String confirmedAt) {}
+                           SkillService.Skill skill,TaskPlanningService.ExecutionPlan executionPlan,String confirmedAt,PlanQualityService.Report quality) {}
     /** On-disk state includes identity and idempotency metadata; these are never returned as API fields. */
     public static class State {
         public String id,requestId,owner,role,prompt,status,createdAt,updatedAt,error,pdfUrl;
@@ -300,8 +301,8 @@ public class TaskService implements AutoCloseable {
             case "requirements" -> s.requirements.city()+" · "+s.requirements.date()+" · 两人预算 "+s.requirements.budget()+" 元";
             case "knowledge" -> s.sources.isEmpty()?"未检索到个人资料，将使用已填写要求和实时依据":"已检索 "+s.sources.size()+" 条知识库片段";
             case "evidence" -> "天气："+switch(s.evidence.weatherStatus()){case "available"->"可用";case "out_of_range"->"超出预报范围，按无天气依据降级";case "disabled"->"未启用，按无天气依据降级";default->"不可用";}+"；地点候选 "+s.evidence.places().size()+" 个";
-            case "model" -> "模型已生成行程草稿，并通过时间、预算和地点校验";
-            case "save" -> "方案已保存为第 "+s.plan.version()+" 版";
+            case "model" -> "模型已生成草稿，通过时间、预算和地点编号约束；来源对应另行检查";
+            case "save" -> "方案已保存为第 "+s.plan.version()+" 版"+(s.plan.quality()==null?"":"REVIEW_REQUIRED".equals(s.plan.quality().status())?"；来源检查发现待核实事项":"；来源规则检查完成，仍有未核实信息");
             case "pdf" -> "PDF 已生成，可下载";
             default -> "完成";
         };
@@ -348,7 +349,7 @@ public class TaskService implements AutoCloseable {
         long duration=s.steps.stream().mapToLong(step->step.durationMs()+(("RUNNING".equals(step.status())&&step.startedAt()!=null)?Math.max(0,Instant.now().toEpochMilli()-Instant.parse(step.startedAt()).toEpochMilli()):0)).sum();
         return new TaskView(s.id,s.requirements.city()+"出行 · "+s.requirements.date(),s.prompt,s.status,s.createdAt,s.updatedAt,s.requirements,
                 List.copyOf(s.steps),List.copyOf(s.events),s.plan==null?null:s.plan.id(),s.plan==null?null:s.plan.version(),s.pdfUrl,s.error,
-                new Metrics(duration,s.modelCalls,s.toolCalls,s.failedAttempts,null,null),s.evidence,List.copyOf(s.sources),s.itinerary,s.skill,s.executionPlan,s.confirmedAt);
+                new Metrics(duration,s.modelCalls,s.toolCalls,s.failedAttempts,null,null),s.evidence,List.copyOf(s.sources),s.itinerary,s.skill,s.executionPlan,s.confirmedAt,s.plan==null?null:s.plan.quality());
     }
     private static String now() { return Instant.now().toString(); }
     @Override @PreDestroy

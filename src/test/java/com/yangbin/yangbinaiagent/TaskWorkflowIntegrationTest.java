@@ -83,12 +83,16 @@ class TaskWorkflowIntegrationTest {
         assertThat(plan.owner()).isEqualTo(TaskWorkflowTest.A.id());
         assertThat(plan.itinerary().stops().get(0).placeId()).isEqualTo("node/42");
         assertThat(plan.evidence()).isEqualTo(result.evidence());
+        assertThat(result.quality()).isEqualTo(plan.quality());
+        assertThat(plan.quality().ruleVersion()).isEqualTo("grounding-v1");
+        assertThat(plan.quality().matchedStops()).isEqualTo(1);
+        assertThat(plan.quality().status()).isEqualTo("CHECKED_WITH_LIMITATIONS");
         Path generated=pdf(result.pdfUrl());
         assertThat(Files.readString(generated, StandardCharsets.ISO_8859_1)).startsWith("%PDF");
         try (var document=new PdfDocument(new PdfReader(generated.toString()))) {
             StringBuilder text=new StringBuilder();
             for(int page=1;page<=document.getNumberOfPages();page++)text.append(PdfTextExtractor.getTextFromPage(document.getPage(page)));
-            assertThat(text.toString()).contains("雨天出行计划", "测试公园", "openstreetmap.org/node/42");
+            assertThat(text.toString()).contains("雨天出行计划", "测试公园", "openstreetmap.org/node/42", "来源检查", "grounding-v1", "不是事实准确率");
         }
         try (var ignored=UserContext.open(TaskWorkflowTest.B)) {
             assertThatThrownBy(() -> planner.get(result.planId(), result.planVersion())).isInstanceOf(IllegalArgumentException.class);
@@ -156,6 +160,55 @@ class TaskWorkflowIntegrationTest {
         assertThat(planner.versions(id)).hasSize(1);
         verify(model, times(1)).call(any(Prompt.class));
         assertThat(saves.get()).isEqualTo(2);
+    }
+
+    @Test void unsupportedClaimsArePersistedAndExportedAsWarningsWithoutExtraModelCalls() throws Exception {
+        var risky=new PlannerService.Itinerary("待核实示例", "疫情期间必须出示健康码",
+                List.of(new PlannerService.Stop("14:00", "另一家咖啡馆", 50, "出行前确认", "node/42")), List.of(), List.of());
+        when(model.call(any(Prompt.class))).thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(new ObjectMapper().writeValueAsString(risky))))));
+        String id=service.create(UUID.randomUUID().toString(), "来源检查示例", requirements).id();
+        executor.runNext();var done=service.get(id);assertThat(done.status()).isEqualTo("SUCCEEDED");
+        assertThat(done.quality().status()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(done.quality().matchedStops()).isZero();
+        assertThat(done.quality().findings()).extracting(PlanQualityService.Finding::code)
+                .contains("HEALTH_RESTRICTION_UNSUPPORTED", "PLACE_NAME_MISMATCH");
+        var frozen=done.quality();
+        service.close();executor=new TaskWorkflowTest.QueueExecutor();
+        service=new TaskService(new ObjectMapper(),workflow,directory.resolve("tasks").toString(),executor);
+        assertThat(service.get(id).quality()).isEqualTo(frozen);
+        assertThat(planner.get(id,1).quality()).isEqualTo(frozen);
+        try(var document=new PdfDocument(new PdfReader(pdf(done.pdfUrl()).toString()))) {
+            StringBuilder text=new StringBuilder();for(int page=1;page<=document.getNumberOfPages();page++)text.append(PdfTextExtractor.getTextFromPage(document.getPage(page)));
+            assertThat(text.toString()).contains("发现待核实事项","来源检查","另一家咖啡馆");
+        }
+        verify(model,times(1)).call(any(Prompt.class));
+    }
+
+    @Test void oldSavedTaskAndPlanWithoutQualityRemainReadableWithoutBackfill() throws Exception {
+        String id=service.create(UUID.randomUUID().toString(), "历史方案兼容", requirements).id();
+        executor.runNext();var done=service.get(id);pdf(done.pdfUrl());service.close();
+        ObjectMapper mapper=new ObjectMapper();Path planFile=directory.resolve("plans").resolve(id+"-1.json");
+        var oldPlan=(com.fasterxml.jackson.databind.node.ObjectNode)mapper.readTree(planFile.toFile());oldPlan.remove("quality");mapper.writeValue(planFile.toFile(),oldPlan);
+        Path taskFile=directory.resolve("tasks").resolve(id+".json");var oldTask=(com.fasterxml.jackson.databind.node.ObjectNode)mapper.readTree(taskFile.toFile());
+        ((com.fasterxml.jackson.databind.node.ObjectNode)oldTask.path("plan")).remove("quality");mapper.writeValue(taskFile.toFile(),oldTask);
+        byte[] originalPlan=Files.readAllBytes(planFile),originalTask=Files.readAllBytes(taskFile);
+        executor=new TaskWorkflowTest.QueueExecutor();service=new TaskService(mapper,workflow,directory.resolve("tasks").toString(),executor);
+        assertThat(service.get(id).status()).isEqualTo("SUCCEEDED");assertThat(service.get(id).quality()).isNull();
+        assertThat(planner.get(id,1).quality()).isNull();
+        assertThat(Files.readAllBytes(planFile)).isEqualTo(originalPlan);assertThat(Files.readAllBytes(taskFile)).isEqualTo(originalTask);
+        verify(model,times(1)).call(any(Prompt.class));
+    }
+
+    @Test void directPlannerRevisionsStoreIndependentQualitySnapshots() throws Exception {
+        var first=planner.generate(requirements,null,null);
+        assertThat(first.quality()).isNotNull();assertThat(first.quality().matchedStops()).isEqualTo(1);
+        var risky=new PlannerService.Itinerary("需要确认", "疫情期间必须持核酸证明",List.of(new PlannerService.Stop("14:00","测试公园",50,"估算","node/42")),List.of(),List.of());
+        when(model.call(any(Prompt.class))).thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(new ObjectMapper().writeValueAsString(risky))))));
+        var second=planner.generate(requirements,first.id(),1);
+        assertThat(second.version()).isEqualTo(2);assertThat(second.quality().status()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(planner.get(first.id(),1).quality()).isEqualTo(first.quality());
+        assertThat(first.quality().status()).isEqualTo("CHECKED_WITH_LIMITATIONS");
+        verify(model,times(2)).call(any(Prompt.class));
     }
 
 }

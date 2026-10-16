@@ -3,15 +3,31 @@ package com.yangbin.yangbinaiagent.tasks;
 import com.yangbin.yangbinaiagent.planner.PlannerService;
 import com.yangbin.yangbinaiagent.planner.PlanningEvidence;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.yangbin.yangbinaiagent.skills.SkillService;
 import java.util.List;
 import java.util.Map;
 
-/** The first workflow is deliberately a fixed, inspectable travel workflow. */
+/** Approved travel capabilities shared by the legacy sequence and bounded skill plans. */
 @Component
 public class TaskWorkflow {
     private final PlannerService planner;
     private final PlanningEvidence live;
-    public TaskWorkflow(PlannerService planner, PlanningEvidence live) { this.planner=planner; this.live=live; }
+    private final SkillService skills;
+    private final TaskPlanningService planning;
+    public TaskWorkflow(PlannerService planner, PlanningEvidence live) { this(planner,live,null,null); }
+    @Autowired
+    public TaskWorkflow(PlannerService planner,PlanningEvidence live,SkillService skills,TaskPlanningService planning) {
+        this.planner=planner;this.live=live;this.skills=skills;this.planning=planning;
+    }
+    public SkillService.Skill skill(String id) {
+        if(skills==null)throw new IllegalStateException("技能服务尚未启用");
+        return skills.resolve(id);
+    }
+    public TaskPlanningService.ExecutionPlan plan(PlannerService.Requirements requirements,String prompt,SkillService.Skill skill) throws Exception {
+        if(planning==null)throw new IllegalStateException("执行规划服务尚未启用");
+        return planning.plan(requirements,prompt,skill);
+    }
     public void validate(PlannerService.Requirements requirements) { PlannerService.validate(requirements); }
     public List<Map<String,Object>> sources(PlannerService.Requirements requirements) { return planner.retrieveSources(requirements); }
     public PlanningEvidence.Snapshot evidence(PlannerService.Requirements requirements) { return live.fetch(requirements.city(),requirements.date()); }

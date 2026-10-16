@@ -12,13 +12,14 @@ import java.util.Map;
 public class TaskController {
     private final TaskService tasks;
     public TaskController(TaskService tasks) { this.tasks=tasks; }
-    public record Create(String requestId,String prompt,PlannerService.Requirements requirements) {}
+    public record Create(String requestId,String prompt,PlannerService.Requirements requirements,String skillId) {}
     @PostMapping public TaskService.TaskView create(@RequestBody Create body) throws Exception {
         if(body==null)throw new IllegalArgumentException("请填写任务要求");
-        return tasks.create(body.requestId(),body.prompt(),body.requirements());
+        return tasks.create(body.requestId(),body.prompt(),body.requirements(),body.skillId());
     }
     @GetMapping public List<TaskService.TaskView> list() { return tasks.list(); }
     @GetMapping("/{id}") public TaskService.TaskView get(@PathVariable String id) { return tasks.get(id); }
+    @PostMapping("/{id}/start") public TaskService.TaskView start(@PathVariable String id) throws Exception { return tasks.start(id); }
     @PostMapping("/{id}/retry") public TaskService.TaskView retry(@PathVariable String id) throws Exception { return tasks.retry(id); }
     @PostMapping("/{id}/cancel") public TaskService.TaskView cancel(@PathVariable String id) throws Exception { return tasks.cancel(id); }
     @ExceptionHandler(IllegalArgumentException.class)

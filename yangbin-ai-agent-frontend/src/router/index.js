@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import {auth,loadUser,safeNext} from '../auth'
 
 const routes = [
+  {path:'/skills',component:()=>import('../views/Skills.vue'),meta:{title:'技能中心 · yangbin AI'}},
   {path:'/tasks',component:()=>import('../views/Tasks.vue'),meta:{title:'任务工作台 · yangbin AI'}},
   {path:'/tasks/:id',component:()=>import('../views/Tasks.vue'),meta:{title:'任务详情 · yangbin AI'}},
   {path:'/login',component:()=>import('../views/Auth.vue'),meta:{public:true,title:'登录 · yangbin AI'}},

@@ -9,10 +9,15 @@
     </div>
 
     <div class="apps-container">
+      <RouterLink to="/skills" class="app-card">
+        <div class="card-glow"></div><div class="app-icon robot-icon">✦</div>
+        <div class="app-info"><div class="app-title">技能中心</div><div class="app-desc">保存你的规划方法，组合知识检索与 PDF 导出能力</div></div>
+        <div class="app-button"><span class="btn-text">管理我的技能</span><span class="btn-icon">→</span></div>
+      </RouterLink>
       <RouterLink to="/tasks" class="app-card">
         <div class="card-glow"></div>
         <div class="app-icon robot-icon">✓</div>
-        <div class="app-info"><div class="app-title">任务工作台</div><div class="app-desc">规划出行、查看执行进度、恢复中断任务并交付 PDF</div></div>
+        <div class="app-info"><div class="app-title">任务工作台</div><div class="app-desc">选择技能、确认执行计划、查看进度并获取出行方案</div></div>
         <div class="app-button"><span class="btn-text">新建出行任务</span><span class="btn-icon">→</span></div>
       </RouterLink>
       <div class="app-card" @click="navigateTo('/love-master')">

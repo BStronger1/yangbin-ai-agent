@@ -92,6 +92,7 @@ class EnabledFeaturesTest {
         properties.add("app.rag.upload-dir",()->index.resolve("uploads").toString());
         properties.add("app.plans.dir",()->index.resolve("plans").toString());
         properties.add("app.tasks.dir",()->index.resolve("tasks").toString());
+        properties.add("app.skills.dir",()->index.resolve("skills").toString());
         properties.add("spring.ai.mcp.client.sse.connections.knowledge.url",()->"http://127.0.0.1:"+mcpPort);
     }
     @AfterAll static void shutdown(){provider.stop(0);mcp.destroyForcibly();}
@@ -237,6 +238,28 @@ class EnabledFeaturesTest {
         assertThat(http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(a)),byte[].class).getStatusCode().value()).isEqualTo(200);
         assertThat(http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(b)),byte[].class).getStatusCode().value()).isEqualTo(404);
         assertThat(completed.get().path("metrics").path("modelCalls").asInt()).isEqualTo(1);
+    }
+
+    @Test void skillHttpCrudEnforcesTenantVersionsAndDisabledState() throws Exception {
+        String a="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",b="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        var input=new HashMap<String,Object>(Map.of("name","PRIVATE_HTTP_SKILL","description","只属于账号 A","instructions","优先室内活动","useKnowledge",false,"exportPdf",false,"enabled",true));
+        var created=http.postForEntity("/ai/skills",new org.springframework.http.HttpEntity<>(input,tenant(a)),String.class);
+        assertThat(created.getStatusCode().value()).isEqualTo(200);
+        String id=json.readTree(created.getBody()).path("id").asText();
+        assertThat(tenantGet("/ai/skills",a)).contains(id,"PRIVATE_HTTP_SKILL");
+        assertThat(tenantGet("/ai/skills",b)).doesNotContain(id,"PRIVATE_HTTP_SKILL");
+        assertThat(http.exchange("/ai/skills/"+id,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(b)),String.class).getStatusCode().is4xxClientError()).isTrue();
+        input.put("version",1);input.put("enabled",false);
+        assertThat(http.exchange("/ai/skills/"+id,org.springframework.http.HttpMethod.PUT,new org.springframework.http.HttpEntity<>(input,tenant(b)),String.class).getStatusCode().is4xxClientError()).isTrue();
+        var updated=http.exchange("/ai/skills/"+id,org.springframework.http.HttpMethod.PUT,new org.springframework.http.HttpEntity<>(input,tenant(a)),String.class);
+        assertThat(updated.getStatusCode().value()).isEqualTo(200);
+        assertThat(json.readTree(updated.getBody()).path("version").asInt()).isEqualTo(2);
+        assertThat(json.readTree(updated.getBody()).path("enabled").asBoolean()).isFalse();
+        assertThat(http.exchange("/ai/skills/"+id,org.springframework.http.HttpMethod.PUT,new org.springframework.http.HttpEntity<>(input,tenant(a)),String.class).getStatusCode().value()).isEqualTo(409);
+        assertThat(http.exchange("/ai/skills/"+id+"?version=2",org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(b)),String.class).getStatusCode().is4xxClientError()).isTrue();
+        assertThat(http.exchange("/ai/skills/"+id+"?version=1",org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(a)),String.class).getStatusCode().value()).isEqualTo(409);
+        assertThat(http.exchange("/ai/skills/"+id+"?version=2",org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(a)),String.class).getStatusCode().value()).isEqualTo(204);
+        assertThat(tenantGet("/ai/skills",a)).doesNotContain(id,"PRIVATE_HTTP_SKILL");
     }
 
 }

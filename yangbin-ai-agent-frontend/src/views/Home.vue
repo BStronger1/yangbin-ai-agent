@@ -9,6 +9,12 @@
     </div>
 
     <div class="apps-container">
+      <RouterLink to="/tasks" class="app-card">
+        <div class="card-glow"></div>
+        <div class="app-icon robot-icon">✓</div>
+        <div class="app-info"><div class="app-title">任务工作台</div><div class="app-desc">规划出行、查看执行进度、恢复中断任务并交付 PDF</div></div>
+        <div class="app-button"><span class="btn-text">新建出行任务</span><span class="btn-icon">→</span></div>
+      </RouterLink>
       <div class="app-card" @click="navigateTo('/love-master')">
         <div class="card-glow"></div>
         <div class="app-icon love-icon">❤️</div>

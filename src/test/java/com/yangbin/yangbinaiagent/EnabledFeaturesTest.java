@@ -91,6 +91,7 @@ class EnabledFeaturesTest {
         properties.add("app.rag.index-dir",()->index.toString());
         properties.add("app.rag.upload-dir",()->index.resolve("uploads").toString());
         properties.add("app.plans.dir",()->index.resolve("plans").toString());
+        properties.add("app.tasks.dir",()->index.resolve("tasks").toString());
         properties.add("spring.ai.mcp.client.sse.connections.knowledge.url",()->"http://127.0.0.1:"+mcpPort);
     }
     @AfterAll static void shutdown(){provider.stop(0);mcp.destroyForcibly();}
@@ -208,6 +209,34 @@ class EnabledFeaturesTest {
         assertThat(tenantGet("/ai/conversations",a)).contains(id);assertThat(tenantGet("/ai/conversations",b)).doesNotContain(id);
         http.exchange("/ai/conversations/"+id+"?mode=chat",org.springframework.http.HttpMethod.DELETE,new org.springframework.http.HttpEntity<>(tenant(a)),String.class);
         assertThat(tenantGet("/ai/conversations/"+id+"?mode=chat",a)).isEqualTo("[]");
+    }
+
+    @Test void taskApiIsIdempotentAndProtectsReadRetryCancelAndPdfAcrossAccounts() throws Exception {
+        String a="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",b="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        var requirements=Map.of("city","上海","budget",500,"date","2026-10-20","startTime","14:00","hours",6,"interests","咖啡","transport","公共交通","revision","");
+        var body=Map.of("requestId",UUID.randomUUID().toString(),"prompt","生成两人出行任务和 PDF","requirements",requirements);
+        var created=http.postForEntity("/ai/tasks",new org.springframework.http.HttpEntity<>(body,tenant(a)),String.class);
+        assertThat(created.getStatusCode().is2xxSuccessful()).isTrue();
+        String id=json.readTree(created.getBody()).path("id").asText(); assertThat(id).isNotBlank();
+        var repeated=http.postForObject("/ai/tasks",new org.springframework.http.HttpEntity<>(body,tenant(a)),String.class);
+        assertThat(json.readTree(repeated).path("id").asText()).isEqualTo(id);
+        assertThat(tenantGet("/ai/tasks",b)).doesNotContain(id);
+        for(var method:List.of(org.springframework.http.HttpMethod.GET,org.springframework.http.HttpMethod.POST)) {
+            for(String suffix:method==org.springframework.http.HttpMethod.GET?List.of(""):List.of("/retry","/cancel")) {
+                var denied=http.exchange("/ai/tasks/"+id+suffix,method,new org.springframework.http.HttpEntity<>(tenant(b)),String.class);
+                assertThat(denied.getStatusCode().is4xxClientError()).isTrue();
+                assertThat(denied.getBody()).doesNotContain("生成两人出行任务", "private-a.md");
+            }
+        }
+        var completed=new java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(15)).pollInterval(Duration.ofMillis(50)).untilAsserted(()->{
+            var task=json.readTree(tenantGet("/ai/tasks/"+id,a));
+            assertThat(task.path("status").asText()).as(task.toString()).isEqualTo("SUCCEEDED"); completed.set(task);
+        });
+        String url=completed.get().path("pdfUrl").asText().replaceFirst("^/api","");
+        assertThat(http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(a)),byte[].class).getStatusCode().value()).isEqualTo(200);
+        assertThat(http.exchange(url,org.springframework.http.HttpMethod.GET,new org.springframework.http.HttpEntity<>(tenant(b)),byte[].class).getStatusCode().value()).isEqualTo(404);
+        assertThat(completed.get().path("metrics").path("modelCalls").asInt()).isEqualTo(1);
     }
 
 }

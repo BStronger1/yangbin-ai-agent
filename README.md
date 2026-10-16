@@ -47,15 +47,20 @@ npm run dev
 
 ```bash
 mvn -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest package
+mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest package
 cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```
 
-当前 CI 配置 45 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
+当前 CI 配置 62 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)
 
 ## 工作台扩展
+
+- `/tasks`：出行任务工作台，依次核对要求、检索个人知识库、查询天气地点、生成行程、保存方案、生成 PDF。可查看每步状态、耗时、事件及产物；刷新恢复进度，失败重试未完成步骤，服务重启后手动继续，运行时可申请取消。
+- 任务数据原子保存在 `tmp/tasks/`，与 `tmp/plans/`、`tmp/pdf/`、`tmp/auth/` 一起备份。相同账号和 requestId 重复提交复用任务；已发布的方案/PDF 可复用。固定两人出行工作流使用两个后台线程，单账号最多五个活动任务，仅支持单实例。
+- 取消等待当前调用结束后停止后续步骤；模型请求已发出但检查点未保存时，恢复可能重复请求并计费。模型与工具调用次数统计尝试次数；工具次数是知识库、实时依据、PDF 三类逻辑调用，不是底层 HTTP 次数。Token 用量未返回时显示“未提供”。
+- 本版不包含任意任务自动拆解、动态工具选择、插件/技能市场或多智能体协作运行时。此次多智能体并行开发与产品自身能力分别记录。验收见 [任务工作台第一版](docs/TASK-WORKBENCH-VALIDATION.md)。
 
 - `/knowledge`：上传 UTF-8 Markdown/TXT 或含文本的 PDF（单文件 1 MB、最多 100 页、解析后 60000 字符），预览、重新索引和删除上传文档。内置文档只读。扫描 PDF 需先 OCR。
 - `/mcp`：查看发现的工具和参数定义，测试内置文档列表/读取及时间查询，记录真实结果、成功状态与耗时。手动测试历史保留 50 条，重启后清空；不会暴露通用终端的手动执行接口。
@@ -71,7 +76,7 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 
 ```sh
 mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest package
+mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest package
 python -m pip install -r deploy/turing/requirements.txt
 python -m unittest discover -s deploy/turing -p "test_*.py"
 ```

@@ -21,7 +21,7 @@ with sync_playwright() as p:
  saved=pending.value.json();assert pending.value.status==200;id=saved['id'];card=page.get_by_test_id('skill-'+id)
  expect(card).to_be_visible()
  card.get_by_role('link',name='使用技能',exact=True).click()
- expect(page.get_by_label('选择技能',exact=True)).to_have_value(id)
+ expect(page.get_by_role('combobox',name='选择技能',exact=True)).to_have_value(id)
  page.goto(base+'/skills',wait_until='networkidle');card=page.get_by_test_id('skill-'+id)
  card.get_by_role('button',name='编辑技能',exact=True).click()
  expect(page.get_by_label('技能名称',exact=True)).to_have_value('浏览器技能验收示例')

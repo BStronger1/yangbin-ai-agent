@@ -36,7 +36,8 @@ def start():subprocess.run(["bash",str(ROOT/"deploy/turing/start.sh")],check=Tru
 def ready():
  env=json.loads((ROOT/"secrets.json").read_text())["env"]
  request=urllib.request.Request("http://127.0.0.1:18126/api/ai/knowledge",headers={"X-Internal-Token":env["INTERNAL_API_TOKEN"],"X-User-Id":"admin","X-User-Role":"admin"})
- for _ in range(150):
+ deadline=time.monotonic()+900
+ while time.monotonic()<deadline:
   try:
    with urllib.request.urlopen(request,timeout=2) as response:
     if response.status==200 and isinstance(json.load(response),list):

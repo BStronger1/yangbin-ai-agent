@@ -17,7 +17,8 @@ def add(command,process_env,ready=None):
     child=subprocess.Popen(command,env=process_env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     children.append(child)
     if ready:
-        deadline=time.monotonic()+120
+        # Shared NFS cold imports/model loading may take several minutes.
+        deadline=time.monotonic()+600
         while not stopping and time.monotonic()<deadline:
             if child.poll() is not None:raise RuntimeError("Dependency exited before readiness: "+ready)
             try:

@@ -1,9 +1,9 @@
 """Task v1 operator acceptance. Uses normal login; may call the configured model.
-prepare-restart creates one QA task and stops ONLY this application's tmux service.
-Start deploy/turing/start.sh externally, then run resume to finish the same task.
+prepare-restart creates one QA task and restarts ONLY this application's Java backend.
+The existing supervisor relaunches it; then run resume to finish the same task.
 """
 from pathlib import Path
-import datetime,json,subprocess,sys,time,uuid
+import datetime,json,os,signal,sys,time,uuid,urllib.request
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'deploy/turing'))
 from session_client import SessionClient
 e=json.loads((ROOT/'secrets.json').read_text())['env'];base='http://'+e['PUBLIC_BIND']+':'+e['PUBLIC_PORT']
@@ -27,13 +27,30 @@ if mode in ('create','prepare-restart'):
  task=c.call('/api/ai/tasks','POST',payload);s['id']=task['id'];save(s)
  repeated=c.call('/api/ai/tasks','POST',payload);assert repeated['id']==task['id'];s['idempotent_create']=True;s['beforeStop']=c.call('/api/ai/tasks/'+task['id']);save(s)
  if mode=='prepare-restart':
-  subprocess.run(['tmux','send-keys','-t','yangbin-ai-agent:0.0','C-c'],check=True)
+  # Match the exact app.jar argument and current uid; never touch another Java app.
+  matches=[]
+  for proc in Path('/proc').iterdir():
+   if not proc.name.isdigit():continue
+   try:
+    args=(proc/'cmdline').read_bytes().split(b'\0')
+    if proc.stat().st_uid==os.getuid() and str(ROOT/'app.jar').encode() in args and b'-jar' in args:matches.append(int(proc.name))
+   except (FileNotFoundError,PermissionError,ProcessLookupError):pass
+  assert len(matches)==1,'Expected exactly one own backend process'
+  pid=matches[0];os.kill(pid,signal.SIGTERM)
   for _ in range(120):
-   alive=subprocess.run(['tmux','has-session','-t','=yangbin-ai-agent'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0
-   if not alive:break
+   if not Path('/proc/'+str(pid)).exists():break
    time.sleep(.5)
-  else:raise AssertionError('Application did not stop')
-  print(json.dumps({'task_id':s['id'],'before_stop_status':s['beforeStop']['status'],'application_stopped':True,'idempotent_create':True}),flush=True);sys.exit(0)
+  else:raise AssertionError('Backend did not stop')
+  deadline=time.monotonic()+300
+  while time.monotonic()<deadline:
+   try:
+    with urllib.request.urlopen('http://127.0.0.1:18126/api/health',timeout=2) as response:
+     if response.status==200:break
+   except Exception:pass
+   time.sleep(1)
+  else:raise AssertionError('Supervisor did not restore backend')
+  s['backend_restarted']=True;save(s)
+  print(json.dumps({'task_id':s['id'],'before_stop_status':s['beforeStop']['status'],'backend_restarted':True,'idempotent_create':True}),flush=True);sys.exit(0)
 elif mode=='resume':
  s=json.loads(state.read_text(encoding='utf-8'));task=c.call('/api/ai/tasks/'+s['id']);s['afterRestartStatus']=task['status'];save(s)
  if task['status']=='INTERRUPTED':c.call('/api/ai/tasks/'+s['id']+'/retry','POST',{})

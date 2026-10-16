@@ -17,9 +17,19 @@
 
 CI 精选 Java 测试新增 TaskWorkflowTest、TaskWorkflowIntegrationTest，EnabledFeaturesTest 新增 API 账号隔离。共 62 Java（原 45 + 新增 17）与 20 Python。
 
-`deploy/turing/task-smoke.py prepare-restart` 创建一次真实任务并停止本项目服务；启动后 `resume` 验证中断恢复、六步结果与 PDF。此脚本会调用配置的真实模型，需操作者授权。
+`deploy/turing/task-smoke.py prepare-restart` 创建一次真实任务，只终止同一用户、精确匹配本项目 app.jar 的 Java 进程，由既有 supervisor 拉起；就绪后 `resume` 验证中断恢复、六步结果与 PDF。此脚本会调用配置的真实模型，需操作者授权。
 
 `deploy/turing/task-browser.py` 使用正常账号会话，验证完成任务、刷新、PDF、桌面/手机端，再通过界面创建并立即取消另一个任务。凭据只在服务器内读取，不输出。
+
+## 本轮本地与 CI 结果
+
+- 本地精选 Java 62/62、Python 20/20、前端构建通过。首次测试模拟重设触发空值异常，修正 Mockito 写法后完整复跑通过。
+- 前端 Node 检查 6/6：提交不确定时复用 ID/原请求、刷新恢复及账号隔离、快速切换忽略旧响应、隐藏时中止、账号切换清空、卸载忽略晚响应。脚本保留在工作区 `tmp/task_frontend_contractcheck.mjs`，不计入 GitHub CI 测试数。
+- 代码提交 `153fb5d` 的 [GitHub CI run 38851374690](https://github.com/BStronger1/yangbin-ai-agent/actions/runs/38851374690) 已成功：62 Java + 20 Python + 前端构建。
+
+## 部署排障
+
+首次更新因 Turing 共享 NFS 冷读缓慢，embedding 服务超过原有 120 秒就绪期限；更新脚本已自动回滚。将依赖冷启动上限改为 600 秒、更新健康检查总期限改为 900 秒，均保持有界等待和失败回滚。未禁用 RAG。任务中断验收只重启本项目 Java 后端，保留代理、MCP 与 embedding 服务，减少无关冷启动。
 
 ## 边界
 

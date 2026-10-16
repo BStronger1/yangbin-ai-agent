@@ -2,6 +2,8 @@
 
 由 [BStronger1](https://github.com/BStronger1) 维护的 AI 智能体学习项目，包含恋爱问答、多轮对话、ReAct 工具调用和中文 PDF 生成。基于教学项目改编，来源见 [NOTICE.md](NOTICE.md)。
 
+开发续接：[当前项目记忆](docs/memory/CURRENT.md) · [下一步与接续模板](docs/memory/NEXT.md) · [历史记录](docs/memory/HISTORY.md)。协作维护规则见 [AGENTS.md](AGENTS.md)。
+
 ## 技术栈与模块
 
 - Java 21、Spring Boot 3.4.4、Spring AI 1.0、Vue 3、Vite。

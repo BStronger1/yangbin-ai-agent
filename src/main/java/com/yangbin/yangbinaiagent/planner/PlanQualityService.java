@@ -26,12 +26,12 @@ public final class PlanQualityService {
     private static final Pattern WEATHER=Pattern.compile("晴|多云|阴天|有雨|下雨|降雨|雨天|雨势|大雨|小雨|雷雨|暴雨|雪|气温|温度|降水概率");
     private static final Pattern WEATHER_ASSERTION=Pattern.compile(
             "(?:天气|预报|今天|当天|当日|明天|后天|周[一二三四五六日天]|[0-9]{4}年|[0-9]{1,2}月|[0-9]{4}-[0-9]{2}-[0-9]{2}).{0,40}(?:晴|多云|阴|雨|雪|气温|温度|降水)"
-            +"|(?:全天|全程|整天|肯定|一定|必定|保证|确定).{0,15}(?:晴|雨|雪)"
+            +"|(?:全天|全日|全程|整天|肯定|一定|必定|保证|确定).{0,15}(?:晴|雨|雪)"
             +"|(?:气温|温度).{0,12}[0-9]+(?:℃|度)");
-    private static final Pattern WEATHER_PRECISION=Pattern.compile("(?:全天|整天|全程|必定|肯定|一定|保证|绝对|百分之百|100%).{0,15}(?:晴|雨|雪)|(?:雨|雪).{0,8}(?:一整天|全天)");
+    private static final Pattern WEATHER_PRECISION=Pattern.compile("(?:全天|全日|整天|全程|必定|肯定|一定|保证|绝对|百分之百|100%).{0,15}(?:晴|雨|雪)|(?:雨|雪).{0,8}(?:一整天|全天|全日)");
     private static final Pattern CONDITIONAL_WEATHER=Pattern.compile("如果|假如|假设|若|如遇|如有|万一|可能|视天气|雨天(?:备选|改|可|建议)|适合雨天|(?:下雨|降雨|雨天)(?:时|则|的话)|(?:天气|预报)(?:不可用|缺失)|未(?:获得|获取|查询到|核实|确认).{0,8}(?:天气|预报)");
     private static final List<String> LIMITATIONS=List.of(
-            "本报告仅按 grounding-v1 做规则检查，不是全文事实核验，也不代表方案准确率或所有内容已经验证。",
+            "本报告仅按 grounding-v2 做规则检查，不是全文事实核验，也不代表方案准确率或所有内容已经验证。",
             "地点匹配只检查 placeId 与候选完整名称在活动或备注中的字面对应；不能证明活动语义正确、没有夹杂其他地点，或实际位置与营业状态正确。",
             "天气只核对所选日期的已保存日预报快照；不验证全文天气描述、小时变化、全天持续天气或出行时实况。",
             "价格、当天营业状态、路线和交通耗时没有独立核验来源；预算检查只是估算费用的算术汇总。",
@@ -82,7 +82,7 @@ public final class PlanQualityService {
         budgetCheck(requirements,stops,checks,findings);
         for(TextField field:textFields(itinerary))inspectClaims(field,usableWeather,checks,findings);
         boolean warning=findings.stream().anyMatch(f->"warning".equals(f.severity()));
-        return new Report("grounding-v1",Instant.now().toString(),warning?"REVIEW_REQUIRED":"CHECKED_WITH_LIMITATIONS",matched,stops.size(),
+        return new Report("grounding-v2",Instant.now().toString(),warning?"REVIEW_REQUIRED":"CHECKED_WITH_LIMITATIONS",matched,stops.size(),
                 List.copyOf(checks),List.copyOf(findings),LIMITATIONS);
     }
 

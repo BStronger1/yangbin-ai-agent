@@ -84,7 +84,7 @@ class TaskWorkflowIntegrationTest {
         assertThat(plan.itinerary().stops().get(0).placeId()).isEqualTo("node/42");
         assertThat(plan.evidence()).isEqualTo(result.evidence());
         assertThat(result.quality()).isEqualTo(plan.quality());
-        assertThat(plan.quality().ruleVersion()).isEqualTo("grounding-v1");
+        assertThat(plan.quality().ruleVersion()).isEqualTo("grounding-v2");
         assertThat(plan.quality().matchedStops()).isEqualTo(1);
         assertThat(plan.quality().status()).isEqualTo("CHECKED_WITH_LIMITATIONS");
         Path generated=pdf(result.pdfUrl());
@@ -92,7 +92,7 @@ class TaskWorkflowIntegrationTest {
         try (var document=new PdfDocument(new PdfReader(generated.toString()))) {
             StringBuilder text=new StringBuilder();
             for(int page=1;page<=document.getNumberOfPages();page++)text.append(PdfTextExtractor.getTextFromPage(document.getPage(page)));
-            assertThat(text.toString()).contains("雨天出行计划", "测试公园", "openstreetmap.org/node/42", "来源检查", "grounding-v1", "不是事实准确率");
+            assertThat(text.toString()).contains("雨天出行计划", "测试公园", "openstreetmap.org/node/42", "来源检查", "grounding-v2", "不是事实准确率");
         }
         try (var ignored=UserContext.open(TaskWorkflowTest.B)) {
             assertThatThrownBy(() -> planner.get(result.planId(), result.planVersion())).isInstanceOf(IllegalArgumentException.class);
@@ -209,6 +209,51 @@ class TaskWorkflowIntegrationTest {
         assertThat(planner.get(first.id(),1).quality()).isEqualTo(first.quality());
         assertThat(first.quality().status()).isEqualTo("CHECKED_WITH_LIMITATIONS");
         verify(model,times(2)).call(any(Prompt.class));
+    }
+
+    @Test void boundedRepairPublishesSeparateVersionAndKeepsOriginalTaskPdf() throws Exception {
+        var risky=new PlannerService.Itinerary("原方案", "疫情期间必须持核酸证明",
+                List.of(new PlannerService.Stop("14:00","测试公园",50,"费用估算，出发前确认","node/42")),List.of(),List.of());
+        when(model.call(any(Prompt.class))).thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(new ObjectMapper().writeValueAsString(risky))))));
+        String id=service.create(UUID.randomUUID().toString(), "原始任务", requirements).id();executor.runNext();
+        var task=service.get(id);assertThat(task.status()).isEqualTo("SUCCEEDED");
+        var original=planner.get(id,1);byte[] oldPdf=Files.readAllBytes(pdf(task.pdfUrl()));
+        var corrected=new PlannerService.Itinerary("修订方案", "根据保存的日预报安排活动，实际天气出发前确认",
+                List.of(new PlannerService.Stop("14:00","测试公园",50,"费用估算，出发前确认","node/42")),List.of(),List.of());
+        when(model.call(any(Prompt.class))).thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(new ObjectMapper().writeValueAsString(corrected))))));
+        var before=PlanQualityService.assess(original.requirements(),original.itinerary(),original.evidence());
+        var candidate=planner.prepareRepair(original,planner.repairDraft(original,before));
+        var after=PlanQualityService.assess(original.requirements(),candidate,original.evidence());
+        assertThat(after.status()).isEqualTo("CHECKED_WITH_LIMITATIONS");
+        var published=planner.publishRepair(original,candidate,after);
+        assertThat(published.version()).isEqualTo(2);assertThat(published.evidence()).isEqualTo(original.evidence());
+        assertThat(planner.get(id,1)).isEqualTo(original);
+        assertThat(service.get(id)).isEqualTo(task);
+        assertThat(Files.readAllBytes(pdf(task.pdfUrl()))).isEqualTo(oldPdf);
+        var recovered=planner.publishRepair(original,candidate,after);
+        assertThat(recovered).isEqualTo(published);assertThat(planner.versions(id)).hasSize(2);
+        try(var document=new PdfDocument(new PdfReader(pdf(planner.exportTaskPdf(published)).toString()))){
+            StringBuilder text=new StringBuilder();for(int n=1;n<=document.getNumberOfPages();n++)text.append(PdfTextExtractor.getTextFromPage(document.getPage(n)));
+            assertThat(text.toString()).contains("修订方案","版本 2","grounding-v2").doesNotContain("疫情期间必须");
+        }
+        verify(model,times(2)).call(any(Prompt.class));assertThat(weatherCalls.get()).isEqualTo(1);
+    }
+
+    @Test void repairCannotHideWarningsByChangingStructureOrOverwriteConcurrentRevision() throws Exception {
+        var original=planner.generate(requirements,null,null);var stop=original.itinerary().stops().getFirst();
+        for(var changed:List.of(new PlannerService.Stop("15:00",stop.activity(),stop.estimatedCost(),stop.note(),stop.placeId()),
+                new PlannerService.Stop(stop.time(),stop.activity(),0,stop.note(),stop.placeId()),
+                new PlannerService.Stop(stop.time(),stop.activity(),stop.estimatedCost(),stop.note(),null))){
+            var invalid=new PlannerService.Itinerary("改动", "说明",List.of(changed),List.of(),List.of());
+            assertThatThrownBy(()->planner.prepareRepair(original,invalid)).isInstanceOf(IllegalStateException.class);
+        }
+        var changedCount=new PlannerService.Itinerary("删站", "说明",List.of(),List.of(),List.of());
+        assertThatThrownBy(()->planner.prepareRepair(original,changedCount)).isInstanceOf(IllegalStateException.class);
+        var candidate=planner.prepareRepair(original,new PlannerService.Itinerary("待发布", "说明",original.itinerary().stops(),List.of(),List.of()));
+        var report=PlanQualityService.assess(requirements,candidate,original.evidence());
+        var manual=planner.generate(requirements,original.id(),1);
+        assertThatThrownBy(()->planner.publishRepair(original,candidate,report)).isInstanceOf(IllegalStateException.class);
+        assertThat(planner.latest(original.id())).isEqualTo(manual);assertThat(planner.get(original.id(),1)).isEqualTo(original);
     }
 
 }

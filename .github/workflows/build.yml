@@ -13,7 +13,7 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest package
+      - run: mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest package
       - name: Preserve source-rule evaluation report
         if: always()
         uses: actions/upload-artifact@v4

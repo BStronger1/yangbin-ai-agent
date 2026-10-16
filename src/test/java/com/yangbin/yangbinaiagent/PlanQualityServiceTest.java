@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 /** Fixed rule regression cases, deliberately distinct from model or factual-accuracy evaluation. */
 class PlanQualityServiceTest {
     private static final ObjectMapper JSON=new ObjectMapper();
-    private static final String RESOURCE="/quality/plan-quality-regression-v1.json";
+    private static final String RESOURCE="/quality/plan-quality-regression-v2.json";
     private static byte[] fixtureBytes() throws Exception {
         try(var stream=PlanQualityServiceTest.class.getResourceAsStream(RESOURCE)) {
             if(stream==null)throw new IllegalStateException("Missing fixture "+RESOURCE);
@@ -104,7 +104,7 @@ class PlanQualityServiceTest {
         output.put("cases",observations);
         Path target=Path.of("target","quality-evaluation.json");Files.createDirectories(target.getParent());
         JSON.writerWithDefaultPrettyPrinter().writeValue(target.toFile(),output);
-        assertThat(observations).hasSize(24);assertAll("fixed grounding rule cases",assertions);
+        assertThat(observations).hasSize(26);assertAll("fixed grounding rule cases",assertions);
     }
 
     @Test void unsafeOrCredentialBearingLinksAreNeverReturnedAsSources() throws Exception {

@@ -1,8 +1,8 @@
 {
-  "datasetId": "plan-quality-regression-v1",
+  "datasetId": "plan-quality-regression-v2",
   "schemaVersion": 1,
-  "ruleVersion": "grounding-v1",
-  "fixtureDeclaration": "固定规则回归集：21例人工编写的合成输入，另3例保留上一版本真实模型输出的原文片段并置于受控来源快照中。历史片段不是新模型调用；所有来源记录与评测上下文为固定fixture。本集只度量所列规则场景的回归符合性，不代表模型准确率、总体事实核验能力或线上效果。 规则与样例共同开发，本集不是盲测。",
+  "ruleVersion": "grounding-v2",
+  "fixtureDeclaration": "固定规则回归集：23例人工编写的合成输入，另3例保留上一版本真实模型输出的原文片段并置于受控来源快照中。历史片段不是新模型调用；所有来源记录与评测上下文为固定fixture。本集只度量所列规则场景的回归符合性，不代表模型准确率、总体事实核验能力或线上效果。 规则与样例共同开发，本集不是盲测。",
   "mergeSemantics": "每例将 overrides 递归合并至 defaults；对象递归，数组整体替换，null 显式替换为 null。所有日期和来源记录均为固定合成数据，不进行网络请求。",
   "defaults": {
     "requirements": {
@@ -613,6 +613,53 @@
         "warningCodes": [
           "WEATHER_RESOLUTION_UNSUPPORTED"
         ],
+        "matchedStops": 1,
+        "totalStops": 1
+      }
+    },
+    {
+      "id": "full-day-wording-daily-forecast-limitation",
+      "description": "回归“全日有雨”措辞：同日日预报不足以支持全日持续天气。",
+      "sourceKind": "synthetic",
+      "overrides": {
+        "evidence": {
+          "weather": {
+            "description": "雨",
+            "rainProbability": 80
+          }
+        },
+        "itinerary": {
+          "summary": "根据所选日期预报，全日有雨。"
+        }
+      },
+      "expected": {
+        "status": "REVIEW_REQUIRED",
+        "warningCodes": [
+          "WEATHER_RESOLUTION_UNSUPPORTED"
+        ],
+        "matchedStops": 1,
+        "totalStops": 1
+      }
+    },
+    {
+      "id": "conditional-full-day-rain-is-not-an-assertion",
+      "description": "无天气依据时，“如果全日有雨”只是条件备选，不应当成肯定天气断言。",
+      "sourceKind": "synthetic",
+      "overrides": {
+        "evidence": {
+          "weather": null,
+          "weatherStatus": "unavailable"
+        },
+        "itinerary": {
+          "summary": "按照个人偏好安排行程。",
+          "alternatives": [
+            "如果全日有雨，则优先室内活动。"
+          ]
+        }
+      },
+      "expected": {
+        "status": "CHECKED_WITH_LIMITATIONS",
+        "warningCodes": [],
         "matchedStops": 1,
         "totalStops": 1
       }

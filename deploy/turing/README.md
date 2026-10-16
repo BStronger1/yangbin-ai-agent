@@ -56,3 +56,7 @@ ssh -N -L 18825:172.16.185.103:18825 zzl-zhouyangbin@172.16.185.103
 - `FeatureVerificationMain` 是显式调用的运维入口：用实际嵌入、MCP 和终端检查检索/列出文件/读取文件/查询时间/echo，结果保存在 `logs/feature-verification.json`，不调用聊天模型。
 
 若不需要终端，把 `TERMINAL_ENABLED` 改为 `false` 后重启；不要直接删除访问认证配置。
+
+## 一次纠错记录
+
+第四版将纠错预留与候选发布状态持久化于 `tmp/repairs/`（可用 `app.repairs.dir` 覆盖）。备份该目录及 `tmp/plans/`、`tmp/tasks/`、`tmp/pdf/`。不要删除记录来重置次数。每方案一次逻辑模型尝试；服务重启将 RUNNING 标记为 INTERRUPTED，不重调模型。PUBLISHING 在所属用户查询或重复提交时恢复同一候选的发布，不调用模型。记录不含密钥；新旧格式回退前须验证兼容性。详情见 `docs/REPAIR-VALIDATION.md`。

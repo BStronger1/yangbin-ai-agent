@@ -47,11 +47,11 @@ npm run dev
 
 ```bash
 mvn -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest package
+mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest package
 cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```
 
-当前 CI 配置 91 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
+当前 CI 配置任务、来源检查及一次纠错 Java 测试与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)
 
@@ -61,12 +61,13 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 - `/tasks`：选择技能创建任务，模型先生成执行计划及每步原因，确认后再查资料和实时依据、生成并保存行程、按计划导出 PDF。支持进度、刷新恢复、失败重试、服务重启后继续、取消和产物下载。
 - 规划仅在六类现有能力中选择：要求、天气地点、模型方案、保存必须包含；知识库和 PDF 按需求选择，且不能超出技能允许范围。选择范围、依赖和顺序由服务器检查，非法模型计划可重试。模型不能增添任意工具或执行代码。
 - 任务冻结技能版本与执行计划，之后修改、停用或删除技能不影响已有任务。待确认状态可跨重启保存；重复确认不会重复排队。旧版六步任务和未传 skillId 的旧请求保持兼容。
-- 任务和技能原子保存于 `tmp/tasks/`、`tmp/skills/`，与 `tmp/plans/`、`tmp/pdf/`、`tmp/auth/` 一起备份。后台两线程，单账号最多五个运行/待确认任务；仅支持单实例。
+- 任务和技能原子保存于 `tmp/tasks/`、`tmp/skills/`、`tmp/repairs/`，与 `tmp/plans/`、`tmp/pdf/`、`tmp/auth/` 一起备份。后台两线程，单账号最多五个运行/待确认任务；仅支持单实例。
 - 规划和行程生成各可能调用模型；指标包含调用尝试，Token 未提供时不估造用量。未保存检查点的外部请求恢复时可能再次计费。取消等待当前调用结束，再停止后续步骤；已发布方案/PDF可复用。
 - 当前为出行场景的有界执行计划，不包含任意领域任务规划、插件市场或多智能体运行时。验收：[技能与计划第二版](docs/SKILLS-PLAN-VALIDATION.md)；[第一版历史记录](docs/TASK-WORKBENCH-VALIDATION.md)。
 - `/knowledge`：上传 UTF-8 Markdown/TXT 或含文本的 PDF（单文件 1 MB、最多 100 页、解析后 60000 字符），预览、重新索引和删除上传文档。内置文档只读。扫描 PDF 需先 OCR。
 - `/mcp`：查看发现的工具和参数定义，测试内置文档列表/读取及时间查询，记录真实结果、成功状态与耗时。手动测试历史保留 50 条，重启后清空；不会暴露通用终端的手动执行接口。
 - 保存方案时进行来源规则检查：逐站地点名称与候选引用对应、天气快照日期、预算算术、部分无依据政策/价格/营业/交通声明。报告随版本保存并显示在任务、规划页面和PDF；历史无报告明确标为未检查。`REVIEW_REQUIRED` 需人工核对；检查完成不等于全文事实正确。固定规则回归与真实验收见 [第三版记录](docs/QUALITY-VALIDATION.md)。
+- 来源报告有告警时，可手动“按检查报告纠错一次”：每个方案终身最多一次逻辑模型尝试，复用原始依据，只改文字，保留站点、时间、费用和地点引用。只有告警减少且没有新增告警类型、地点匹配数不下降，才另存新版本；可查看前后对照、切换版本及独立导出新 PDF。原任务及原 PDF 保留；中断不自动重调模型。边界与验收见 [第四版记录](docs/REPAIR-VALIDATION.md)。
 - `/planner`：输入城市、日期、两人总预算、时间、交通和偏好，生成方案、修改并保留版本、导出中文 PDF。服务端检查金额与时间顺序；并发修改旧版本返回冲突。
 - 恋爱问答与超级智能体显示真实执行事件。RAG 显示实际召回的片段与相似度；MCP/智能体显示实际工具参数、结果摘要和耗时。执行记录不是模型推理过程。
 - 知识库页包含固定 6 题 Hit@3 测试，仅检测预期文件是否进入前三项，不等于答案正确率，也不调用聊天模型。
@@ -79,7 +80,7 @@ cd yangbin-ai-agent-frontend && npm ci && npm run build
 
 ```sh
 mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
-mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest package
+mvn -B -ntp -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest package
 python -m pip install -r deploy/turing/requirements.txt
 python -m unittest discover -s deploy/turing -p "test_*.py"
 ```

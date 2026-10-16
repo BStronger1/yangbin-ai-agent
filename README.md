@@ -51,7 +51,7 @@ mvn -Dtest=DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest
 cd yangbin-ai-agent-frontend && npm ci && npm run build
 ```
 
-当前 CI 配置任务、来源检查及一次纠错 Java 测试与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
+当前 CI 配置 109 项 Java 与 20 项 Python 测试，使用本地模拟模型/数据服务，不调用收费 API；覆盖无数据库启动、兼容模型对话、SSE 结束、中文 PDF 下载、RAG 证据注入、真实 MCP 进程工具调用、终端超时/输出限制及内部访问校验。原教学测试可能调用真实模型、数据库或第三方服务，不应直接对生产配置执行全部测试。
 
 [部署与运维说明](deploy/turing/README.md) · [来源说明](NOTICE.md)
 

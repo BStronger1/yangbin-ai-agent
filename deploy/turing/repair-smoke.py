@@ -27,7 +27,11 @@ elif sys.argv[1]=='verify':
  task=c.call('/api/ai/tasks/'+id);assert task==s['originalTask']
  assert digest(c.call(task['pdfUrl']))==s['originalPdfSha256']
  plans=c.call('/api/ai/plans/'+id);old=next(p for p in plans if p['version']==s['sourceVersion']);assert old==s['originalPlan']
- report={'planId':id,'repair':result,'repeat_post_reused':True,'original_task_unchanged':True,'original_plan_unchanged':True,'original_pdf_unchanged':True}
+ ledger=json.loads((ROOT/'tmp/repairs'/f'{id}.json').read_text(encoding='utf-8'))
+ assert ledger['status']==result['status'] and ledger['attempts']==1 and ledger['original']==old
+ assert ledger['beforeQuality']==result['beforeQuality'] and ledger['afterQuality']==result['afterQuality']
+ assert ledger['candidate']==result['afterItinerary']
+ report={'planId':id,'repair':result,'repeat_post_reused':True,'original_task_unchanged':True,'original_plan_unchanged':True,'original_pdf_unchanged':True,'durable_ledger_matches_api':True}
  if result['status']=='REPAIRED':
   new=next(p for p in plans if p['version']==result['targetVersion']);assert new['version']==2
   assert new['requirements']==old['requirements'] and new['evidence']==old['evidence'] and new['sources']==old['sources']

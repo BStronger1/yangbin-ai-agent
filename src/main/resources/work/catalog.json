@@ -1,0 +1,418 @@
+{
+  "version": "work-catalog-v3",
+  "skills": [
+    {
+      "id": "meeting-notes",
+      "name": "会议纪要",
+      "category": "办公提效",
+      "icon": "notes",
+      "color": "blue",
+      "description": "从会议原文提炼决策、分工与待办。",
+      "output": "结构化纪要 · 行动清单",
+      "instructions": "基于原文输出会议摘要、已作决策、行动项表（事项/负责人/期限/状态）及待确认项。没有提及的负责人和时间标待确认，不猜测。",
+      "example": "请把下面的会议记录整理成纪要，列出负责人、截止时间和待确认问题。\n\n会议记录：",
+      "tags": [
+        "纪要整理",
+        "行动清单"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "weekly-report",
+      "name": "周报与复盘",
+      "category": "办公提效",
+      "icon": "document",
+      "color": "blue",
+      "description": "把工作记录整理为重点清楚的周报。",
+      "output": "工作周报 · 下周计划",
+      "instructions": "按已完成工作、成果证据、阻碍、复盘、下周计划组织。区分已完成和计划；未提供的指标不补造。",
+      "example": "请把本周工作整理成一份给主管的周报，突出进展、风险和下周计划。\n\n工作记录：",
+      "tags": [
+        "工作汇报",
+        "项目复盘"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "presentation-outline",
+      "name": "演示文稿制作",
+      "category": "办公提效",
+      "icon": "slides",
+      "color": "violet",
+      "description": "将材料整理成逐页内容，导出可编辑的演示文稿。",
+      "output": "PPTX 演示文稿 · 逐页讲稿",
+      "instructions": "先明确听众与主张，组织逐页标题、精炼要点和演讲者讲稿，遵守系统JSON格式与每页内容限制。用户页数包含封面；最多20页。缺少资料时标待补，不能编造指标或来源。文件由系统排版生成，不假称已绘制图表、制作图片或联网核验。",
+      "example": "为季度经营复盘设计12页故事线，逐页给出标题、核心要点与讲稿。\n\n已有材料：",
+      "tags": [
+        "可编辑PPTX",
+        "演讲者备注"
+      ],
+      "version": 2,
+      "kind": "TEXT"
+    },
+    {
+      "id": "article-draft",
+      "name": "长文创作",
+      "category": "内容创作",
+      "icon": "pen",
+      "color": "teal",
+      "description": "围绕主题组织结构，形成可修改的初稿。",
+      "output": "文章初稿 · 标题备选",
+      "instructions": "先明确读者、目的和逻辑，再输出标题备选、提纲和正文。引用只能来自提供的材料，缺失论据标注待补。避免编造个人经历、专家引语和数据。",
+      "example": "围绕下面的主题写一篇面向初学者的文章，先给提纲，再写正文。\n\n主题与材料：",
+      "tags": [
+        "文章写作",
+        "结构梳理"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "video-script",
+      "name": "短视频脚本",
+      "category": "内容创作",
+      "icon": "video",
+      "color": "orange",
+      "description": "设计开场、分镜、口播与行动引导。",
+      "output": "分镜脚本 · 口播文案",
+      "instructions": "输出目标受众、开场钩子、时间轴分镜（画面/口播/字幕）和结尾行动引导。只交付文本脚本，不声称生成视频。无来源的产品效果不可承诺。",
+      "example": "为一条60秒的产品介绍短视频写分镜和口播，语气自然，不夸大效果。\n\n产品信息：",
+      "tags": [
+        "开场设计",
+        "分镜口播"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "campaign-brief",
+      "name": "营销活动策划",
+      "category": "营销销售",
+      "icon": "campaign",
+      "color": "rose",
+      "description": "从目标和受众出发，形成活动执行方案。",
+      "output": "活动 Brief · 执行清单",
+      "instructions": "输出目标、受众假设、核心信息、渠道方案、内容节奏、预算分配建议、实验设计与衡量指标。缺少预算或历史数据时列假设，不宣称效果提升。",
+      "example": "为新品上线设计一份两周营销活动Brief，包含受众、渠道、素材方向和验证指标。\n\n产品、预算与目标：",
+      "tags": [
+        "活动策划",
+        "验证指标"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "ad-copy",
+      "name": "广告文案变体",
+      "category": "营销销售",
+      "icon": "spark",
+      "color": "rose",
+      "description": "针对不同卖点产出多组可比较文案。",
+      "output": "文案变体 · A/B 测试建议",
+      "instructions": "基于用户给出的事实与受众，输出3组不同诉求的标题、正文、CTA，注明每组假设和评估方式。不能创造折扣、背书、销量或功效数据；不承诺点击/转化增长。",
+      "example": "围绕下面产品的真实卖点写3组广告文案，并说明各自适合的受众和测试假设。\n\n产品资料：",
+      "tags": [
+        "素材创作",
+        "A/B 方案"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "product-listing",
+      "name": "商品详情文案",
+      "category": "电商运营",
+      "icon": "bag",
+      "color": "orange",
+      "description": "将商品参数转化为清晰的购买信息。",
+      "output": "商品标题 · 详情结构 · FAQ",
+      "instructions": "输出商品标题备选、真实卖点、详情页结构、参数表和FAQ。保持给定价格/规格，不编造认证、销量、使用效果或比较结论。",
+      "example": "根据下面的真实商品参数，写标题、详情页文案和常见问题。\n\n商品参数：",
+      "tags": [
+        "商品卖点",
+        "详情文案"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "ecommerce-calendar",
+      "name": "电商内容排期",
+      "category": "电商运营",
+      "icon": "calendar",
+      "color": "orange",
+      "description": "按活动节奏安排内容、素材与协作。",
+      "output": "内容排期 · 素材清单",
+      "instructions": "根据目标和活动时间输出排期表（日期/主题/渠道/素材/负责人/验证指标），负责人缺失写待定。区分计划目标与真实结果，不捏造平台趋势。",
+      "example": "为下面的商品做一份7天内容排期，列出每天需要的素材和验证指标。\n\n商品与活动信息：",
+      "tags": [
+        "内容排期",
+        "素材管理"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "product-requirements",
+      "name": "产品需求梳理",
+      "category": "产品研发",
+      "icon": "layers",
+      "color": "violet",
+      "description": "把业务想法拆解为可讨论的需求文档。",
+      "output": "轻量 PRD · 验收标准",
+      "instructions": "输出问题、用户场景、范围、关键流程、需求优先级、边界条件、验收标准和待确认问题。技术限制不明确时标假设，避免虚构用户调研。",
+      "example": "把下面的产品想法整理成轻量PRD，给出关键流程、边界情况和验收标准。\n\n产品想法：",
+      "tags": [
+        "需求文档",
+        "验收标准"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "ux-review",
+      "name": "交互方案评审",
+      "category": "产品研发",
+      "icon": "layout",
+      "color": "violet",
+      "description": "梳理用户流程中的障碍与改进方向。",
+      "output": "交互评审 · 改进优先级",
+      "instructions": "仅根据给出的界面文字、流程和约束做评审。按任务目标、问题证据、影响、改进、验收方式输出；没有截图时不得假称看到了界面。不给出未经验证的转化率提升。",
+      "example": "评审下面的用户操作流程，找出阻碍、遗漏状态，并按优先级给出修改建议。\n\n流程说明：",
+      "tags": [
+        "流程评审",
+        "状态设计"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "data-interpretation",
+      "name": "业务数据解读",
+      "category": "数据分析",
+      "icon": "chart",
+      "color": "teal",
+      "description": "根据已有指标梳理变化、假设和下一步。",
+      "output": "数据解读初稿 · 待验证假设",
+      "instructions": "基于用户提供的表格或汇总做定性解读，显式区分观察和因果假设。不得声称运行Python、统计检验或访问数据库。原始数字应原样引用；计算建议列公式并要求复核。",
+      "example": "基于下面的数据总结主要变化，区分已观察到的事实与需要验证的解释。\n\n指标与口径：",
+      "tags": [
+        "指标解读",
+        "假设分析"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "study-plan",
+      "name": "学习计划",
+      "category": "学习教育",
+      "icon": "book",
+      "color": "green",
+      "description": "根据基础和可用时间拆解学习目标。",
+      "output": "阶段计划 · 自测任务",
+      "instructions": "输出目标拆解、每周计划、练习任务、自测标准和复盘方式。按用户时间和基础安排；参考资源未提供时给资源类型与检索关键词，不编造链接。",
+      "example": "我希望在4周内入门一个新主题，请按每周5小时安排学习与自测。\n\n主题和已有基础：",
+      "tags": [
+        "目标拆解",
+        "练习设计"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "concept-tutor",
+      "name": "概念讲解",
+      "category": "学习教育",
+      "icon": "bulb",
+      "color": "green",
+      "description": "用例子、对比和练习理解复杂概念。",
+      "output": "分层讲解 · 自测问答",
+      "instructions": "根据读者基础给出直观解释、必要定义、具体例子、常见误区与3道自测题。明确简化假设与不确定知识，不能编造引用。",
+      "example": "请用直观例子解释下面的概念，再给3道自测题和参考答案。\n\n概念与我的基础：",
+      "tags": [
+        "概念学习",
+        "自测练习"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "resume-polish",
+      "name": "简历表达优化",
+      "category": "求职成长",
+      "icon": "person",
+      "color": "blue",
+      "description": "把真实经历写得具体、清楚、便于追问。",
+      "output": "经历改写 · 信息缺口",
+      "instructions": "保留用户学历、公司、职位、时间和真实指标，仅改表达。用行动/方法/证据组织经历；没有数字不补造，没有做过的技术不添加。输出改写与需补充证据。",
+      "example": "根据下面的真实经历和目标岗位，优化简历表达，不新增经历或虚构数据。\n\n岗位与经历：",
+      "tags": [
+        "经历表达",
+        "证据梳理"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "interview-practice",
+      "name": "面试准备",
+      "category": "求职成长",
+      "icon": "chat",
+      "color": "blue",
+      "description": "围绕岗位和经历准备问题及回答框架。",
+      "output": "追问题库 · 回答框架",
+      "instructions": "基于用户JD及经历输出可能追问、考察点、回答结构和缺口。不要替用户编造项目经验；示例必须标注示例而非实际经历。",
+      "example": "根据下面的JD和项目经历，设计8道可能的追问，并给出回答框架。\n\nJD与经历：",
+      "tags": [
+        "项目追问",
+        "表达训练"
+      ],
+      "version": 1,
+      "kind": "TEXT"
+    },
+    {
+      "id": "builtin-city",
+      "name": "城市出行规划",
+      "category": "生活出行",
+      "icon": "map",
+      "color": "green",
+      "description": "结合天气、候选地点和预算规划两人出行。",
+      "output": "版本化行程 · 来源依据 · PDF",
+      "instructions": "",
+      "example": "",
+      "tags": [
+        "天气地点",
+        "行程安排"
+      ],
+      "version": 1,
+      "kind": "TRAVEL"
+    },
+    {
+      "id": "builtin-rain",
+      "name": "雨天室内安排",
+      "category": "生活出行",
+      "icon": "map",
+      "color": "green",
+      "description": "关注天气依据，优先室内活动并准备备选。",
+      "output": "版本化行程 · 来源依据 · PDF",
+      "instructions": "",
+      "example": "",
+      "tags": [
+        "天气地点",
+        "行程安排"
+      ],
+      "version": 1,
+      "kind": "TRAVEL"
+    }
+  ],
+  "partners": [
+    {
+      "id": "presentation",
+      "name": "NarrativePPT 演示伙伴",
+      "skillId": "presentation-outline",
+      "description": "导入材料，规划听众与叙事大纲，在线编辑页面并导出可编辑 PPTX。",
+      "category": "办公提效",
+      "color": "violet",
+      "initial": "P",
+      "tags": [
+        "完整PPT工作台",
+        "在线编辑"
+      ],
+      "workspace": "narrative-ppt"
+    },
+    {
+      "id": "marketing",
+      "name": "营销策划伙伴",
+      "skillId": "campaign-brief",
+      "description": "从目标、受众到素材与验证，组织一份活动方案。",
+      "category": "营销销售",
+      "color": "rose",
+      "initial": "营",
+      "tags": [
+        "活动策划",
+        "验证指标"
+      ]
+    },
+    {
+      "id": "content",
+      "name": "内容创作伙伴",
+      "skillId": "article-draft",
+      "description": "一起打磨选题、文章结构和表达。",
+      "category": "内容创作",
+      "color": "teal",
+      "initial": "文",
+      "tags": [
+        "文章写作",
+        "结构梳理"
+      ]
+    },
+    {
+      "id": "video",
+      "name": "短视频编剧",
+      "skillId": "video-script",
+      "description": "把一个想法拆成能讨论、能拍摄的文本脚本。",
+      "category": "内容创作",
+      "color": "orange",
+      "initial": "影",
+      "tags": [
+        "开场设计",
+        "分镜口播"
+      ]
+    },
+    {
+      "id": "product",
+      "name": "产品经理搭档",
+      "skillId": "product-requirements",
+      "description": "将需求整理成流程、边界和验收标准。",
+      "category": "产品研发",
+      "color": "violet",
+      "initial": "产",
+      "tags": [
+        "需求文档",
+        "验收标准"
+      ]
+    },
+    {
+      "id": "data",
+      "name": "数据解读伙伴",
+      "skillId": "data-interpretation",
+      "description": "根据你提供的数据，梳理观察与待验证假设。",
+      "category": "数据分析",
+      "color": "teal",
+      "initial": "数",
+      "tags": [
+        "指标解读",
+        "假设分析"
+      ]
+    },
+    {
+      "id": "office",
+      "name": "办公整理伙伴",
+      "skillId": "meeting-notes",
+      "description": "整理会议材料，明确决策与行动项。",
+      "category": "办公提效",
+      "color": "blue",
+      "initial": "办",
+      "tags": [
+        "纪要整理",
+        "行动清单"
+      ]
+    },
+    {
+      "id": "career",
+      "name": "面试准备伙伴",
+      "skillId": "interview-practice",
+      "description": "基于真实岗位和经历，准备重点追问。",
+      "category": "求职成长",
+      "color": "blue",
+      "initial": "职",
+      "tags": [
+        "项目追问",
+        "表达训练"
+      ]
+    }
+  ]
+}

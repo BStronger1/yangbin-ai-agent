@@ -1,6 +1,7 @@
 package com.yangbin.yangbinaiagent.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yangbin.yangbinaiagent.evaluation.ExecutionProvenance;
 import com.yangbin.yangbinaiagent.security.UserContext;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ public class PlanRepairService implements AutoCloseable {
     public static class State {
         public String planId,owner,status,message,createdAt,updatedAt;
         public int attempts;
+        public ExecutionProvenance.Attempt executionAttempt;
         public Integer targetVersion;
         public PlannerService.Plan original;
         public PlannerService.Itinerary candidate;
@@ -28,6 +30,7 @@ public class PlanRepairService implements AutoCloseable {
     }
     private static final String UUID_PATTERN="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
     private static final Set<String> STATUSES=Set.of("RUNNING","PUBLISHING","REPAIRED","REJECTED","FAILED","INTERRUPTED","CONFLICT");
+    @Autowired private ExecutionProvenance provenance=ExecutionProvenance.unknown();
     private final ObjectMapper json;
     private final PlannerService planner;
     private final Path root;
@@ -80,6 +83,7 @@ public class PlanRepairService implements AutoCloseable {
                         throw new IllegalStateException("每个账号同时只能纠错一个方案，请等待当前纠错或发布完成");
                     state=new State();state.planId=planId;state.owner=user.id();state.original=latest;state.beforeQuality=before;
                     state.status="RUNNING";state.attempts=1;state.createdAt=now();state.updatedAt=state.createdAt;
+                    state.executionAttempt=provenance.capture("repair",1,json,Map.of("original",latest,"beforeQuality",before));
                     state.message="唯一一次逻辑纠错调用已预留，正在生成候选；不会自动循环。";
                     // Insert before IO so even an ambiguous persistence failure cannot open a second call in this process.
                     repairs.put(planId,state);

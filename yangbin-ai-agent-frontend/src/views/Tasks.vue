@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import WorkspaceLayout from '../components/WorkspaceLayout.vue'
 import PlanningEvidence from '../components/PlanningEvidence.vue'
 import PlanQuality from '../components/PlanQuality.vue'
+import SourceReview from '../components/SourceReview.vue'
+import PlanRoutes from '../components/PlanRoutes.vue'
 import PlanRepair from '../components/PlanRepair.vue'
 import { api, errorMessage } from '../workspace-api'
 import { auth } from '../auth'
@@ -242,6 +244,8 @@ onBeforeUnmount(() => { disposed = true; epoch++; listEpoch++; skillsEpoch++; cl
               <h3>出行前确认</h3><ul><li v-for="(text,index) in task.itinerary.cautions" :key="index">{{text}}</li></ul>
             </section>
             <PlanQuality v-if="task.itinerary" :quality="task.quality" :pending="!task.planId && active && !task.quality" />
+            <SourceReview v-if="task.planId" :plan-id="task.planId" :version="task.planVersion" />
+            <PlanRoutes v-if="task.planId" :plan-id="task.planId" :version="task.planVersion" />
             <PlanRepair v-if="task.planId && task.planVersion" :plan-id="task.planId" :version="task.planVersion" :quality="task.quality" />
             <PlanningEvidence v-if="task.evidence" :evidence="task.evidence" snapshot snapshot-description="这是本任务查询时保存的依据，后续执行复用这份记录。需要查询最新情况，可前往“约会规划”页面。" />
             <section v-if="task.sources?.length" class="panel"><details><summary>参考知识库 · {{task.sources.length}} 条</summary><article v-for="(source,index) in task.sources" :key="index" class="result"><h3>{{source.source}}</h3><p>{{source.content}}</p></article></details></section>

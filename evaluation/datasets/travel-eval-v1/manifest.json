@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "travel-eval-manifest-v1",
+  "datasetId": "travel-eval",
+  "datasetVersion": "1.0.0",
+  "status": "FROZEN_BEFORE_RUN",
+  "frozenAt": "2026-10-16T14:03:24.161328+00:00",
+  "files": {
+    "cases.json": "0e5634f507adc077963663a50f5f50a2a51649a0b3f9233cfc70da6d6765f635",
+    "rubric.json": "524cee69799ddd6070e4213054e28db888f41fb4d812c83362d51bba77b83209",
+    "author-notes.json": "e70f1b5c6a443d61725d0ece7a86a6081ccb56c9f795301b31df15784024b840"
+  },
+  "datasetHash": "a1c7eda476c3bfedd5cea07bc1851ae920d91883dd39a2995c2b8b00ceef4974",
+  "caseCount": 24,
+  "familyCounts": {
+    "grounding_replay": 12,
+    "workflow_fault": 8,
+    "live_task": 4
+  },
+  "baseline": {
+    "gitHead": "f66db28813313b2305e9d4fc754ec79ec0f5c561",
+    "workingTree": "contains_uncommitted_step1",
+    "files": {
+      "src/main/java/com/yangbin/yangbinaiagent/planner/PlanQualityService.java": "804d49bf0be5f32831de0363e24cb02896e5f1fc05df729371cc456a9cf816af",
+      "src/main/java/com/yangbin/yangbinaiagent/planner/PlannerService.java": "c99eca9a4976e76fc5243482c8c440df73fffbdf3dade347ecf9c88b86eadae3",
+      "src/main/java/com/yangbin/yangbinaiagent/planner/PlanRepairService.java": "af339a6c618baf70378d22ba9f302491218b3bb3d14fb4bbfd4ef88e62e27a82",
+      "src/main/java/com/yangbin/yangbinaiagent/tasks/TaskService.java": "677c75e35c8c49dce9ba73abe2f130c76c2df678d35cd408b001d84d0dad34d5",
+      "src/test/resources/quality/plan-quality-regression-v2.json": "bf3af74900885871a08e8db8c648e993f1f39eede484ff1a59ccae4cbbec17d2"
+    }
+  },
+  "independence": {
+    "separateFromDevelopmentSet": true,
+    "blind": false,
+    "externalHumanAuthored": false,
+    "humanGoldComplete": false,
+    "statement": "Agent-authored synthetic scenarios, frozen before execution. Separation and exact deduplication are not proof of semantic independence."
+  },
+  "execution": {
+    "groundingRule": "grounding-v2",
+    "evaluated": false,
+    "newModelCalls": 0
+  },
+  "amendmentPolicy": "Never overwrite v1 after observing results; create a new version and retain this manifest. Human labels live outside this dataset and bind datasetHash/caseHash/subjectHash."
+}

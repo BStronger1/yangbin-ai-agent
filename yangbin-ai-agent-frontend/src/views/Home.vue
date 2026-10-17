@@ -59,23 +59,9 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { useHead } from '@vueuse/head'
 import AppFooter from '../components/AppFooter.vue'
 
-// 设置页面标题和元数据
-useHead({
-  title: 'yangbinAI超级智能体应用平台 - 首页',
-  meta: [
-    {
-      name: 'description',
-      content: 'yangbinAI超级智能体应用平台提供AI恋爱大师和AI超级智能体服务，满足您的各种AI对话需求'
-    },
-    {
-      name: 'keywords',
-      content: 'AI智能体,AI应用,AI恋爱大师,AI助手,智能对话,yangbin,AI超级智能体,首页'
-    }
-  ]
-})
+// 页面标题与描述由路由统一维护。
 
 const router = useRouter()
 

@@ -1,0 +1,13 @@
+name: Feature request
+description: Describe a concrete user problem and success criteria.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What task is blocked?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: What would success look like?

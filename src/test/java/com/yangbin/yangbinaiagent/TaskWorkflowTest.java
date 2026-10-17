@@ -53,6 +53,51 @@ class TaskWorkflowTest {
     TaskService.TaskView create() throws Exception {return service.create(UUID.randomUUID().toString(), "安排两人出行并生成 PDF", REQUIREMENTS);}
     TaskService.Step step(TaskService.TaskView task, String id) {return task.steps().stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow();}
 
+    @Test void provenanceIsDurableBeforeModelAndRetryKeepsBothReleaseContexts() throws Exception {
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"provenance",
+                new com.yangbin.yangbinaiagent.evaluation.ExecutionProvenance("abcdef1","openai","test-model-v1",""));
+        doAnswer(call -> {
+            try(var paths=Files.list(directory)) {
+                var state=new ObjectMapper().readValue(paths.filter(p->p.toString().endsWith(".json")).findFirst().orElseThrow().toFile(),TaskService.State.class);
+                var attempt=state.executionAttempts.getLast();
+                assertThat(attempt.stepId()).isEqualTo("model");
+                assertThat(attempt.codeRevision()).isEqualTo("abcdef1");
+                assertThat(attempt.configuredModel()).isEqualTo("test-model-v1");
+                assertThat(attempt.inputHash()).matches("[a-f0-9]{64}");
+            }
+            return ITINERARY;
+        }).when(workflow).draft(any(),anyString(),anyList(),any());
+        doThrow(new IllegalStateException("PDF unavailable")).doReturn("/api/files/recovered.pdf").when(workflow).export(any());
+        String id=create().id();executor.runNext();
+        var mapper=new ObjectMapper();
+        var before=mapper.readValue(directory.resolve(id+".json").toFile(),TaskService.State.class);
+        assertThat(before.executionAttempts).hasSize(6);
+        service.close();executor=new QueueExecutor();
+        service=new TaskService(mapper,workflow,directory.toString(),executor);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"provenance",
+                new com.yangbin.yangbinaiagent.evaluation.ExecutionProvenance("abcdef2","openai","test-model-v2",""));
+        service.retry(id);executor.runNext();
+        var after=mapper.readValue(directory.resolve(id+".json").toFile(),TaskService.State.class);
+        assertThat(after.executionAttempts.subList(0,6)).isEqualTo(before.executionAttempts);
+        assertThat(after.executionAttempts.getLast().codeRevision()).isEqualTo("abcdef2");
+        assertThat(after.executionAttempts.getLast().stepId()).isEqualTo("pdf");
+        assertThat(after.executionAttempts.getLast().attempt()).isEqualTo(2);
+        assertThat(after.executionAttempts.getLast().configuredModel()).isNull();
+        verify(workflow,times(1)).draft(any(),anyString(),anyList(),any());
+    }
+
+    @Test void oldCompletedTaskWithoutProvenanceIsReadWithoutBackfill() throws Exception {
+        String id=create().id();executor.runNext();service.close();
+        var path=directory.resolve(id+".json");
+        var mapper=new ObjectMapper();
+        var node=(com.fasterxml.jackson.databind.node.ObjectNode)mapper.readTree(path.toFile());
+        node.remove("executionAttempts");mapper.writeValue(path.toFile(),node);
+        byte[] original=Files.readAllBytes(path);
+        executor=new QueueExecutor();service=new TaskService(mapper,workflow,directory.toString(),executor);
+        assertThat(service.get(id).status()).isEqualTo("SUCCEEDED");
+        assertThat(Files.readAllBytes(path)).isEqualTo(original);
+    }
+
     @Test void completedTaskAndEvidenceSurviveNewServiceInstance() throws Exception {
         String id = create().id(); executor.runNext();
         var done = service.get(id);

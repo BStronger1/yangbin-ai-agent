@@ -59,3 +59,14 @@ __pycache__/
 /knowledge/
 /releases/
 /incoming-*/
+
+# Private handoff / release evidence (existing tracked history is retained)
+/docs/README-BEFORE-M017.md
+/docs/career/
+/evaluation/annotations/travel-eval-v1/human-confirmation-v1.json
+/evaluation/annotations/travel-eval-v1/confirmed-review.csv
+
+# Maintainer handoff notes stay local, outside public releases.
+/docs/memory/
+
+.venv/

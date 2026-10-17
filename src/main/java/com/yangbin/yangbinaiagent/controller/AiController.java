@@ -28,6 +28,8 @@ public class AiController {
 
     @Resource
     private ChatModel appChatModel;
+    @Resource private com.yangbin.yangbinaiagent.models.ModelProfileService modelProfiles;
+    @Resource private com.yangbin.yangbinaiagent.models.PrivateChatModels privateChatModels;
 
     @GetMapping(value="/love_app/chat/events",produces=MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<Object>> events(String message,String chatId,@RequestParam(defaultValue="rag") String mode) {
@@ -114,8 +116,11 @@ public class AiController {
      * @return
      */
     @GetMapping("/manus/chat")
-    public SseEmitter doChatWithManus(String message) {
-        YangbinManus yangbinManus = new YangbinManus(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(allTools,com.yangbin.yangbinaiagent.security.UserContext.current()), appChatModel);
+    public SseEmitter doChatWithManus(String message, @RequestParam(required=false) String modelProfileId) throws IOException {
+        com.yangbin.yangbinaiagent.models.ModelProfileService.Resolved selected;
+        try{selected=modelProfiles.resolve(modelProfileId);}catch(IllegalArgumentException e){throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"模型选择无效，请刷新模型列表");}catch(IllegalStateException e){throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"模型配置暂不可用，请检查设置");}
+        ChatModel model=selected==null?appChatModel:privateChatModels.create(selected);
+        YangbinManus yangbinManus = new YangbinManus(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(allTools,com.yangbin.yangbinaiagent.security.UserContext.current()), model);
         return yangbinManus.runStream(message);
     }
 }

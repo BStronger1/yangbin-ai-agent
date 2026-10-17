@@ -134,6 +134,9 @@ public class ToolCallAgent extends ReActAgent {
                 .map(response -> "工具 " + response.name() + " 返回的结果：" + response.responseData())
                 .collect(Collectors.joining("\n"));
         log.info(results);
-        return results;
+        // A response may contain both the user-facing answer and a terminal tool call.
+        // Keep that answer in the step output before FINISHED prevents another model turn.
+        String assistantText = toolCallChatResponse.getResult().getOutput().getText();
+        return StrUtil.isBlank(assistantText) ? results : assistantText + "\n" + results;
     }
 }

@@ -24,6 +24,7 @@ class DeploymentSmokeTest {
     com.yangbin.yangbinaiagent.security.UserContext.Scope identity;
     @org.junit.jupiter.api.BeforeEach void identity(){identity=com.yangbin.yangbinaiagent.security.UserContext.open(com.yangbin.yangbinaiagent.security.UserContext.ADMIN);}
     @org.junit.jupiter.api.AfterEach void clearIdentity(){identity.close();}
+    static final java.util.concurrent.atomic.AtomicInteger answerAndTerminateRequests = new java.util.concurrent.atomic.AtomicInteger();
     static final HttpServer provider;
     static {
         try {
@@ -40,6 +41,10 @@ class DeploymentSmokeTest {
                     String msg = request.contains("terminate-test")
                             ? "{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"doTerminate\",\"arguments\":\"{}\"}}]}"
                             : "{\"role\":\"assistant\",\"content\":\"sync-ok\"}";
+                    if (request.contains("answer-and-terminate-test")) {
+                        answerAndTerminateRequests.incrementAndGet();
+                        msg = msg.replace("\"content\":null", "\"content\":\"M017\"");
+                    }
                     body = "{\"id\":\"test\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"test-model\",\"choices\":[{\"index\":0,\"message\":" + msg + ",\"finish_reason\":\"stop\"}]}";
                 }
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
@@ -68,6 +73,14 @@ class DeploymentSmokeTest {
     @Test void agentExecutesRegisteredTerminationTool() {
         String response = http.getForObject("/ai/manus/chat?message=terminate-test", String.class);
         assertThat(response).contains("doTerminate", "[DONE]").doesNotContain("执行错误");
+    }
+    @Test void agentPreservesAnswerAlongsideTerminationToolInRealSse() {
+        answerAndTerminateRequests.set(0);
+        String response = http.getForObject("/ai/manus/chat?message=answer-and-terminate-test", String.class);
+        assertThat(response).containsOnlyOnce("M017").contains("doTerminate", "[DONE]")
+                .doesNotContain("执行错误", "Step 2");
+        assertThat(response.indexOf("M017")).isLessThan(response.indexOf("[DONE]"));
+        assertThat(answerAndTerminateRequests.get()).isEqualTo(1);
     }
     @Test void agentReturnsAnswerWithoutRepeatingTwentyTimes() {
         String response = http.getForObject("/ai/manus/chat?message=hello", String.class);

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "ragtruth-subset-manifest-v1",
+  "datasetId": "ragtruth-test-source24-v1",
+  "upstream": "https://github.com/ParticleMedia/RAGTruth",
+  "upstreamCommit": "c103204b9ce28d6bbad859304bf30de72b8ed8fe",
+  "upstreamFiles": {
+    "LICENSE": "b7fd7d6bdfe0cbba63c63a310914beb4a4acb8bf08da73849219f45385f5b244",
+    "dataset/response.jsonl": "e4c2e4ac24fff676d8984cc61c35d791612fadc58015335d97dd632375e18073",
+    "dataset/source_info.jsonl": "0dffc26ea9f3c1c3d7c7e8336b56ef1646e3cec876edffcca3c9c624d12d578b"
+  },
+  "createdAt": "2026-10-16T15:37:02.190379+00:00",
+  "seed": "yangbin-source-review-20261016-v1",
+  "selection": "test + quality=good; 8 source groups per task by SHA256 rank, 1 response per source by SHA256 rank; no label balancing or detector-result filtering",
+  "taskCounts": {
+    "QA": 8,
+    "Summary": 8,
+    "Data2txt": 8
+  },
+  "caseCount": 24,
+  "labelProvenance": "upstream_human_annotations_unchanged",
+  "files": {
+    "LICENSE": "b7fd7d6bdfe0cbba63c63a310914beb4a4acb8bf08da73849219f45385f5b244",
+    "cases.json": "b3d83e90513918c053c0354a9a13c3e136d3ac824107551e30be43967898a9ae"
+  },
+  "datasetHash": "c66c5fc3e1516c8e109d838b5d7141b11be3670867229a78f0eb2f5563a75aab",
+  "interpretation": "External small diagnostic subset, not representative corpus accuracy; English/general evidence differs from Chinese travel snapshots."
+}

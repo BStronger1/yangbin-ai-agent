@@ -8,6 +8,11 @@ public class PlannerController {
  @GetMapping("/evidence") public Object evidence(@RequestParam String city,@RequestParam String date){return evidence.fetch(city,date);}
  @GetMapping public Object list()throws Exception{return service.list();}
  @PostMapping public Object create(@RequestBody PlannerService.Requirements r)throws Exception{return service.generate(r,null,null);}
+ @GetMapping("/{id}/{version}/source-review") public Object sourceReview(@PathVariable String id,@PathVariable int version)throws Exception{
+  var plan=service.get(id,version);
+  return new com.yangbin.yangbinaiagent.planner.SourceClaimReview.PlanReport(plan.id(),plan.version(),
+   com.yangbin.yangbinaiagent.planner.SourceClaimReview.assess(plan.requirements(),plan.itinerary(),plan.evidence()));
+ }
  @GetMapping("/{id}") public Object versions(@PathVariable String id)throws Exception{return service.versions(id);}
  public record Revision(int expectedVersion,PlannerService.Requirements requirements){}
  @PostMapping("/{id}/revise") public Object revise(@PathVariable String id,@RequestBody Revision r)throws Exception{return service.generate(r.requirements(),id,r.expectedVersion());}

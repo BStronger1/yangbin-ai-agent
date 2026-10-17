@@ -66,10 +66,18 @@ class PlanRepairServiceTest {
     static long warnings(PlanQualityService.Report report){return report.findings().stream().filter(f->"warning".equals(f.severity())).count();}
 
     @Test void attemptIsDurablyConsumedBeforeModelAndSuccessfulRepairIsIdempotent() throws Exception {
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"provenance",
+                new com.yangbin.yangbinaiagent.evaluation.ExecutionProvenance("abcdef1","dashscope","unused","qwen-test"));
+
         doAnswer(call->{
             assertThat(Thread.holdsLock(planner)).as("paid call must release planner monitor").isFalse();
             assertThat(Thread.holdsLock(service)).as("paid call must release repair monitor").isFalse();
             var durable=stored();assertThat(durable.status).isEqualTo("RUNNING");assertThat(durable.attempts).isEqualTo(1);
+            assertThat(durable.executionAttempt.stepId()).isEqualTo("repair");
+            assertThat(durable.executionAttempt.codeRevision()).isEqualTo("abcdef1");
+            assertThat(durable.executionAttempt.configuredModel()).isEqualTo("qwen-test");
+            assertThat(durable.executionAttempt.inputHash()).matches("[a-f0-9]{64}");
+
             return corrected;
         }).when(planner).repairDraft(any(),any());
         assertThat(service.get(id).status()).isEqualTo("NOT_STARTED");

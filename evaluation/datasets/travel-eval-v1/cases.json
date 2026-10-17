@@ -1,0 +1,2213 @@
+{
+  "schemaVersion": "travel-eval-cases-v1",
+  "datasetId": "travel-eval",
+  "datasetVersion": "1.0.0",
+  "cases": [
+    {
+      "caseId": "G01",
+      "family": "grounding_replay",
+      "title": "日预报与估算费用的审慎表述",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "ebdad68992235551c3c3accc8390712815dbd52ba2357461d7e49b184258ba8f",
+      "caseHash": "734d75c11e291b76ab0a4e3d9a607270798ba35bee4bb902de7368eadb1cbb05"
+    },
+    {
+      "caseId": "G02",
+      "family": "grounding_replay",
+      "title": "无天气依据下的条件备选",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": null,
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "out_of_range",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "该日没有可用预报；如果遇雨，可改为室内交流。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "e43504b43da281866831c4728ac32f9688d342ea321c98f9828545ade86e3904",
+      "caseHash": "03b81f402e6c0992fa3cad2496526378dd16cbcd484ac1b4adc45a9628852ad0"
+    },
+    {
+      "caseId": "G03",
+      "family": "grounding_replay",
+      "title": "没有地点候选时仅给活动类型",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [],
+          "weatherStatus": "available",
+          "placesStatus": "empty",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "选择适合交流的室内活动",
+              "estimatedCost": 120,
+              "note": "未获得具体地点，需自行选址并确认。",
+              "placeId": null
+            },
+            {
+              "time": "15:00",
+              "activity": "选择适合交流的室内活动",
+              "estimatedCost": 160,
+              "note": "未获得具体地点，需自行选址并确认。",
+              "placeId": null
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "e88f76da2cf97f8ccd71d1cb347905faa977ab145d4504270a640e3028c7f42c",
+      "caseHash": "f767fb6adb5903d294dec90937d33e9214355729758f7bb8200e183910d95232"
+    },
+    {
+      "caseId": "G04",
+      "family": "grounding_replay",
+      "title": "把降水概率转成不会下雨",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "降水概率只有30%，可以确定整个下午一滴雨都不会下。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "dab246e53a269769ce12b1ec1e4ad9c3669ac39cb8d2671ac26e3c49280dcde1",
+      "caseHash": "f418ba3cfd0042fdc49302d7983ef36a8cc5213736e3997e2d4628a7c48a697d"
+    },
+    {
+      "caseId": "G05",
+      "family": "grounding_replay",
+      "title": "地点名称相同但附加活动无来源",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆观看馆藏古代青铜器专题展",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "bf2f391d4df5b377f912231de50ba1681de0bf93684e6d6c6d4c9929525ab0cd",
+      "caseHash": "96120e49ba255d63b73a94179d92a0ad4e4eb7e3121e7057012738f7e95630b2"
+    },
+    {
+      "caseId": "G06",
+      "family": "grounding_replay",
+      "title": "引用候选集合以外的地点",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "前往合成南岸阅览室",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/absent88"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "2f163a999498d2ea079e30fee50b1782f58e2a89a439542865901e7677c9219c",
+      "caseHash": "1de09ca51a6f0fa36fae8f8320d3cc64868f9150a4f13f107fd5e971aa35839e"
+    },
+    {
+      "caseId": "G07",
+      "family": "grounding_replay",
+      "title": "日级天气细化成分钟级承诺",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "15点20分云层会完全散去，之后45分钟适合户外拍照。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "561fc0fabe6038ff3194f91ed42971a4917b32c735470edfdb1d5fd6d73a312c",
+      "caseHash": "c1c43a413812fc3502617b2ba8ecb1bcaa277b8fe0afcc4c5ad4f0dfee9a9769"
+    },
+    {
+      "caseId": "G08",
+      "family": "grounding_replay",
+      "title": "将未提供来源的旧票价写成现价",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "按2022年的宣传单，今年票价仍确定为每人80元，不用再询价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "d6b0ed370f77bf1056cd48aaf564ec10facbb668c225e3720a8fbddf82aec27a",
+      "caseHash": "95fa5cf7635d8a60ff7713f9340059c18a7fc9504333cce14c2503179fb40bc9"
+    },
+    {
+      "caseId": "G09",
+      "family": "grounding_replay",
+      "title": "否定核实声明",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "尚未核实票价，也没有确认当天营业；此处160元只是两人预算预留。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "2725fc038a5307ffaf21dfe78f841602da6ef3d1ff20813df94bf9d02da66c48",
+      "caseHash": "3a2ff0c7589a508628849c3967d2643a554bed2690a85c109be3e40a36592372"
+    },
+    {
+      "caseId": "G10",
+      "family": "grounding_replay",
+      "title": "文字审慎但总预算超额",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 400,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "53253aedca5103c45a5d7d66d76646c13e325d9fdfdfb165d69d7bc3f044ccaf",
+      "caseHash": "6e5a57896f9f4003bb2a5c4b04d15294bbab93a7e580c8186a15cd979a531d2d"
+    },
+    {
+      "caseId": "G11",
+      "family": "grounding_replay",
+      "title": "天气快照日期与出行日期不同",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-13",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "先确认展览、预约和实际票价。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "e72a1fda52e39987f5c9f78aae171a0a5855c52e5b36281751ebf419d5d40a56",
+      "caseHash": "111102f9853e79d2ae7a8653ed0dd56cd68c1052573e166a5cb01605ef2bb347"
+    },
+    {
+      "caseId": "G12",
+      "family": "grounding_replay",
+      "title": "无路线和营业依据却给出承诺",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "offline_fixed_output",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "itinerary": {
+          "title": "合成城市半日安排",
+          "summary": "所选日期日预报为多云；费用仅为两人估算。",
+          "stops": [
+            {
+              "time": "13:00",
+              "activity": "在合成青栎咖啡馆交流",
+              "estimatedCost": 120,
+              "note": "饮品费用为估算，出发前确认营业。",
+              "placeId": "fixture/cafe17"
+            },
+            {
+              "time": "15:00",
+              "activity": "参观合成海川设计馆",
+              "estimatedCost": 160,
+              "note": "两站步行刚好6分钟；已确认设计馆当天营业到20点，无需预约。",
+              "placeId": "fixture/museum29"
+            }
+          ],
+          "alternatives": [
+            "如果出发时下雨，可减少户外停留。"
+          ],
+          "cautions": [
+            "路线与通行时间尚未核验；最终费用和营业情况出发前确认。"
+          ]
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "2a9437dcc0474a72d68669f32d557d452deb2bd1ad19941cbb96fa3cebc37c78",
+      "caseHash": "e2e469548be8c8d45ee044c6abd0d5ed01f316854f8bcb9361078530a7f3f62d"
+    },
+    {
+      "caseId": "F01",
+      "family": "workflow_fault",
+      "title": "来源服务临时不可用",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "evidence_unavailable",
+          "parameters": {
+            "weatherStatus": "unavailable",
+            "placesStatus": "available"
+          }
+        },
+        "actions": [
+          "create",
+          "wait_failed",
+          "retry_after_recovery",
+          "wait_terminal"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F01-A1",
+          "description": "失败快照被保存，失败时不进入model步骤"
+        },
+        {
+          "id": "F01-A2",
+          "description": "恢复后继续未完成步骤，已成功步骤不重跑"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "d204910eabf9b7c4dbdfef2619c8e3ae2d2c2051bab1f560abd2c431eca5d531",
+      "caseHash": "9f0e6e894c9fec2d4a6d133b4fb7dfb11e90dd0094be1325addbbdb007456195"
+    },
+    {
+      "caseId": "F02",
+      "family": "workflow_fault",
+      "title": "PDF失败后继续",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "pdf_failure_once",
+          "parameters": {
+            "failOnAttempt": 1
+          }
+        },
+        "actions": [
+          "create",
+          "wait_pdf_failed",
+          "retry",
+          "wait_terminal"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F02-A1",
+          "description": "第一次PDF失败保留原方案"
+        },
+        {
+          "id": "F02-A2",
+          "description": "model逻辑尝试数不因重试PDF增加"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "6481bdb88c6c404b04fc3543a1535f956a8e1b16cf7c1131ff8ec3d311e26cf6",
+      "caseHash": "f4d5ada1873c586881153d0a7d5e85b195dbf9fc87e750be4fc0a5b59b1a6b87"
+    },
+    {
+      "caseId": "F03",
+      "family": "workflow_fault",
+      "title": "模型中途重启",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "restart_model_inflight",
+          "parameters": {
+            "checkpoint": "model_running_before_result"
+          }
+        },
+        "actions": [
+          "create",
+          "interrupt_process",
+          "restart",
+          "inspect",
+          "manual_retry"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F03-A1",
+          "description": "重启后为INTERRUPTED且不自动继续"
+        },
+        {
+          "id": "F03-A2",
+          "description": "不承诺上游恰好一次，记录重复可能性和各次尝试"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "90f4208a517d97df408ce8a5a488d620c7f5f8445a43d3d1cf19a7d1227d146b",
+      "caseHash": "ed7cbbaa246b2d206de94865696985d82f449143bc0272829026437c31dec404"
+    },
+    {
+      "caseId": "F04",
+      "family": "workflow_fault",
+      "title": "重复确认计划",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "duplicate_confirmation",
+          "parameters": {
+            "concurrentConfirmations": 2
+          }
+        },
+        "actions": [
+          "create_skill_task",
+          "wait_confirmation",
+          "confirm_twice",
+          "wait_terminal"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F04-A1",
+          "description": "冻结计划保持一致"
+        },
+        {
+          "id": "F04-A2",
+          "description": "重复确认不产生两个执行队列或重复方案"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "df2ede632e96e8a3f016d91116c22249fff47d6c6a2b80c2aa9bd2212c039e31",
+      "caseHash": "c823ba41b682c4fbd927a44fd5100b2eec541a6a784577319b6e841413c5b0bf"
+    },
+    {
+      "caseId": "F05",
+      "family": "workflow_fault",
+      "title": "纠错版本过期",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "stale_repair_version",
+          "parameters": {
+            "expectedVersion": 1,
+            "latestVersion": 2
+          }
+        },
+        "actions": [
+          "prepare_two_versions",
+          "repair_expected_v1"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F05-A1",
+          "description": "返回版本冲突且不覆盖v2"
+        },
+        {
+          "id": "F05-A2",
+          "description": "此次新纠错不得发出模型请求"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "290b66154976b02e19aaf984a6478d5e8559fec502cf5a41effcd2f5101983d9",
+      "caseHash": "fc2fd7e2cca943426923c853e0bc1f4f3ddb5d107619e5d4d790406919de0fe6"
+    },
+    {
+      "caseId": "F06",
+      "family": "workflow_fault",
+      "title": "纠错候选未改善",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "repair_no_improvement",
+          "parameters": {
+            "candidate": "same_as_original"
+          }
+        },
+        "actions": [
+          "prepare_warning_plan",
+          "repair_once",
+          "repeat_repair_request"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F06-A1",
+          "description": "候选被拒绝，不发布新版本"
+        },
+        {
+          "id": "F06-A2",
+          "description": "唯一预留已消耗，重复请求不重调模型"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "d8ea3a96f4f754d6324bb80c1fbb578f7b1f89e92a039620f5c106d8988bb01d",
+      "caseHash": "2b311dd4919261c9666e92def19b6de4d901d8fa2d37b2374a7587d4183c3c68"
+    },
+    {
+      "caseId": "F07",
+      "family": "workflow_fault",
+      "title": "跨账号读取",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "cross_owner_read",
+          "parameters": {
+            "owner": "synthetic_owner_a",
+            "requester": "synthetic_owner_b"
+          }
+        },
+        "actions": [
+          "create_as_a",
+          "read_task_plan_pdf_repair_as_b"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F07-A1",
+          "description": "任务/方案/PDF/纠错均拒绝读取"
+        },
+        {
+          "id": "F07-A2",
+          "description": "错误内容不泄露owner_a的输入或结果"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "7ba70f7038e5d0294de8722cabff760ae4fa4c84721499050c3463f1a45f7c29",
+      "caseHash": "55a4218f8c00b614c38c2d2c09ab6a6ab39ba1c034bc2727b28107d41b611a74"
+    },
+    {
+      "caseId": "F08",
+      "family": "workflow_fault",
+      "title": "确认前取消",
+      "origin": "agent_authored_synthetic",
+      "executionMode": "mocked_runtime_required",
+      "input": {
+        "requirements": {
+          "city": "合成海川市",
+          "budget": 480,
+          "date": "2026-11-14",
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "prompt": "安排两人半日出行并按技能要求交付。",
+        "evidence": {
+          "fetchedAt": "2026-11-14T02:00:00Z",
+          "location": {
+            "name": "合成海川市",
+            "latitude": 30.0,
+            "longitude": 120.0,
+            "timezone": "Asia/Shanghai",
+            "url": "https://fixtures.invalid/city",
+            "coordinateSystem": "WGS84"
+          },
+          "weather": {
+            "date": "2026-11-14",
+            "description": "多云",
+            "minC": 16.0,
+            "maxC": 22.0,
+            "rainProbability": 30,
+            "url": "https://fixtures.invalid/daily"
+          },
+          "places": [
+            {
+              "id": "fixture/cafe17",
+              "name": "合成青栎咖啡馆",
+              "category": "cafe",
+              "latitude": 30.001,
+              "longitude": 120.001,
+              "address": "合成栎树路17号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/cafe17",
+              "coordinateSystem": "WGS84"
+            },
+            {
+              "id": "fixture/museum29",
+              "name": "合成海川设计馆",
+              "category": "museum",
+              "latitude": 30.002,
+              "longitude": 120.002,
+              "address": "合成设计路29号",
+              "openingHours": "",
+              "url": "https://fixtures.invalid/museum29",
+              "coordinateSystem": "WGS84"
+            }
+          ],
+          "weatherStatus": "available",
+          "placesStatus": "available",
+          "notices": [
+            "全部地点及天气为离线合成资料。价格、当天营业和路线耗时未核验。"
+          ]
+        },
+        "fault": {
+          "hook": "cancel_before_confirmation",
+          "parameters": {
+            "checkpoint": "awaiting_confirmation"
+          }
+        },
+        "actions": [
+          "create_skill_task",
+          "wait_confirmation",
+          "cancel",
+          "reload",
+          "try_confirm"
+        ]
+      },
+      "assertions": [
+        {
+          "id": "F08-A1",
+          "description": "取消状态持久且不能再确认执行"
+        },
+        {
+          "id": "F08-A2",
+          "description": "计划后的知识/依据/生成/PDF工具不执行"
+        }
+      ],
+      "reviewDimensions": [
+        "workflow_safety"
+      ],
+      "rubricRefs": [
+        "R-WORKFLOW"
+      ],
+      "runStatus": "NOT_RUN",
+      "inputHash": "4046afd609943b781ca31ddbd3e9b12d752c0a198056374b1937724d6887b5bd",
+      "caseHash": "be11e8ed4c63bad7b7f238bf943fe705a5ddcee8977224029bf000cbc7695590"
+    },
+    {
+      "caseId": "L01",
+      "family": "live_task",
+      "title": "最小输出任务",
+      "origin": "agent_authored_synthetic_prompt",
+      "executionMode": "new_model_task_required",
+      "input": {
+        "prompt": "无需知识库和PDF，给出两人下午安排。",
+        "requirements": {
+          "city": "杭州",
+          "budget": 360,
+          "date": null,
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "dateBinding": {
+          "kind": "relative_to_run",
+          "daysAfterRun": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "modelBudget": {
+        "maxLogicalModelAttempts": 2,
+        "maxRepairAttempts": 0
+      },
+      "humanLabels": null,
+      "inputHash": "2f088c49ea61255135d3a1cfb15d8cf7467b56d3ff59d90829e722b640b6f434",
+      "caseHash": "2c6d8c864f35f3e00778fe3b07f7a3466b640a02627b03b7fe28743d4830e887"
+    },
+    {
+      "caseId": "L02",
+      "family": "live_task",
+      "title": "有条件的雨天备选",
+      "origin": "agent_authored_synthetic_prompt",
+      "executionMode": "new_model_task_required",
+      "input": {
+        "prompt": "偏好室内交流；仅在实际天气依据支持时解释雨天选择，提供PDF。",
+        "requirements": {
+          "city": "南京",
+          "budget": 450,
+          "date": null,
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "dateBinding": {
+          "kind": "relative_to_run",
+          "daysAfterRun": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "modelBudget": {
+        "maxLogicalModelAttempts": 2,
+        "maxRepairAttempts": 0
+      },
+      "humanLabels": null,
+      "inputHash": "dc030aefe44bb3444f6177c49fb99773ed5fa5454962d8a845019999fcac1e44",
+      "caseHash": "7fa452837809ef678a43860639218ba6da58423182f6b021af0889572641d107"
+    },
+    {
+      "caseId": "L03",
+      "family": "live_task",
+      "title": "低预算与价格不确定性",
+      "origin": "agent_authored_synthetic_prompt",
+      "executionMode": "new_model_task_required",
+      "input": {
+        "prompt": "控制两人总预算，门票或收费没有依据时明确标注估算和待确认。",
+        "requirements": {
+          "city": "成都",
+          "budget": 180,
+          "date": null,
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "dateBinding": {
+          "kind": "relative_to_run",
+          "daysAfterRun": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "modelBudget": {
+        "maxLogicalModelAttempts": 2,
+        "maxRepairAttempts": 0
+      },
+      "humanLabels": null,
+      "inputHash": "7b2d88c2f4464598d47e8a7dd98c436d15e914d11b636f954c6ccad34e43181f",
+      "caseHash": "b5b472e00d6555625c20d91653988bf4581d4d51251f74dd6192b8ab233dcb31"
+    },
+    {
+      "caseId": "L04",
+      "family": "live_task",
+      "title": "少走路偏好与路线边界",
+      "origin": "agent_authored_synthetic_prompt",
+      "executionMode": "new_model_task_required",
+      "input": {
+        "prompt": "偏好少走路，不能核实路程时不要承诺步行分钟数；说明未知项。",
+        "requirements": {
+          "city": "苏州",
+          "budget": 400,
+          "date": null,
+          "startTime": "13:00",
+          "hours": 4,
+          "interests": "安静交流、看展",
+          "transport": "公共交通",
+          "revision": ""
+        },
+        "dateBinding": {
+          "kind": "relative_to_run",
+          "daysAfterRun": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "reviewDimensions": [
+        "source_support",
+        "constraint_compliance",
+        "uncertainty_disclosure"
+      ],
+      "rubricRefs": [
+        "R-SOURCE",
+        "R-CONSTRAINT",
+        "R-UNCERTAINTY"
+      ],
+      "runStatus": "NOT_RUN",
+      "modelBudget": {
+        "maxLogicalModelAttempts": 2,
+        "maxRepairAttempts": 0
+      },
+      "humanLabels": null,
+      "inputHash": "95c8b39a25815029ee16b1485e48acddd8a6aba7306d667d2e323c5832693f41",
+      "caseHash": "b03c264954ba213aa46c085b8b60f4a70a9d19db3dc55ea1dbc7bea17291c296"
+    }
+  ]
+}

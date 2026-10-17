@@ -1,0 +1,1119 @@
+{
+  "schemaVersion": "ragtruth-subset-v1",
+  "cases": [
+    {
+      "caseId": "RGT-12434",
+      "sourceRecord": {
+        "source_id": "14390",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "symptoms and causes of ibs",
+          "passages": "passage 1:The cause of irritable bowel syndrome is currently unknown. It is thought to result from a combination of abnormal gastrointestinal (GI) tract movements, increased awareness of bodily functions, and a disruption in the communication between the brain and the GI tract. IBS-D is irritable bowel syndrome with diarrhea.\n\npassage 2:The exact cause of irritable bowel syndrome is unknown. It is believed to be due to a number of factors, including alteration in the gastrointestinal (GI) tract motility, abnormal nervous system signals, increased sensitivity to pain, and food intolerances. The following are risk factors thought to cause IBS: 1  Abnormal movements of the colon and small intestines (too fast or slow, or too strong) 2  Hypersensitivity to pain from a full bowel or gas. 3  Food sensitivities, possibly caused by poor absorption of sugars or acids in food.\n\npassage 3:People with IBS have symptoms that can include: 1  Diarrhea (often described as violent episodes of diarrhea) 2  Constipation. 3  Constipation alternating with diarrhea.  Belly pains or cramps, usually in the lower half of the belly, that get worse after meals and feel better after a bowel 1  movement. A lot of gas or bloating.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nsymptoms and causes of ibs\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:The cause of irritable bowel syndrome is currently unknown. It is thought to result from a combination of abnormal gastrointestinal (GI) tract movements, increased awareness of bodily functions, and a disruption in the communication between the brain and the GI tract. IBS-D is irritable bowel syndrome with diarrhea.\n\npassage 2:The exact cause of irritable bowel syndrome is unknown. It is believed to be due to a number of factors, including alteration in the gastrointestinal (GI) tract motility, abnormal nervous system signals, increased sensitivity to pain, and food intolerances. The following are risk factors thought to cause IBS: 1  Abnormal movements of the colon and small intestines (too fast or slow, or too strong) 2  Hypersensitivity to pain from a full bowel or gas. 3  Food sensitivities, possibly caused by poor absorption of sugars or acids in food.\n\npassage 3:People with IBS have symptoms that can include: 1  Diarrhea (often described as violent episodes of diarrhea) 2  Constipation. 3  Constipation alternating with diarrhea.  Belly pains or cramps, usually in the lower half of the belly, that get worse after meals and feel better after a bowel 1  movement. A lot of gas or bloating.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "12434",
+        "source_id": "14390",
+        "model": "mistral-7B-instruct",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Symptoms of irritable bowel syndrome include diarrhea (often described as violent episodes of diarrhea), constipation, constipation alternating with diarrhea, belly pains or cramps, usually in the lower half of the belly, that get worse after meals and feel better after a bowel movement, and a lot of gas or bloating. Causes of irritable bowel syndrome are unknown but it is believed to be due to a number of factors including alteration in gastrointestinal (GI) tract motility, abnormal nervous system signals, increased sensitivity to pain, and food intolerances."
+      },
+      "caseHash": "ac698d5555cdb3fc177c111e9d7e895d0272b0322b9cf554a29fbc9ce504660c"
+    },
+    {
+      "caseId": "RGT-14846",
+      "sourceRecord": {
+        "source_id": "15395",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "how to make panko crumbs",
+          "passages": "passage 1:1 Preheat an oven to 300 degrees F (150 degrees C). 2  Push torn pieces of bread through the shredding disk of a food processor to make coarse crumbs. 3  Spread the crumbs on a baking sheet. 4  Bake in preheated oven until crumbs are dry but not toasted, 6 to 8 minutes. Bake in preheated oven until crumbs are dry but not toasted, 6 to 8 minutes. 2  Shake the sheet twice during baking in order to evenly dry crumbs. 3  Remove from the oven and cool completely.\n\npassage 2:Directions. 1  Push chunks of white bread through the shredding disk of a food processor to make coarse crumbs. 2  Spread the crumbs on a baking sheet and bake at 300 F degrees until the crumbs are dry but not toasted, about 6 to 8 minutes. 3  Shake the sheet twice during baking. Spread the crumbs on a baking sheet and bake at 300 F degrees until the crumbs are dry but not toasted, about 6 to 8 minutes. 2  Shake the sheet twice during baking. 3  Be careful not to let the crumbs brown!\n\npassage 3:Preheat the oven to 300 degrees F. Place all of the ingredients into a blender carafe, cover and pulse until coarse crumbs form, about 2 minutes. Spread the crumbs evenly on 2 half sheet pans and bake until the crumbs just begin to brown and are crisp, about 5 minutes.Cool the crumbs on the pans for 15 to 20 minutes, and then transfer to an airtight container and store at room temperature for up to 2 weeks. Recipe courtesy of Alton Brown, 2011.pread the crumbs evenly on 2 half sheet pans and bake until the crumbs just begin to brown and are crisp, about 5 minutes. Cool the crumbs on the pans for 15 to 20 minutes, and then transfer to an airtight container and store at room temperature for up to 2 weeks. Recipe courtesy of Alton Brown, 2011.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nhow to make panko crumbs\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:1 Preheat an oven to 300 degrees F (150 degrees C). 2  Push torn pieces of bread through the shredding disk of a food processor to make coarse crumbs. 3  Spread the crumbs on a baking sheet. 4  Bake in preheated oven until crumbs are dry but not toasted, 6 to 8 minutes. Bake in preheated oven until crumbs are dry but not toasted, 6 to 8 minutes. 2  Shake the sheet twice during baking in order to evenly dry crumbs. 3  Remove from the oven and cool completely.\n\npassage 2:Directions. 1  Push chunks of white bread through the shredding disk of a food processor to make coarse crumbs. 2  Spread the crumbs on a baking sheet and bake at 300 F degrees until the crumbs are dry but not toasted, about 6 to 8 minutes. 3  Shake the sheet twice during baking. Spread the crumbs on a baking sheet and bake at 300 F degrees until the crumbs are dry but not toasted, about 6 to 8 minutes. 2  Shake the sheet twice during baking. 3  Be careful not to let the crumbs brown!\n\npassage 3:Preheat the oven to 300 degrees F. Place all of the ingredients into a blender carafe, cover and pulse until coarse crumbs form, about 2 minutes. Spread the crumbs evenly on 2 half sheet pans and bake until the crumbs just begin to brown and are crisp, about 5 minutes.Cool the crumbs on the pans for 15 to 20 minutes, and then transfer to an airtight container and store at room temperature for up to 2 weeks. Recipe courtesy of Alton Brown, 2011.pread the crumbs evenly on 2 half sheet pans and bake until the crumbs just begin to brown and are crisp, about 5 minutes. Cool the crumbs on the pans for 15 to 20 minutes, and then transfer to an airtight container and store at room temperature for up to 2 weeks. Recipe courtesy of Alton Brown, 2011.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "14846",
+        "source_id": "15395",
+        "model": "mistral-7B-instruct",
+        "temperature": 0.85,
+        "labels": [
+          {
+            "start": 638,
+            "end": 858,
+            "text": "Note: Depending on the recipe, you may want to adjust the cooking time or ingredient proportions accordingly. Additionally, you can use any type of bread or mix in other ingredients like cheese or herbs for extra flavor.",
+            "meta": "HIGH INTRO OF NEW INFO\nNo mention of this additional detail. ",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "To make panko crumbs, you can follow these steps:\n\n1. Preheat an oven to 300 degrees F (150 degrees C).\n2. Torn pieces of bread or chunks of white bread can be pushed through the shredding disk of a food processor to make coarse crumbs.\n3. Spread the crumbs on a baking sheet.\n4. Bake in preheated oven until crumbs are dry but not toasted, 6 to 8 minutes. Be careful not to let the crumbs brown too much.\n5. Shake the sheet twice during baking to evenly dry crumbs.\n6. Remove from the oven and let the crumbs cool completely.\n7. Once cooled, transfer the crumbs to an airtight container and store at room temperature for up to 2 weeks.\n\nNote: Depending on the recipe, you may want to adjust the cooking time or ingredient proportions accordingly. Additionally, you can use any type of bread or mix in other ingredients like cheese or herbs for extra flavor."
+      },
+      "caseHash": "665c3b40704b89b7a7db6f41d50163cc182f211b2bf87294ab197628037baa3f"
+    },
+    {
+      "caseId": "RGT-13068",
+      "sourceRecord": {
+        "source_id": "15097",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "what is psa levels mean",
+          "passages": "passage 1:Prostate-specific antigen, or PSA, is a protein produced by cells of the prostate gland. The PSA test measures the level of PSA in a man’s blood.For this test, a blood sample is sent to a laboratory for analysis. The results are usually reported as nanograms of PSA per milliliter (ng/mL) of blood.The blood level of PSA is often elevated in men with prostate cancer, and the PSA test was originally approved by the FDA in 1986 to monitor the progression of prostate cancer in men who had already been diagnosed with the disease.he PSA test measures the level of PSA in a man’s blood. For this test, a blood sample is sent to a laboratory for analysis. The results are usually reported as nanograms of PSA per milliliter (ng/mL) of blood.\n\npassage 2:A. A. A. Prostate-specific antigen (PSA) is a substance produced by the prostate gland. Elevated PSA levels may indicate prostate cancer, a noncancerous condition such as prostatitis, or an enlarged prostate.. A. A. Prostate-specific antigen (PSA) is a substance produced by the prostate gland. Elevated PSA levels may indicate prostate cancer, a noncancerous condition such as prostatitis, or an enlarged prostate.\n\npassage 3:1 Total PSA levels between 4.0 ng/ml and 10.0 ng/ml may indicate prostate cancer (about a 25% chance, according to the ACS), benign prostate hyperplasia (BPH) , or inflammation of the prostate. 2  These conditions are more common in the elderly, as is a general increase in PSA levels.f the DRE is normal but the PSA is moderately elevated, a free PSA test may be used to look at the ratio of free to total PSA. This can help to distinguish between prostate cancer and other non-cancer causes of elevated PSA.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nwhat is psa levels mean\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:Prostate-specific antigen, or PSA, is a protein produced by cells of the prostate gland. The PSA test measures the level of PSA in a man’s blood.For this test, a blood sample is sent to a laboratory for analysis. The results are usually reported as nanograms of PSA per milliliter (ng/mL) of blood.The blood level of PSA is often elevated in men with prostate cancer, and the PSA test was originally approved by the FDA in 1986 to monitor the progression of prostate cancer in men who had already been diagnosed with the disease.he PSA test measures the level of PSA in a man’s blood. For this test, a blood sample is sent to a laboratory for analysis. The results are usually reported as nanograms of PSA per milliliter (ng/mL) of blood.\n\npassage 2:A. A. A. Prostate-specific antigen (PSA) is a substance produced by the prostate gland. Elevated PSA levels may indicate prostate cancer, a noncancerous condition such as prostatitis, or an enlarged prostate.. A. A. Prostate-specific antigen (PSA) is a substance produced by the prostate gland. Elevated PSA levels may indicate prostate cancer, a noncancerous condition such as prostatitis, or an enlarged prostate.\n\npassage 3:1 Total PSA levels between 4.0 ng/ml and 10.0 ng/ml may indicate prostate cancer (about a 25% chance, according to the ACS), benign prostate hyperplasia (BPH) , or inflammation of the prostate. 2  These conditions are more common in the elderly, as is a general increase in PSA levels.f the DRE is normal but the PSA is moderately elevated, a free PSA test may be used to look at the ratio of free to total PSA. This can help to distinguish between prostate cancer and other non-cancer causes of elevated PSA.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "13068",
+        "source_id": "15097",
+        "model": "gpt-4-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "PSA, or Prostate-specific antigen, is a protein produced by cells of the prostate gland. The level of PSA in a man's blood is measured by the PSA test, which involves sending a blood sample to a laboratory for analysis. The results are usually reported as nanograms of PSA per milliliter (ng/mL) of blood. Elevated PSA levels may indicate conditions such as prostate cancer, a noncancerous condition like prostatitis, or an enlarged prostate. Total PSA levels between 4.0 ng/ml and 10.0 ng/ml may indicate prostate cancer, benign prostate hyperplasia, or inflammation of the prostate."
+      },
+      "caseHash": "e9494dc8f2ee19e05c7de2b8ccf1e3e2f109358e85de9daf4f1b2798f02a428e"
+    },
+    {
+      "caseId": "RGT-14352",
+      "sourceRecord": {
+        "source_id": "15313",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "how to boil potatoes for easy peeling",
+          "passages": "passage 1:Boil until tender, then transfer to an ice water bath. When cool, peel off skin. (15 minutes to cook, 5 seconds to peel each cooked potato) And now, an epic demonstration of How to Peel 2 Pounds of Potatoes in Under A Minute using a drill, (clean) toilet brush, bucket, and water hose. GAME. CHANGER.\n\npassage 2:This versatile medium-starch spud has a delicious, buttery flavor. It cooks up tender and holds its shape, but it also has just enough starch to contribute creaminess without making a potato salad mushy. Its skin can be tough and papery, so we recommend peeling them first.\n\npassage 3:Especially if you are peeling a crap load of potatoes. Here is the easiest way (or at least the easiest way I’ve discovered) to peel a cooked potato. Step 1.) Bring a pot of water to a boil. Step 2.) With a knife, score your potatoes all the way around the center. Step 3.) Place your potatoes in the pot and boil for about 15 minutes or so. Step 4.) Prepare a bowl of ice water and place your potatoes in the water. Step 5.) Swish it around for a few seconds just enough so that it’s cool enough to handle. Step 6.) Remove your potatoe from the water and remove the skin.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nhow to boil potatoes for easy peeling\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:Boil until tender, then transfer to an ice water bath. When cool, peel off skin. (15 minutes to cook, 5 seconds to peel each cooked potato) And now, an epic demonstration of How to Peel 2 Pounds of Potatoes in Under A Minute using a drill, (clean) toilet brush, bucket, and water hose. GAME. CHANGER.\n\npassage 2:This versatile medium-starch spud has a delicious, buttery flavor. It cooks up tender and holds its shape, but it also has just enough starch to contribute creaminess without making a potato salad mushy. Its skin can be tough and papery, so we recommend peeling them first.\n\npassage 3:Especially if you are peeling a crap load of potatoes. Here is the easiest way (or at least the easiest way I’ve discovered) to peel a cooked potato. Step 1.) Bring a pot of water to a boil. Step 2.) With a knife, score your potatoes all the way around the center. Step 3.) Place your potatoes in the pot and boil for about 15 minutes or so. Step 4.) Prepare a bowl of ice water and place your potatoes in the water. Step 5.) Swish it around for a few seconds just enough so that it’s cool enough to handle. Step 6.) Remove your potatoe from the water and remove the skin.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "14352",
+        "source_id": "15313",
+        "model": "gpt-4-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "To boil potatoes for easy peeling, bring a pot of water to a boil and score your potatoes all the way around the center. Place the potatoes in the pot and boil for about 15 minutes. When they are tender, transfer them to a bowl of ice water and swish them around for a few seconds until they are cool enough to handle. You can then easily remove the skin."
+      },
+      "caseHash": "d944c4669af177a0d5e97aa1c32e9619e9a3f8bb13086ec376b95294adfcd444"
+    },
+    {
+      "caseId": "RGT-16883",
+      "sourceRecord": {
+        "source_id": "12305",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "how to plant a potato that has sprouted",
+          "passages": "passage 1:1. Cut large, sprouted potatoes into chunks with two or three eyes each, using a sharp knife, being careful to not break the long sprouts. Place the potato chunks on a tray or cookie sheet, and set them in a cool, dark location overnight so the cut ends can dry out. Small potatoes can be planted whole.ater the potatoes thoroughly. Continue watering regularly when the soil is dry to the touch. Add a 4-inch layer of mulch around the plants, pulling it back at least 4 inches from the sprouting potato vines. Mulch keeps the soil cool while maintaining a consistent moisture level.\n\npassage 2:Overview. Sometimes, even with the best intentions, seed potatoes begin to sprout because you haven't been able to get them in the ground.This can be due to weather conditions or simply because you haven't readied the garden space in time.Seed potatoes go through three stages: young seed, middle aged and old.verview. Sometimes, even with the best intentions, seed potatoes begin to sprout because you haven't been able to get them in the ground.\n\npassage 3:Instructions. Turn the soil over in your planned planting area with a hoe or tiller to a depth of 12 inches and break the dirt up finely. Remove any large rocks and other debris while hoeing. Dig a trench about 4 inches wide and 6 to 8 inches deep.If you're going to plant more than one row, space them apart by about 24 to 36 inches.Cut your potatoes into cubes, about 1 to 2 inches on each side, leaving a sprout on each cube. Nonsprouted sections should have two or three eyes on each.Place the cubes into the bottom of the trench, separating each cube from the other by about 6 to 8 inches. Place the sprouted or eye side of the cubes facing up.Cover the potatoes with a layer of compost and then replace the dirt on top of the plantings.nstructions. Turn the soil over in your planned planting area with a hoe or tiller to a depth of 12 inches and break the dirt up finely. Remove any large rocks and other debris while hoeing. Dig a trench about 4 inches wide and 6 to 8 inches deep.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nhow to plant a potato that has sprouted\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:1. Cut large, sprouted potatoes into chunks with two or three eyes each, using a sharp knife, being careful to not break the long sprouts. Place the potato chunks on a tray or cookie sheet, and set them in a cool, dark location overnight so the cut ends can dry out. Small potatoes can be planted whole.ater the potatoes thoroughly. Continue watering regularly when the soil is dry to the touch. Add a 4-inch layer of mulch around the plants, pulling it back at least 4 inches from the sprouting potato vines. Mulch keeps the soil cool while maintaining a consistent moisture level.\n\npassage 2:Overview. Sometimes, even with the best intentions, seed potatoes begin to sprout because you haven't been able to get them in the ground.This can be due to weather conditions or simply because you haven't readied the garden space in time.Seed potatoes go through three stages: young seed, middle aged and old.verview. Sometimes, even with the best intentions, seed potatoes begin to sprout because you haven't been able to get them in the ground.\n\npassage 3:Instructions. Turn the soil over in your planned planting area with a hoe or tiller to a depth of 12 inches and break the dirt up finely. Remove any large rocks and other debris while hoeing. Dig a trench about 4 inches wide and 6 to 8 inches deep.If you're going to plant more than one row, space them apart by about 24 to 36 inches.Cut your potatoes into cubes, about 1 to 2 inches on each side, leaving a sprout on each cube. Nonsprouted sections should have two or three eyes on each.Place the cubes into the bottom of the trench, separating each cube from the other by about 6 to 8 inches. Place the sprouted or eye side of the cubes facing up.Cover the potatoes with a layer of compost and then replace the dirt on top of the plantings.nstructions. Turn the soil over in your planned planting area with a hoe or tiller to a depth of 12 inches and break the dirt up finely. Remove any large rocks and other debris while hoeing. Dig a trench about 4 inches wide and 6 to 8 inches deep.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "16883",
+        "source_id": "12305",
+        "model": "llama-2-70b-chat",
+        "temperature": 1.0,
+        "labels": [
+          {
+            "start": 163,
+            "end": 200,
+            "text": "and is about 1-2 inches on each side.",
+            "meta": "HIGH INTRO OF NEW INFO\nNo mention of this information for this step. ",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "Based on the given passages, here's how to plant a potato that has sprouted:\n\n1. Cut the sprouted potato into chunks, making sure each chunk has two or three eyes and is about 1-2 inches on each side.\n2. Allow the cut potato chunks to dry overnight in a cool, dark location.\n3. Prepare a trench in well-draining soil, about 4-6 inches deep and 24-36 inches apart for multiple rows.\n4. Place the potato chunks in the trench, eye-side up, and cover with a layer of compost.\n5. Replace the soil on top of the plantings and water thoroughly.\n6. Keep the soil consistently moist and add a 4-inch layer of mulch around the base of the plants, pulling it back at least 4 inches from the sprouting potato vines.\n\nSo, to summarize, you should cut the sprouted potato into chunks, allow them to dry overnight, prepare a trench, plant the chunks eye-side up, cover with compost, replace the soil, and keep the soil consistently moist."
+      },
+      "caseHash": "bde1932782fb81cffa91086dc24099b565d1a6124272a6c09b6d6ce71381091e"
+    },
+    {
+      "caseId": "RGT-12185",
+      "sourceRecord": {
+        "source_id": "14347",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "how to get plastic out of clothes dryer",
+          "passages": "passage 1:Instructions. Run the dryer on a regular setting for 20 minutes to soften the plastic. Scrape the plastic off with a wooden or plastic spatula or paint scraper, taking care not to damage the dryer's interior. Apply 1 to 2 tsp. nail polish remover to a clean cloth, and rub the plastic to dissolve it.Rub the area with a damp cloth to rinse the nail polish remover. Mix 1 tsp. liquid laundry soap with 1 cup water. Dip a clean cloth in this solution, and rub the area again.Rinse well with a cloth dipped in clean water.ave. Jupiterimages/BananaStock/Getty Images. A plastic coated bib or zip top bag gone astray probably won't melt in a dryer unless you're using the high heat setting, but if it does, it won't cause serious damage. Today's dryers are painted with a synthetic enamel coating that holds up well to heat and wear.\n\npassage 2:1 Answer from this member: This plastic will be extremely difficult to remove. You can try heating the plastic with a hair dryer or heat gun. Once it is heated, you may be able to peel off the plastic. You may not be able to get all of the plastic off. If not, you need to replace the drum or the entire dryer.If you want to replace the drum, I recommend calling a service technician to complete this type of repair.nce it is heated, you may be able to peel off the plastic. You may not be able to get all of the plastic off. If not, you need to replace the drum or the entire dryer. If you want to replace the drum, I recommend calling a service technician to complete this type of repair.\n\npassage 3: Remove the ice and using a plastic scraper, scrape the hardened  plastic off the coils. Soak a cloth in an acetone-based nail polish  remover and leave it on the element for 5 minutes. Use this cloth  to scrub the remaining plastic off of the element then wipe the  coils with a clean, damp cloth.Remove any remaining nail polish  remover residue with a cloth that has been dipped in a solution of  warm water and dish soap, then rinse the coils with water.se this cloth  to scrub the remaining plastic off of the element then wipe the  coils with a clean, damp cloth. Remove any remaining nail polish  remover residue with a cloth that has been dipped in a solution of  warm water and dish soap, then rinse the coils with water.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nhow to get plastic out of clothes dryer\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:Instructions. Run the dryer on a regular setting for 20 minutes to soften the plastic. Scrape the plastic off with a wooden or plastic spatula or paint scraper, taking care not to damage the dryer's interior. Apply 1 to 2 tsp. nail polish remover to a clean cloth, and rub the plastic to dissolve it.Rub the area with a damp cloth to rinse the nail polish remover. Mix 1 tsp. liquid laundry soap with 1 cup water. Dip a clean cloth in this solution, and rub the area again.Rinse well with a cloth dipped in clean water.ave. Jupiterimages/BananaStock/Getty Images. A plastic coated bib or zip top bag gone astray probably won't melt in a dryer unless you're using the high heat setting, but if it does, it won't cause serious damage. Today's dryers are painted with a synthetic enamel coating that holds up well to heat and wear.\n\npassage 2:1 Answer from this member: This plastic will be extremely difficult to remove. You can try heating the plastic with a hair dryer or heat gun. Once it is heated, you may be able to peel off the plastic. You may not be able to get all of the plastic off. If not, you need to replace the drum or the entire dryer.If you want to replace the drum, I recommend calling a service technician to complete this type of repair.nce it is heated, you may be able to peel off the plastic. You may not be able to get all of the plastic off. If not, you need to replace the drum or the entire dryer. If you want to replace the drum, I recommend calling a service technician to complete this type of repair.\n\npassage 3: Remove the ice and using a plastic scraper, scrape the hardened  plastic off the coils. Soak a cloth in an acetone-based nail polish  remover and leave it on the element for 5 minutes. Use this cloth  to scrub the remaining plastic off of the element then wipe the  coils with a clean, damp cloth.Remove any remaining nail polish  remover residue with a cloth that has been dipped in a solution of  warm water and dish soap, then rinse the coils with water.se this cloth  to scrub the remaining plastic off of the element then wipe the  coils with a clean, damp cloth. Remove any remaining nail polish  remover residue with a cloth that has been dipped in a solution of  warm water and dish soap, then rinse the coils with water.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "12185",
+        "source_id": "14347",
+        "model": "llama-2-70b-chat",
+        "temperature": 1.0,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Based on the given passages, here's a step-by-step guide on how to remove plastic from a clothes dryer:\n\n1. Run the dryer on a regular setting for 20 minutes to soften the plastic.\n2. Scrape the plastic off with a wooden or plastic spatula or paint scraper, taking care not to damage the dryer's interior.\n3. Apply 1 to 2 tsp. nail polish remover to a clean cloth, and rub the plastic to dissolve it.\n4. Rub the area with a damp cloth to rinse the nail polish remover.\n5. Mix 1 tsp. liquid laundry soap with 1 cup water. Dip a clean cloth in this solution, and rub the area again.\n6. Rinse well with a cloth dipped in clean water.\n\nIf the plastic does not come off with this method, another option is to use a hair dryer or heat gun to heat the plastic until it becomes soft and pliable. Then, attempt to peel it off carefully. However, be aware that this method may not work, and in that case, replacing the drum or the entire dryer may be necessary. It is recommended to call a service technician for this type of repair.\n\nTherefore, the answer to the question of how to get plastic out of clothes dryer is:\n\n1. Run the dryer on a regular setting for 20 minutes to soften the plastic.\n2. Scrape the plastic off with a wooden or plastic spatula or paint scraper.\n3. Apply nail polish remover to dissolve the plastic.\n4. Rinse with a damp cloth and soap solution.\n5. Use a hair dryer or heat gun to heat the plastic if necessary.\n\nIf the plastic still does not come off, consider replacing the drum or the entire dryer."
+      },
+      "caseHash": "5b0be238aaade7a1476761a888c257ac4ea9c8cce9381ecffaa6d631735809c5"
+    },
+    {
+      "caseId": "RGT-17514",
+      "sourceRecord": {
+        "source_id": "12414",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "how to poach an egg using a poachpod",
+          "passages": "passage 1:The PoachPod® is a flexible silicone cooking tool for poaching eggs, baking and molding. The PoachPod® allows you to float and poach an egg in boiling water like a lily pad on a pond.When the egg is ready, flip the nonstick pod inside out and gently push the perfectly domed shaped egg out. Place the pod in the dishwasher for easy clean up.he PoachPod® is a flexible silicone cooking tool for poaching eggs, baking and molding. The PoachPod® allows you to float and poach an egg in boiling water like a lily pad on a pond.\n\npassage 2:Instructions. Bring a large pot of water to a boil. Crack an egg and gently slide the egg into your silicone poaching pod, being careful not to break the egg's yolk.Carefully float the poaching pod in the boiling water, making sure the pod stays upright and no water gets into the pod.Cover the pot with the lid and let the egg cook for six minutes. Remove the lid and use a large slotted spoon or tongs to lift the poaching pod out of the hot water.Flip the poaching pod upside down over a plate and gently press on the bottom to release your poached egg onto the plate.nstructions. Bring a large pot of water to a boil. Crack an egg and gently slide the egg into your silicone poaching pod, being careful not to break the egg's yolk.\n\npassage 3:What is it: a silicone cup that can be used for poaching, baking or moulding. Instructions say to lightly oil the pod before cracking an egg into it and floating it in a saucepan of simmering water. You are then instructed to cover the pan with a tight-fitting lid and cook for about 4-6 minutes.hat is it: a silicone cup that can be used for poaching, baking or moulding. Instructions say to lightly oil the pod before cracking an egg into it and floating it in a saucepan of simmering water. You are then instructed to cover the pan with a tight-fitting lid and cook for about 4-6 minutes.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nhow to poach an egg using a poachpod\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:The PoachPod® is a flexible silicone cooking tool for poaching eggs, baking and molding. The PoachPod® allows you to float and poach an egg in boiling water like a lily pad on a pond.When the egg is ready, flip the nonstick pod inside out and gently push the perfectly domed shaped egg out. Place the pod in the dishwasher for easy clean up.he PoachPod® is a flexible silicone cooking tool for poaching eggs, baking and molding. The PoachPod® allows you to float and poach an egg in boiling water like a lily pad on a pond.\n\npassage 2:Instructions. Bring a large pot of water to a boil. Crack an egg and gently slide the egg into your silicone poaching pod, being careful not to break the egg's yolk.Carefully float the poaching pod in the boiling water, making sure the pod stays upright and no water gets into the pod.Cover the pot with the lid and let the egg cook for six minutes. Remove the lid and use a large slotted spoon or tongs to lift the poaching pod out of the hot water.Flip the poaching pod upside down over a plate and gently press on the bottom to release your poached egg onto the plate.nstructions. Bring a large pot of water to a boil. Crack an egg and gently slide the egg into your silicone poaching pod, being careful not to break the egg's yolk.\n\npassage 3:What is it: a silicone cup that can be used for poaching, baking or moulding. Instructions say to lightly oil the pod before cracking an egg into it and floating it in a saucepan of simmering water. You are then instructed to cover the pan with a tight-fitting lid and cook for about 4-6 minutes.hat is it: a silicone cup that can be used for poaching, baking or moulding. Instructions say to lightly oil the pod before cracking an egg into it and floating it in a saucepan of simmering water. You are then instructed to cover the pan with a tight-fitting lid and cook for about 4-6 minutes.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "17514",
+        "source_id": "12414",
+        "model": "gpt-4-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "To poach an egg using a PoachPod, first, bring a large pot of water to a boil. Lightly oil the silicone PoachPod, then crack an egg and gently slide it into the PoachPod, taking care not to break the yolk. Float the PoachPod in the boiling water, ensuring it remains upright and no water gets inside. Cover the pot with a lid and let the egg cook for about six minutes. After cooking, use a large slotted spoon or tongs to lift the PoachPod out of the hot water. Finally, flip the PoachPod upside down over a plate and gently press on the bottom to release the poached egg onto the plate. The PoachPod can be cleaned in a dishwasher."
+      },
+      "caseHash": "413df8ea2645afbe8d52b02add69243012e5aece7672a29c2da88d0e5cc55e47"
+    },
+    {
+      "caseId": "RGT-13377",
+      "sourceRecord": {
+        "source_id": "15149",
+        "task_type": "QA",
+        "source": "MARCO",
+        "source_info": {
+          "question": "how to peel potatoes fast",
+          "passages": "passage 1:Place washed whole, unpeeled potatoes into a pot and cover with cold water. The “shocking” process of going from the hot boiling water to the cold ice water helps release the skin from the flesh and makes the potato quite easy to peel.\n\npassage 2:True the skin comes off fairly easy but it takes so freakin long! Especially if you are peeling a crap load of potatoes. Here is the easiest way (or at least the easiest way I’ve discovered) to peel a cooked potato. Step 1.) Bring a pot of water to a boil. Step 2.) With a knife, score your potatoes all the way around the center. Step 3.) Place your potatoes in the pot and boil for about 15 minutes or so. Step 4.) Prepare a bowl of ice water and place your potatoes in the water. Step 5.) Swish it around for a few seconds just enough so that it’s cool enough to handle. Step 6.) Remove your potatoe from the water and remove the skin.\n\npassage 3:You will need. Step 1 Cut the potato skin Make a cut all around the potato, lengthwise. Try to slice only the skin, not the actual potato. Step 2 Boil it Put the potato in a pot of boiling water. Step 3 Cool it off Plunge the potato in ice water for 10 seconds. The surface of the potato will shrink, while the center remains hot. Step 4 Remove the skin Rub the potato with both hands and watch the skin fall right off.\n\n"
+        },
+        "prompt": "Briefly answer the following question:\nhow to peel potatoes fast\nBear in mind that your response should be strictly based on the following three passages:\npassage 1:Place washed whole, unpeeled potatoes into a pot and cover with cold water. The “shocking” process of going from the hot boiling water to the cold ice water helps release the skin from the flesh and makes the potato quite easy to peel.\n\npassage 2:True the skin comes off fairly easy but it takes so freakin long! Especially if you are peeling a crap load of potatoes. Here is the easiest way (or at least the easiest way I’ve discovered) to peel a cooked potato. Step 1.) Bring a pot of water to a boil. Step 2.) With a knife, score your potatoes all the way around the center. Step 3.) Place your potatoes in the pot and boil for about 15 minutes or so. Step 4.) Prepare a bowl of ice water and place your potatoes in the water. Step 5.) Swish it around for a few seconds just enough so that it’s cool enough to handle. Step 6.) Remove your potatoe from the water and remove the skin.\n\npassage 3:You will need. Step 1 Cut the potato skin Make a cut all around the potato, lengthwise. Try to slice only the skin, not the actual potato. Step 2 Boil it Put the potato in a pot of boiling water. Step 3 Cool it off Plunge the potato in ice water for 10 seconds. The surface of the potato will shrink, while the center remains hot. Step 4 Remove the skin Rub the potato with both hands and watch the skin fall right off.\n\nIn case the passages do not contain the necessary information to answer the question, please reply with: \"Unable to answer based on given passages.\"\noutput:"
+      },
+      "responseRecord": {
+        "id": "13377",
+        "source_id": "15149",
+        "model": "llama-2-7b-chat",
+        "temperature": 0.775,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Based on the provided passages, here's how to peel potatoes quickly:\n\n1. Use the shock method described in passage 1 by placing washed, unpeeled potatoes in a pot of cold water after boiling them. This will help loosen the skin and make it easier to peel.\n2. Score the potato all the way around the center before boiling it as described in passage 2. This will help the skin come off more easily when you put the potato in ice water.\n3. Cut the potato skin lengthwise before boiling it as described in passage 3. This will also make the skin come off more easily when cooled and rubbed.\n\nIn summary, the best way to peel potatoes quickly is to use the shock method, score the potato before boiling, or cut the potato skin lengthwise before boiling."
+      },
+      "caseHash": "53666b937b8dc865b405b6593f32f21e1f886f5510dfd63b94856d5958cbe405"
+    },
+    {
+      "caseId": "RGT-4297",
+      "sourceRecord": {
+        "source_id": "13887",
+        "task_type": "Summary",
+        "source": "Recent News",
+        "source_info": "US Air Force Deploys Additional F-16s to Middle East for Hostility Deterrence\nIn response to the escalating tensions in the Middle East, the Air Force has announced the arrival of a new squadron of F-16 Fighting Falcons. This additional squadron has been deployed to the region to enhance the military's capabilities and readiness. The announcement was made on October 24, highlighting the significance of this development in the current geopolitical climate. The arrival of these advanced fighter jets underscores the military's commitment to maintaining stability and security in the region.\nIn a recent statement, Air Forces Central announced that the 119th Expeditionary Fighter Squadron of the New Jersey Air National Guard is set to play a crucial role in the Middle East. With the aim of offering adaptable solutions to coalition leaders overseeing air operations in the region, the squadron will be responsible for contingency response capabilities and deterrence missions. This development highlights the significance of the squadron's contribution in maintaining stability and security in the Middle East.\nIn a recent announcement, the spotlight was on the Atlantic City-based fighters, famously referred to as the \"Jersey Devils,\" as they make their way to the scene amidst a surge in drone attacks that have been successfully foiled by American troops in the vicinity. In a significant development, the United States has decided to deploy additional personnel to the region amidst the ongoing conflict between Israel and the militant group Hamas. This move aims to bolster the American presence in the area and potentially contribute to efforts aimed at resolving the escalating tensions.\nIn a recent statement, Lt. Gen. Alexus G. Grynkewich, the commander of the Air Forces Central Command (AFCENT), expressed his enthusiasm regarding the arrival of a group of Airmen. According to Grynkewich, the presence of these Airmen will significantly bolster their capacity to provide assistance to allied, coalition, and regional partners. The ultimate goal is to collaborate and strengthen regional stability and security, as stated by Grynkewich in the official statement.\nIn a recent announcement, it has been revealed that AFCENT, the Air Forces Central Command, is currently operating a formidable fleet of military aircraft. The fleet includes three squadrons of F-16 fighter jets, two squadrons of A-10 Thunderbolt II aircraft, and one squadron of F-15E Strike Eagle planes. Additionally, AFCENT is also managing several strategic airlift, aerial refueling, and Intelligence, Surveillance, and Reconnaissance platforms, as stated in the official release. This impressive lineup of aircraft highlights AFCENT's commitment to maintaining a strong and capable air force presence.\nEdited by Newsbreak Contributor Denys Shybinskiy",
+        "prompt": "Summarize the following news within 104 words:\nUS Air Force Deploys Additional F-16s to Middle East for Hostility Deterrence\nIn response to the escalating tensions in the Middle East, the Air Force has announced the arrival of a new squadron of F-16 Fighting Falcons. This additional squadron has been deployed to the region to enhance the military's capabilities and readiness. The announcement was made on October 24, highlighting the significance of this development in the current geopolitical climate. The arrival of these advanced fighter jets underscores the military's commitment to maintaining stability and security in the region.\nIn a recent statement, Air Forces Central announced that the 119th Expeditionary Fighter Squadron of the New Jersey Air National Guard is set to play a crucial role in the Middle East. With the aim of offering adaptable solutions to coalition leaders overseeing air operations in the region, the squadron will be responsible for contingency response capabilities and deterrence missions. This development highlights the significance of the squadron's contribution in maintaining stability and security in the Middle East.\nIn a recent announcement, the spotlight was on the Atlantic City-based fighters, famously referred to as the \"Jersey Devils,\" as they make their way to the scene amidst a surge in drone attacks that have been successfully foiled by American troops in the vicinity. In a significant development, the United States has decided to deploy additional personnel to the region amidst the ongoing conflict between Israel and the militant group Hamas. This move aims to bolster the American presence in the area and potentially contribute to efforts aimed at resolving the escalating tensions.\nIn a recent statement, Lt. Gen. Alexus G. Grynkewich, the commander of the Air Forces Central Command (AFCENT), expressed his enthusiasm regarding the arrival of a group of Airmen. According to Grynkewich, the presence of these Airmen will significantly bolster their capacity to provide assistance to allied, coalition, and regional partners. The ultimate goal is to collaborate and strengthen regional stability and security, as stated by Grynkewich in the official statement.\nIn a recent announcement, it has been revealed that AFCENT, the Air Forces Central Command, is currently operating a formidable fleet of military aircraft. The fleet includes three squadrons of F-16 fighter jets, two squadrons of A-10 Thunderbolt II aircraft, and one squadron of F-15E Strike Eagle planes. Additionally, AFCENT is also managing several strategic airlift, aerial refueling, and Intelligence, Surveillance, and Reconnaissance platforms, as stated in the official release. This impressive lineup of aircraft highlights AFCENT's commitment to maintaining a strong and capable air force presence.\nEdited by Newsbreak Contributor Denys Shybinskiy\noutput:"
+      },
+      "responseRecord": {
+        "id": "4297",
+        "source_id": "13887",
+        "model": "gpt-3.5-turbo-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "The US Air Force has deployed an additional squadron of F-16 Fighting Falcons to the Middle East to enhance military capabilities and readiness in response to escalating tensions in the region. The 119th Expeditionary Fighter Squadron of the New Jersey Air National Guard will play a crucial role in offering adaptable solutions to coalition leaders overseeing air operations. This move aims to maintain stability and security in the Middle East. The Air Forces Central Command (AFCENT) is currently operating a fleet of military aircraft, including F-16s, A-10 Thunderbolt II aircraft, and F-15E Strike Eagle planes, highlighting their commitment to maintaining a strong air force presence."
+      },
+      "caseHash": "b7089bfbfaf48f2cde7eaa13f1be4d6252ab125d7296ba823c0d7efa9b7b7a54"
+    },
+    {
+      "caseId": "RGT-248",
+      "sourceRecord": {
+        "source_id": "15634",
+        "task_type": "Summary",
+        "source": "CNN/DM",
+        "source_info": "Emy Afalava is a loyal American and decorated veteran.  He was born in American Samoa, a U.S. territory since 1900. He has been subject to American law his whole life and thinks he should be a citizen. The Constitution would agree.  The Fourteenth Amendment declares that \"All persons born ... in the United States, and subject to the jurisdiction thereof, are citizens of the United States.\" Yet, Afalava has been denied the right to vote because the federal government insists that he is no citizen.  How can it be, in the 21st century, that Americans born on U.S. soil are denied the rights of citizenship? That injustice clouds the recent celebration of the 115th anniversary of the decision of American Samoa to join the United States.  It is a wrong that Afalava and other American Samoans are now seeking to right in a federal lawsuit before the D.C. Circuit. A decision could come any day. Since the United States was established, it adhered to the rule that those born on U.S. lands were U.S. citizens.  The rule is colorblind, yet the only exception that the Supreme Court has ever declared was not. The infamous Dred Scott case legitimized slavery as it declared that free African-Americans had \"no rights that the white man was bound to respect.\"  Though they were Americans, they were not citizens under the Constitution. A Civil War later, the 14th Amendment reversed the ruling in the Dred Scott case. Today, the Dred Scott case has come to be regarded as one of the worst decisions in the history of the Supreme Court. But racial discrimination didn't end there. In 1904, a Puerto Rican woman named Isabel Gonzalez sailed for New York.  Because Puerto Rico was U.S. territory, she believed herself to be a U.S. citizen.  But officials at Ellis Island labeled her an undesirable alien and prevented her from entering the mainland.  She sued, with some reason to hope for a favorable ruling. Yet the Supreme Court that eventually heard Gonzalez's case was still racist.  In preceding years, for example, it had permitted a flat ban on naturalizing anyone of the Chinese race. And, in a case addressing the status of recently acquired island territories such as Puerto Rico, the justices had cited the alleged racial inferiority of tropical peoples as reason to treat these lands as second-class U.S. territories.  Justice Edward Douglas White's opinion stated that U.S. sovereignty extended over them, but that their residents did not hold the same constitutional rights as other Americans.  He did so, he privately revealed, because \"he was much preoccupied by the danger of racial and social questions.\" In the Gonzalez case, the justices agreed unanimously that Puerto Ricans were not aliens and thus not subject to immigration laws.  But they declined to decide whether or not Gonzalez was a citizen.  Though preoccupied by fears that islanders were \"savages\" and racially unfit for citizenship, they were unwilling to violate the Constitution. As a result of the court ruling, federal officials were able to deny Gonzalez and others the full panoply of rights conferred on citizens for years. As Isabel Gonzalez's lawyer told the Court, declaring that residents of America's island territories are not U.S. citizens would mean adding to \"precedents in our history of which we are least proud.\" Those precedents, he warned the Court, had been \"repudiated by the American people in the Civil War, by three amendments to the Constitution of the United States, by this court, and by ... advancing civilization.\" Surely, 147 years after the Dred Scott case was overturned, the time has come to put an end to this farce. In the past century, the inhabitants of every other U.S. island territory have become citizens. Today, Emy Afalava and his fellow American Samoans are the last Americans still waiting to become citizens.\n",
+        "prompt": "Summarize the following news within 162 words:\nEmy Afalava is a loyal American and decorated veteran.  He was born in American Samoa, a U.S. territory since 1900. He has been subject to American law his whole life and thinks he should be a citizen. The Constitution would agree.  The Fourteenth Amendment declares that \"All persons born ... in the United States, and subject to the jurisdiction thereof, are citizens of the United States.\" Yet, Afalava has been denied the right to vote because the federal government insists that he is no citizen.  How can it be, in the 21st century, that Americans born on U.S. soil are denied the rights of citizenship? That injustice clouds the recent celebration of the 115th anniversary of the decision of American Samoa to join the United States.  It is a wrong that Afalava and other American Samoans are now seeking to right in a federal lawsuit before the D.C. Circuit. A decision could come any day. Since the United States was established, it adhered to the rule that those born on U.S. lands were U.S. citizens.  The rule is colorblind, yet the only exception that the Supreme Court has ever declared was not. The infamous Dred Scott case legitimized slavery as it declared that free African-Americans had \"no rights that the white man was bound to respect.\"  Though they were Americans, they were not citizens under the Constitution. A Civil War later, the 14th Amendment reversed the ruling in the Dred Scott case. Today, the Dred Scott case has come to be regarded as one of the worst decisions in the history of the Supreme Court. But racial discrimination didn't end there. In 1904, a Puerto Rican woman named Isabel Gonzalez sailed for New York.  Because Puerto Rico was U.S. territory, she believed herself to be a U.S. citizen.  But officials at Ellis Island labeled her an undesirable alien and prevented her from entering the mainland.  She sued, with some reason to hope for a favorable ruling. Yet the Supreme Court that eventually heard Gonzalez's case was still racist.  In preceding years, for example, it had permitted a flat ban on naturalizing anyone of the Chinese race. And, in a case addressing the status of recently acquired island territories such as Puerto Rico, the justices had cited the alleged racial inferiority of tropical peoples as reason to treat these lands as second-class U.S. territories.  Justice Edward Douglas White's opinion stated that U.S. sovereignty extended over them, but that their residents did not hold the same constitutional rights as other Americans.  He did so, he privately revealed, because \"he was much preoccupied by the danger of racial and social questions.\" In the Gonzalez case, the justices agreed unanimously that Puerto Ricans were not aliens and thus not subject to immigration laws.  But they declined to decide whether or not Gonzalez was a citizen.  Though preoccupied by fears that islanders were \"savages\" and racially unfit for citizenship, they were unwilling to violate the Constitution. As a result of the court ruling, federal officials were able to deny Gonzalez and others the full panoply of rights conferred on citizens for years. As Isabel Gonzalez's lawyer told the Court, declaring that residents of America's island territories are not U.S. citizens would mean adding to \"precedents in our history of which we are least proud.\" Those precedents, he warned the Court, had been \"repudiated by the American people in the Civil War, by three amendments to the Constitution of the United States, by this court, and by ... advancing civilization.\" Surely, 147 years after the Dred Scott case was overturned, the time has come to put an end to this farce. In the past century, the inhabitants of every other U.S. island territory have become citizens. Today, Emy Afalava and his fellow American Samoans are the last Americans still waiting to become citizens.\n\noutput:"
+      },
+      "responseRecord": {
+        "id": "248",
+        "source_id": "15634",
+        "model": "mistral-7B-instruct",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Emy Afalava, a decorated American veteran who was born in American Samoa, has been denied citizenship despite being born on US soil. The Fourteenth Amendment states that all persons born in the US are citizens, but the federal government claims that American Samoans are not citizens due to a 1904 Supreme Court ruling in the Isabel Gonzalez case. This ruling allowed Puerto Ricans to enter the country without being considered aliens, but it did not grant them citizenship. The Supreme Court also refused to decide whether Gonzalez was a citizen. The current court case seeks to right this wrong and declare American Samoans citizens."
+      },
+      "caseHash": "44b3a8917fe2d4a19c09971e23157d85bfc41d22c433a151d340eef1e374c19e"
+    },
+    {
+      "caseId": "RGT-2252",
+      "sourceRecord": {
+        "source_id": "11840",
+        "task_type": "Summary",
+        "source": "CNN/DM",
+        "source_info": "Are you smarter than a really smart Singapore high school student? See if you can figure out Cheryl's birthday, the Singapore logic problem that's got the Internet twisted into knots. Some are even saying it's the math equivalent of the \"What color is the dress\" debate. The puzzling problem went viral after Singapore television host Kenneth Kong posted it to Facebook. Cheryl's birthday challenge was meant to test the better high-school students competing in the Singapore and Asian Schools Math Olympiad, held April 8. Here it is: Cheryl has a birthday, and she doesn't want to share it right away. (Otherwise, we have no challenge to solve.) So she gives her friends Albert and Bernard a list of 10 possible birthday dates: May 15, May 16, May 19, June 17, June 18, July 14, July 16, August 14, August 15 or August 17. A brief conversation between Albert and Bernard -- who we assume are not lying for the sake of this problem -- gives the reader enough clues to eliminate nine of the 10 dates and discover Cheryl's birthday. That's assuming you want to celebrate with Cheryl after she's put you through all that trouble. See our video below for the answer from Georgia Tech Mathematician Matt Baker.  The New York Times and the Washington Post have also posted solutions to the problem, along with explanations. Of course, the Internet has offered other solutions.\n",
+        "prompt": "Summarize the following news within 59 words:\nAre you smarter than a really smart Singapore high school student? See if you can figure out Cheryl's birthday, the Singapore logic problem that's got the Internet twisted into knots. Some are even saying it's the math equivalent of the \"What color is the dress\" debate. The puzzling problem went viral after Singapore television host Kenneth Kong posted it to Facebook. Cheryl's birthday challenge was meant to test the better high-school students competing in the Singapore and Asian Schools Math Olympiad, held April 8. Here it is: Cheryl has a birthday, and she doesn't want to share it right away. (Otherwise, we have no challenge to solve.) So she gives her friends Albert and Bernard a list of 10 possible birthday dates: May 15, May 16, May 19, June 17, June 18, July 14, July 16, August 14, August 15 or August 17. A brief conversation between Albert and Bernard -- who we assume are not lying for the sake of this problem -- gives the reader enough clues to eliminate nine of the 10 dates and discover Cheryl's birthday. That's assuming you want to celebrate with Cheryl after she's put you through all that trouble. See our video below for the answer from Georgia Tech Mathematician Matt Baker.  The New York Times and the Washington Post have also posted solutions to the problem, along with explanations. Of course, the Internet has offered other solutions.\n\noutput:"
+      },
+      "responseRecord": {
+        "id": "2252",
+        "source_id": "11840",
+        "model": "mistral-7B-instruct",
+        "temperature": 1.0,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Cheryl wants to keep her birthday a secret and gives her friends ten possible dates. After a conversation between Albert and Bernard, they eliminate nine options leaving only one date as her birthday. This problem has gone viral and has been solved by various sources including the New York Times and Washington Post."
+      },
+      "caseHash": "bcce663b6b31cd0f5a604cc57516744f7cec909855c6ebb00821c0c97f354f4e"
+    },
+    {
+      "caseId": "RGT-1476",
+      "sourceRecord": {
+        "source_id": "11317",
+        "task_type": "Summary",
+        "source": "CNN/DM",
+        "source_info": "As goes Walmart, so goes the nation? Everyone from Apple CEO Tim Cook to the head of the NCAA slammed religious freedom laws being considered in several states this week, warning that they would open the door to discrimination against gay and lesbian customers. But it was the opposition from Walmart, the ubiquitous retailer that dots the American landscape, that perhaps resonated most deeply, providing the latest evidence of growing support for gay rights in the heartland. Walmart's staunch criticism of a religious freedom law in its home state of Arkansas came after the company said in February it would boost pay for about 500,000 workers well above the federal minimum wage. Taken together, the company is emerging as a bellwether for shifting public opinion on hot-button political issues that divide conservatives and liberals. And some prominent Republicans are urging the party to take notice. Former Minnesota Gov. Tim Pawlenty, who famously called on the GOP to \"be the party of Sam's Club, not just the country club,\" told CNN that Walmart's actions \"foreshadow where the Republican Party will need to move.\" \"The Republican Party will have to better stand for\" ideas on helping the middle class, said Pawlenty, the head of the Financial Services Roundtable, a Washington lobbying group for the finance industry. The party's leaders must be \"willing to put forward ideas that will help modest income workers, such as a reasonable increase in the minimum wage, and prohibit discrimination in things such as jobs, housing, public accommodation against gays and lesbians.\" Walmart, which employs more than 50,000 people in Arkansas, emerged victorious on Wednesday. Hours after the company's CEO, Doug McMillon, called on Republican Gov. Asa Hutchinson to veto the bill, the governor held a news conference and announced he would not sign the legislation unless its language was fixed. Walmart's opposition to the religious freedom law once again puts the company at odds with many in the Republican Party, which the company's political action committee has tended to support. In 2004, the Walmart PAC gave around $2 million to Republicans versus less than $500,000 to Democrats, according to data from the Center for Responsive Politics. That gap has grown less pronounced in recent years. In 2014, the PAC spent about $1.3 million to support Republicans and around $970,000 for Democrats. It has been a gradual transformation for Walmart. In 2011, the company bulked up its nondiscrimination policies by adding protections for gender identity. Two years later, the company announced that it would start offering health insurance benefits to same-sex partners of employees starting in 2014. Retail experts say Walmart's evolution on these issues over the years is partly a reflection of its diverse consumer base, as well as a recognition of the country's increasingly progressive views of gay equality (support for same-sex marriage is at a new high of 59%, according to a recent Wall Street Journal/NBC News poll). \"It's easy for someone like a Chick-fil-A to take a really polarizing position,\" said Dwight Hill, a partner at the retail consulting firm McMillanDoolittle. \"But in the world of the largest retailer in the world, that's very different.\" Hill added: Same-sex marriage, \"while divisive, it's becoming more common place here within the U.S., and the businesses by definition have to follow the trend of their customer.\" The backlash over the religious freedom measures in Indiana and Arkansas this week is shining a bright light on the broader business community's overwhelming support for workplace policies that promote gay equality. After Indiana Gov. Mike Pence, a Republican, signed his state's religious freedom bill into law, CEOs of companies big and small across the country threatened to pull out of the Hoosier state. The resistance came from business leaders of all political persuasions, including Bill Oesterle, CEO of the business-rating website Angie's List and a one-time campaign manager for former Indiana Gov. Mitch Daniels. Oesterle announced that his company would put plans on hold to expand its footprint in Indianapolis in light of the state's passage of the religious freedom act. NASCAR, scheduled to hold a race in Indianapolis this summer, also spoke out against the Indiana law. \"What we're seeing over the past week is a tremendous amount of support from the business community who are standing up and are sending that equality is good for business and discrimination is bad for business,\" said Jason Rahlan, spokesman for the Human Rights Campaign. The debate has reached presidential politics. National Republicans are being forced to walk the fine line of protecting religious liberties and supporting nondiscrimination. Likely GOP presidential candidate Jeb Bush initially backed Indiana's religious freedom law and Pence, but moderated his tone a few days later. The former Florida governor said Wednesday that Indiana could have taken a \"better\" and \"more consensus-oriented approach.\" \"By the end of the week, Indiana will be in the right place,\" Bush said, a reference to Pence's promise this week to fix his state's law in light of the widespread backlash. Others in the GOP field are digging in. Sen. Ted Cruz of Texas, the only officially declared Republican presidential candidate, said Wednesday that he had no interest in second-guessing Pence and lashed out at the business community for opposing the law. \"I think it is unfortunate that large companies today are listening to the extreme left wing agenda that is driven by an aggressive gay marriage agenda,\" Cruz said. Meanwhile, former Secretary of State Hillary Clinton, who previously served on Walmart's board of directors, called on Hutchinson to veto the Arkansas bill, saying it would \"permit unfair discrimination\" against the LGBT community. Jay Chesshir, CEO of the Little Rock Regional Chamber of Commerce in Arkansas, welcomed Hutchinson's pledge on Wednesday to seek changes to his state's bill. He said businesses are not afraid to wade into a politically controversial debate to ensure inclusive workplace policies. \"When it comes to culture and quality of life, businesses are extremely interested in engaging in debate simply because it impacts its more precious resource -- and that's its people,\" Chesshir said. \"Therefore, when issues arise that have negative or positive impact on those things, then the business community will again speak and speak loudly.\"\n",
+        "prompt": "Summarize the following news within 200 words:\nAs goes Walmart, so goes the nation? Everyone from Apple CEO Tim Cook to the head of the NCAA slammed religious freedom laws being considered in several states this week, warning that they would open the door to discrimination against gay and lesbian customers. But it was the opposition from Walmart, the ubiquitous retailer that dots the American landscape, that perhaps resonated most deeply, providing the latest evidence of growing support for gay rights in the heartland. Walmart's staunch criticism of a religious freedom law in its home state of Arkansas came after the company said in February it would boost pay for about 500,000 workers well above the federal minimum wage. Taken together, the company is emerging as a bellwether for shifting public opinion on hot-button political issues that divide conservatives and liberals. And some prominent Republicans are urging the party to take notice. Former Minnesota Gov. Tim Pawlenty, who famously called on the GOP to \"be the party of Sam's Club, not just the country club,\" told CNN that Walmart's actions \"foreshadow where the Republican Party will need to move.\" \"The Republican Party will have to better stand for\" ideas on helping the middle class, said Pawlenty, the head of the Financial Services Roundtable, a Washington lobbying group for the finance industry. The party's leaders must be \"willing to put forward ideas that will help modest income workers, such as a reasonable increase in the minimum wage, and prohibit discrimination in things such as jobs, housing, public accommodation against gays and lesbians.\" Walmart, which employs more than 50,000 people in Arkansas, emerged victorious on Wednesday. Hours after the company's CEO, Doug McMillon, called on Republican Gov. Asa Hutchinson to veto the bill, the governor held a news conference and announced he would not sign the legislation unless its language was fixed. Walmart's opposition to the religious freedom law once again puts the company at odds with many in the Republican Party, which the company's political action committee has tended to support. In 2004, the Walmart PAC gave around $2 million to Republicans versus less than $500,000 to Democrats, according to data from the Center for Responsive Politics. That gap has grown less pronounced in recent years. In 2014, the PAC spent about $1.3 million to support Republicans and around $970,000 for Democrats. It has been a gradual transformation for Walmart. In 2011, the company bulked up its nondiscrimination policies by adding protections for gender identity. Two years later, the company announced that it would start offering health insurance benefits to same-sex partners of employees starting in 2014. Retail experts say Walmart's evolution on these issues over the years is partly a reflection of its diverse consumer base, as well as a recognition of the country's increasingly progressive views of gay equality (support for same-sex marriage is at a new high of 59%, according to a recent Wall Street Journal/NBC News poll). \"It's easy for someone like a Chick-fil-A to take a really polarizing position,\" said Dwight Hill, a partner at the retail consulting firm McMillanDoolittle. \"But in the world of the largest retailer in the world, that's very different.\" Hill added: Same-sex marriage, \"while divisive, it's becoming more common place here within the U.S., and the businesses by definition have to follow the trend of their customer.\" The backlash over the religious freedom measures in Indiana and Arkansas this week is shining a bright light on the broader business community's overwhelming support for workplace policies that promote gay equality. After Indiana Gov. Mike Pence, a Republican, signed his state's religious freedom bill into law, CEOs of companies big and small across the country threatened to pull out of the Hoosier state. The resistance came from business leaders of all political persuasions, including Bill Oesterle, CEO of the business-rating website Angie's List and a one-time campaign manager for former Indiana Gov. Mitch Daniels. Oesterle announced that his company would put plans on hold to expand its footprint in Indianapolis in light of the state's passage of the religious freedom act. NASCAR, scheduled to hold a race in Indianapolis this summer, also spoke out against the Indiana law. \"What we're seeing over the past week is a tremendous amount of support from the business community who are standing up and are sending that equality is good for business and discrimination is bad for business,\" said Jason Rahlan, spokesman for the Human Rights Campaign. The debate has reached presidential politics. National Republicans are being forced to walk the fine line of protecting religious liberties and supporting nondiscrimination. Likely GOP presidential candidate Jeb Bush initially backed Indiana's religious freedom law and Pence, but moderated his tone a few days later. The former Florida governor said Wednesday that Indiana could have taken a \"better\" and \"more consensus-oriented approach.\" \"By the end of the week, Indiana will be in the right place,\" Bush said, a reference to Pence's promise this week to fix his state's law in light of the widespread backlash. Others in the GOP field are digging in. Sen. Ted Cruz of Texas, the only officially declared Republican presidential candidate, said Wednesday that he had no interest in second-guessing Pence and lashed out at the business community for opposing the law. \"I think it is unfortunate that large companies today are listening to the extreme left wing agenda that is driven by an aggressive gay marriage agenda,\" Cruz said. Meanwhile, former Secretary of State Hillary Clinton, who previously served on Walmart's board of directors, called on Hutchinson to veto the Arkansas bill, saying it would \"permit unfair discrimination\" against the LGBT community. Jay Chesshir, CEO of the Little Rock Regional Chamber of Commerce in Arkansas, welcomed Hutchinson's pledge on Wednesday to seek changes to his state's bill. He said businesses are not afraid to wade into a politically controversial debate to ensure inclusive workplace policies. \"When it comes to culture and quality of life, businesses are extremely interested in engaging in debate simply because it impacts its more precious resource -- and that's its people,\" Chesshir said. \"Therefore, when issues arise that have negative or positive impact on those things, then the business community will again speak and speak loudly.\"\n\noutput:"
+      },
+      "responseRecord": {
+        "id": "1476",
+        "source_id": "11317",
+        "model": "gpt-4-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "As several US states consider religious freedom laws, which opponents suggest may open the door to discrimination against gay and lesbian customers, Walmart has emerged as a bellwether for shifting public opinion on this contentious issue. Walmart's staunch criticism of a religious freedom law in its home state of Arkansas, came after the company had already said it would increase pay for about 500,000 workers well above the federal minimum wage. Observers are suggesting that the Republican Party should take notice of the stand that Walmart has taken. Former Minnesota Gov. Tim Pawlenty, told CNN that Walmart's actions \"foreshadow where the Republican Party will need to move.\" \"The Republican Party will have to better stand for\" ideas on helping the middle class, said Pawlenty, the head of the Financial Services Roundtable, a Washington lobbying group for the finance industry. The party's leaders must be \"willing to put forward ideas that will help modest income workers, such as a reasonable increase in the minimum wage, and prohibit discrimination in things such as jobs, housing, public accommodation against gays and lesbians.\""
+      },
+      "caseHash": "95fbc08f5230f52e5d5899bfbd42ece7e3b4e94392a035eb4e62a9f745d8d959"
+    },
+    {
+      "caseId": "RGT-1521",
+      "sourceRecord": {
+        "source_id": "11332",
+        "task_type": "Summary",
+        "source": "CNN/DM",
+        "source_info": "The classic video game \"Space Invaders\" was developed in Japan back in the late 1970's -- and now their real-life counterparts are the topic of an earnest political discussion in Japan's corridors of power. Luckily, Japanese can sleep soundly in their beds tonight as the government's top military official earnestly revealed that the country's Air Self Defense Force (ASDF) had never encountered an extraterrestrial unidentified flying object. Responding to a query from flamboyant former wrestler-turned-lawmaker Antonio Inoki, Defense Minister Gen Nakatani told the Diet, Japan's parliament, that his jets had, to date, never come across any UFOs from outer space. \"When the Air Self Defense Force detects indications of an unidentified flying object that could violate our country's airspace, it scrambles fighter jets if necessary and makes visual observation,\" Nakatani said. He continued: \"They sometimes find birds or flying objects other than aircraft but I don't know of a case of finding an unidentified flying object believed to have come over from anywhere other than Earth.\" Inoki has appeared in the U.S.-based WWE -- which describes him as \"among the most respected men in sports-entertainment\" -- and is the founder of the New Japan Pro Wrestling organization. He entered Japan's Upper House for a second stint in politics in 2013. He also famously fought Muhammad Ali in 1976, in one of the first-ever mixed-discipline matches, which would later pave the way for today's wildly popular Mixed Martial Arts contests. Before his return to politics he was a regular fixture on Japanese TV variety shows and has promoted a slew of products, from hot sauce to banks. The maverick politician also traveled to Iraq in 1990 to try to secure the release of Japanese hostages, and has more recently attempted to replicate former NBA star Dennis Rodman's \"basketball diplomacy\" by staging a wrestling tournament in North Korea. He reportedly converted to Islam in the 1990s, although he says he practices both Islam and Buddhism. The lawmaker, who is universally known in Japan for his colossal chin and once-ever-present red scarf -- these days often replaced with a red necktie -- as much as for his political achievements, had asked a Upper House Budget Committee meeting if aircraft were ever scrambled to meet extraterrestrial threats, and if research was being done into alien visitors, prompting Nakatani's response. Inoki also claims to have seen a UFO with his own eyes, but admitted that he didn't know personally if aliens existed. The exchange wasn't the first time Japanese politicians have discussed the implications of visitors from another planet. In 2007 then-Defense Minister Shigeru Ishiba pondered the legal ramifications, under Japan's pacifist constitution, of a defense against an invasion from outer space. READ MORE: Japan unveils Izumo, its largest warship since World War II.\n",
+        "prompt": "Summarize the following news within 114 words:\nThe classic video game \"Space Invaders\" was developed in Japan back in the late 1970's -- and now their real-life counterparts are the topic of an earnest political discussion in Japan's corridors of power. Luckily, Japanese can sleep soundly in their beds tonight as the government's top military official earnestly revealed that the country's Air Self Defense Force (ASDF) had never encountered an extraterrestrial unidentified flying object. Responding to a query from flamboyant former wrestler-turned-lawmaker Antonio Inoki, Defense Minister Gen Nakatani told the Diet, Japan's parliament, that his jets had, to date, never come across any UFOs from outer space. \"When the Air Self Defense Force detects indications of an unidentified flying object that could violate our country's airspace, it scrambles fighter jets if necessary and makes visual observation,\" Nakatani said. He continued: \"They sometimes find birds or flying objects other than aircraft but I don't know of a case of finding an unidentified flying object believed to have come over from anywhere other than Earth.\" Inoki has appeared in the U.S.-based WWE -- which describes him as \"among the most respected men in sports-entertainment\" -- and is the founder of the New Japan Pro Wrestling organization. He entered Japan's Upper House for a second stint in politics in 2013. He also famously fought Muhammad Ali in 1976, in one of the first-ever mixed-discipline matches, which would later pave the way for today's wildly popular Mixed Martial Arts contests. Before his return to politics he was a regular fixture on Japanese TV variety shows and has promoted a slew of products, from hot sauce to banks. The maverick politician also traveled to Iraq in 1990 to try to secure the release of Japanese hostages, and has more recently attempted to replicate former NBA star Dennis Rodman's \"basketball diplomacy\" by staging a wrestling tournament in North Korea. He reportedly converted to Islam in the 1990s, although he says he practices both Islam and Buddhism. The lawmaker, who is universally known in Japan for his colossal chin and once-ever-present red scarf -- these days often replaced with a red necktie -- as much as for his political achievements, had asked a Upper House Budget Committee meeting if aircraft were ever scrambled to meet extraterrestrial threats, and if research was being done into alien visitors, prompting Nakatani's response. Inoki also claims to have seen a UFO with his own eyes, but admitted that he didn't know personally if aliens existed. The exchange wasn't the first time Japanese politicians have discussed the implications of visitors from another planet. In 2007 then-Defense Minister Shigeru Ishiba pondered the legal ramifications, under Japan's pacifist constitution, of a defense against an invasion from outer space. READ MORE: Japan unveils Izumo, its largest warship since World War II.\n\noutput:"
+      },
+      "responseRecord": {
+        "id": "1521",
+        "source_id": "11332",
+        "model": "llama-2-7b-chat",
+        "temperature": 1.0,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Here is a summary of the article in 114 words:\n\nJapan's Defense Minister, Gen Nakatani, has revealed that the country's Air Self Defense Force (ASDF) has never detected any extraterrestrial objects despite flamboyant former wrestler-turned-lawmaker Antonio Inoki's inquiry. Nakatani stated that ASDF jets are deployed when there are indications of an unidentified flying object that could violate Japanese airspace, but no such incidents have been reported. Inoki, who has claimed to have seen a UFO himself, has sparked conversations about the legal implications of defending against an alien invasion under Japan's pacifist constitution."
+      },
+      "caseHash": "e3d00a927beb221d298270c313fc445ee2b874cab9fbc831277eed843f4ae5c4"
+    },
+    {
+      "caseId": "RGT-4116",
+      "sourceRecord": {
+        "source_id": "13857",
+        "task_type": "Summary",
+        "source": "Recent News",
+        "source_info": "Big Brother 25 spoilers: Final five HOH takes power\nBig Brother 25 spoilers from the live feeds reveal the new HOH.\nThe houseguests played in a new Head of Household Competition late Thursday night.\nThey had just evicted Blue Kim and America Lopez in back-to-back unanimous votes.\nFootage of America and Blue heading to the jury house will appear on the November 2 episode.\nBut it was back to business for the final five players.\nSubscribe to our Big Brother newsletter!\nGet updates on the latest posts and more from Monsters and Critics straight to your inbox.\nBy submitting your information you agree to our T&Cs and Privacy Policy.\nFelicia Cannon, Bowie Jane, Jag Bains, Cirie Fields, and Matt Klotz survived the Double Eviction.\nWho won the final five HOH Competition on Big Brother 25?\nThe feeds were down for most of Thursday evening.\nWhen the cameras turned back on, Matt Klotz was shown with the HOH key around his neck.\nMatt has become the HOH for the first time this season.\nHot off of winning that important Veto Competition on Double Eviction night, Matt now gets real power in the house.\nOn Friday (October 27), Matt will nominate two people for eviction.\nEveryone plays for the Power of Veto this week, so the POV winner holds lots of power. It could lead to an exciting Veto Meeting for the houseguests.\nThe most likely scenario is that two of Felicia Cannon, Cirie Fields, and Bowie Jane are nominated.\nBut Matt has a difficult decision to make. Does he honor his final three with Jag and Bowie Jane?\nDoes he want to stick with the final four he made with Felicia, Cirie, and Jag?\nOr maybe this is where he declares allegiance to Cirie and Jag by nominating Felicia and Bowie Jane.\nOnly two weeks remain before the Big Brother 25 winner gets announced, so each remaining houseguest has played the game for 86 days.\nMore from Big Brother\nAmerica said she would be a bitter BB25 jury member. That was before her eviction, though. Will she remain bitter after being eliminated?\nA special Big Brother eviction episode has also been revealed. It will shake things up and give fans a reason to tune in on a different night for that eviction.\nHere is the TV schedule for the final weeks of BB25.\nCory and America get their reunion in the jury house, and they will be on the stage for the finale this November.\nPrevious episodes of Big Brother 25 are available for streaming on Parmount+.\nLive feed coverage is available through Paramount+ and Pluto TV.\nBig Brother 25 airs Sunday at 10/9, Tuesday at 8/7c, and Thursday at 9/8c on CBS.",
+        "prompt": "Summarize the following news within 105 words:\nBig Brother 25 spoilers: Final five HOH takes power\nBig Brother 25 spoilers from the live feeds reveal the new HOH.\nThe houseguests played in a new Head of Household Competition late Thursday night.\nThey had just evicted Blue Kim and America Lopez in back-to-back unanimous votes.\nFootage of America and Blue heading to the jury house will appear on the November 2 episode.\nBut it was back to business for the final five players.\nSubscribe to our Big Brother newsletter!\nGet updates on the latest posts and more from Monsters and Critics straight to your inbox.\nBy submitting your information you agree to our T&Cs and Privacy Policy.\nFelicia Cannon, Bowie Jane, Jag Bains, Cirie Fields, and Matt Klotz survived the Double Eviction.\nWho won the final five HOH Competition on Big Brother 25?\nThe feeds were down for most of Thursday evening.\nWhen the cameras turned back on, Matt Klotz was shown with the HOH key around his neck.\nMatt has become the HOH for the first time this season.\nHot off of winning that important Veto Competition on Double Eviction night, Matt now gets real power in the house.\nOn Friday (October 27), Matt will nominate two people for eviction.\nEveryone plays for the Power of Veto this week, so the POV winner holds lots of power. It could lead to an exciting Veto Meeting for the houseguests.\nThe most likely scenario is that two of Felicia Cannon, Cirie Fields, and Bowie Jane are nominated.\nBut Matt has a difficult decision to make. Does he honor his final three with Jag and Bowie Jane?\nDoes he want to stick with the final four he made with Felicia, Cirie, and Jag?\nOr maybe this is where he declares allegiance to Cirie and Jag by nominating Felicia and Bowie Jane.\nOnly two weeks remain before the Big Brother 25 winner gets announced, so each remaining houseguest has played the game for 86 days.\nMore from Big Brother\nAmerica said she would be a bitter BB25 jury member. That was before her eviction, though. Will she remain bitter after being eliminated?\nA special Big Brother eviction episode has also been revealed. It will shake things up and give fans a reason to tune in on a different night for that eviction.\nHere is the TV schedule for the final weeks of BB25.\nCory and America get their reunion in the jury house, and they will be on the stage for the finale this November.\nPrevious episodes of Big Brother 25 are available for streaming on Parmount+.\nLive feed coverage is available through Paramount+ and Pluto TV.\nBig Brother 25 airs Sunday at 10/9, Tuesday at 8/7c, and Thursday at 9/8c on CBS.\noutput:"
+      },
+      "responseRecord": {
+        "id": "4116",
+        "source_id": "13857",
+        "model": "gpt-4-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Matt Klotz has become the Head of House (HOH) in Big Brother 25 for the first time this season, after surviving a double eviction. The eviction saw houseguests Blue Kim and America Lopez voted out unanimously. Klotz is faced with the decision of who to nominate for eviction, with the likely choices being two of the remaining houseguests: Felicia Cannon, Cirie Fields, and Bowie Jane. The winner of the Power of Veto will also hold a lot of power in the house. Only two weeks remain in the season, with the winner to be announced soon."
+      },
+      "caseHash": "a06926716f0fba11da79b25e245bb551e94bf47cb337125f9c78aa1df92186a5"
+    },
+    {
+      "caseId": "RGT-1106",
+      "sourceRecord": {
+        "source_id": "15778",
+        "task_type": "Summary",
+        "source": "CNN/DM",
+        "source_info": "Duhok, Iraqi Kurdistan (CNN)The children laugh and shriek, as some of them seem to always have the capacity to do no matter how depressing the circumstances. Their bright clothes provide splashes of color against the otherwise drab monotone white of the endless rows of tents. A small group plays with rocks, replacements for the toys they left behind when they fled, while others clamber through a jagged tear in the wire fence surrounding the refugee camp. The Shariya refugee camp opened around six months ago, made up of some 4,000 tents and counting. Thousands of Yazidis now call this corner of Iraqi Kurdistan home, about 18 miles (30 kilometers) from one of the front lines with ISIS, where one can hear the occasional reverberation in the distance of what we are told are airstrikes. The vast majority of the camp's occupants are from the town of Sinjar, which is near the border with Syrian Kurdistan, and fled the ISIS assault there back in August. But not everyone escaped. ISIS took thousands of Yazidis captive. The fighters separated the young women and girls, some as young as 8 years old, to be sold as slaves, for their \"masters\" to use as concubines. Men faced a choice: Convert to Islam or be shot. Mahmoud was out running errands when ISIS fighters arrived, taking his wife, Ahlam, their three children -- the youngest of which was just a month old -- and his elderly parents. \"They took our phones, jewelry, money,\" Ahlam recalls. \"They had guns. They forced us at gunpoint into big trailer trucks.\" They were taken to a school turned prison in Tal Afar. From there, the family was moved from village to village -- and at one stage taken to Mosul. \"They wrote everyone's name down and they asked where we want to work, in the fields, as cleaners or as herders,\" she says. Ahlam and her family chose to herd goats. They were then taken to a Shia village whose residents had fled, where they were part of a group of around 40 living in one house. In the home, Ahlam found a cell phone left behind by its former occupants and called her husband. \"I said we are alive but we are prisoners.\" Ahlam's husband, who up until that moment had lost the will to live, thinking his family was dead, says he cried out of happiness despite his pain. Ahlam would call when she could, briefly, after midnight, hiding under her bedcovers. If she was caught with a phone, she would be killed. The village itself was a massive prison, its entrances guarded by ISIS fighters. She recalls that two men, in their late 40s or 50s, tried to escape. When they were caught, their bones were broken, their bodies tied to the back of a truck and then driven through the streets. The Yazidi captives were forced to watch the gruesome spectacle. The men's corpses were then tossed into a ditch and an order given not to bury them. One night, some of the Yazidi men risked their lives to toss dirt onto the bodies, to give those slain what dignity they could. Ahlam tells us that about a week before we met, ISIS fighters came by and took away her in-laws and the other elderly people living in the house. \"We didn't know where they were taking them, we thought we would be next,\" she remembers. So she and the rest of the group realized that they had to try to flee. \"We decided that either we survive or we don't.\" They left at midnight. Ahlam cradled the baby, as her two other children, ages 3 and 4 years old, clutched at her clothes. She prayed the baby wouldn't cry, that the children could keep walking. They knew the general direction to take, but not the exact route, and they could only hope it was toward freedom. \"When the sun started to come up, I thought that's it, we are going to get caught,\" Ahlam says. \"And what am I going to do with the kids?  I can't carry all three of them and run.\" Luckily, Ahlam never had to answer that impossible question. The group made it into Iraqi Kurdistan. The couple can't put into words their emotions when they were reunited. Mahmoud, gently caressing his daughter's palm, says he could hardly believe that the woman whose stunning eyes and gentle words he had fallen in love with, and their three children, were by his side again. It had been eight agonizing months. But their joy was tainted by fear for Mahmoud's parents. A few days after Mahmoud and Ahlam were reunited, ISIS released 217 captives. No one is disclosing exactly why. Among them were 60 children, a handful of men and women, and the rest were elderly -- including Mahmoud's parents. \"We didn't know if they were going to slaughter us or what they were going to do with us,\" Mahmoud's father says. \"They moved us around a lot, and at one stage we stayed in in one place for three days.\" But Ahlam's parents are still with ISIS. Vian Dakhil, a Yazidi member of Iraq's parliament, speculates that the Yazidis ISIS released are individuals they were struggling to care for. Dakhil is part of Iraqi Prime Minister Haider al-Abadi's delegation to the United States this week. She will be addressing the United Nations -- pleading for more international support for Iraq and more airstrikes to help defeat ISIS -- and she will address the plight of the Yazidis. \"We sometimes say that we wish we had been massacred. This would be better than being kidnapped and raped. We prefer death now over the fate of what is happening to these girls and women,\" Dakhil says. \"It is now on the government and on the international community to focus on this. How to get these captives back. It's inconceivable that in the 21st century, something like this is happening as if we were living in the Stone Age.\" Ahlam says she was spared because she was breastfeeding and she had young children, which, we're told, makes her impure and therefore unable to be used as a sex slave. For Ahlam, what she went through was not the hardest part of her ordeal. It's the moment when the ISIS fighters began taking away the girls and young women. She's haunted by their screams, the image of them being dragged away sobbing and screaming.\n",
+        "prompt": "Summarize the following news within 200 words:\nDuhok, Iraqi Kurdistan (CNN)The children laugh and shriek, as some of them seem to always have the capacity to do no matter how depressing the circumstances. Their bright clothes provide splashes of color against the otherwise drab monotone white of the endless rows of tents. A small group plays with rocks, replacements for the toys they left behind when they fled, while others clamber through a jagged tear in the wire fence surrounding the refugee camp. The Shariya refugee camp opened around six months ago, made up of some 4,000 tents and counting. Thousands of Yazidis now call this corner of Iraqi Kurdistan home, about 18 miles (30 kilometers) from one of the front lines with ISIS, where one can hear the occasional reverberation in the distance of what we are told are airstrikes. The vast majority of the camp's occupants are from the town of Sinjar, which is near the border with Syrian Kurdistan, and fled the ISIS assault there back in August. But not everyone escaped. ISIS took thousands of Yazidis captive. The fighters separated the young women and girls, some as young as 8 years old, to be sold as slaves, for their \"masters\" to use as concubines. Men faced a choice: Convert to Islam or be shot. Mahmoud was out running errands when ISIS fighters arrived, taking his wife, Ahlam, their three children -- the youngest of which was just a month old -- and his elderly parents. \"They took our phones, jewelry, money,\" Ahlam recalls. \"They had guns. They forced us at gunpoint into big trailer trucks.\" They were taken to a school turned prison in Tal Afar. From there, the family was moved from village to village -- and at one stage taken to Mosul. \"They wrote everyone's name down and they asked where we want to work, in the fields, as cleaners or as herders,\" she says. Ahlam and her family chose to herd goats. They were then taken to a Shia village whose residents had fled, where they were part of a group of around 40 living in one house. In the home, Ahlam found a cell phone left behind by its former occupants and called her husband. \"I said we are alive but we are prisoners.\" Ahlam's husband, who up until that moment had lost the will to live, thinking his family was dead, says he cried out of happiness despite his pain. Ahlam would call when she could, briefly, after midnight, hiding under her bedcovers. If she was caught with a phone, she would be killed. The village itself was a massive prison, its entrances guarded by ISIS fighters. She recalls that two men, in their late 40s or 50s, tried to escape. When they were caught, their bones were broken, their bodies tied to the back of a truck and then driven through the streets. The Yazidi captives were forced to watch the gruesome spectacle. The men's corpses were then tossed into a ditch and an order given not to bury them. One night, some of the Yazidi men risked their lives to toss dirt onto the bodies, to give those slain what dignity they could. Ahlam tells us that about a week before we met, ISIS fighters came by and took away her in-laws and the other elderly people living in the house. \"We didn't know where they were taking them, we thought we would be next,\" she remembers. So she and the rest of the group realized that they had to try to flee. \"We decided that either we survive or we don't.\" They left at midnight. Ahlam cradled the baby, as her two other children, ages 3 and 4 years old, clutched at her clothes. She prayed the baby wouldn't cry, that the children could keep walking. They knew the general direction to take, but not the exact route, and they could only hope it was toward freedom. \"When the sun started to come up, I thought that's it, we are going to get caught,\" Ahlam says. \"And what am I going to do with the kids?  I can't carry all three of them and run.\" Luckily, Ahlam never had to answer that impossible question. The group made it into Iraqi Kurdistan. The couple can't put into words their emotions when they were reunited. Mahmoud, gently caressing his daughter's palm, says he could hardly believe that the woman whose stunning eyes and gentle words he had fallen in love with, and their three children, were by his side again. It had been eight agonizing months. But their joy was tainted by fear for Mahmoud's parents. A few days after Mahmoud and Ahlam were reunited, ISIS released 217 captives. No one is disclosing exactly why. Among them were 60 children, a handful of men and women, and the rest were elderly -- including Mahmoud's parents. \"We didn't know if they were going to slaughter us or what they were going to do with us,\" Mahmoud's father says. \"They moved us around a lot, and at one stage we stayed in in one place for three days.\" But Ahlam's parents are still with ISIS. Vian Dakhil, a Yazidi member of Iraq's parliament, speculates that the Yazidis ISIS released are individuals they were struggling to care for. Dakhil is part of Iraqi Prime Minister Haider al-Abadi's delegation to the United States this week. She will be addressing the United Nations -- pleading for more international support for Iraq and more airstrikes to help defeat ISIS -- and she will address the plight of the Yazidis. \"We sometimes say that we wish we had been massacred. This would be better than being kidnapped and raped. We prefer death now over the fate of what is happening to these girls and women,\" Dakhil says. \"It is now on the government and on the international community to focus on this. How to get these captives back. It's inconceivable that in the 21st century, something like this is happening as if we were living in the Stone Age.\" Ahlam says she was spared because she was breastfeeding and she had young children, which, we're told, makes her impure and therefore unable to be used as a sex slave. For Ahlam, what she went through was not the hardest part of her ordeal. It's the moment when the ISIS fighters began taking away the girls and young women. She's haunted by their screams, the image of them being dragged away sobbing and screaming.\n\noutput:"
+      },
+      "responseRecord": {
+        "id": "1106",
+        "source_id": "15778",
+        "model": "mistral-7B-instruct",
+        "temperature": 1.0,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "The Shariya refugee camp in Iraqi Kurdistan houses thousands of Yazidis who were displaced by Islamic State of Iraq and the Levant (ISIL) attacks. Many of the camp's inhabitants, including Ahlam and her family, were captured by ISIL and taken to prisons in Tal Afar, where they were tortured and forced into labor. Ahlam's in-laws and other elderly residents of the house were also taken captive. Despite the danger, Ahlam and her family escaped the prison and were reunited with their husband and father. However, Ahlam's parents remain with ISIL and are still being held as captives. The Yazidis are being held captive by ISIL in several prisons and detention centers across Iraq. ISIL has separated the young women and girls, some as young as eight years old, from their families and sold them as slaves to be used as concubines by their masters. The men were given a choice - convert to Islam or be shot. Many Yazidis have fled their homes in order to escape ISIL's persecution."
+      },
+      "caseHash": "40b1e447dae8f73c2375e332cc0c2210853beb3a379de7b4698b5604febfab43"
+    },
+    {
+      "caseId": "RGT-4339",
+      "sourceRecord": {
+        "source_id": "13894",
+        "task_type": "Summary",
+        "source": "Recent News",
+        "source_info": "Governor Abbott Gets a Win as Judge Halts Border Agents Removing Wire\nGovernor Greg Abbott can thank President George W. Bush as one of his legal appointees supports a Texas issue. This comes after Attorney General Ken Paxton sued the Biden administration last week. U.S. Customs and Border Patrol agents were cutting concertina wire allowing migrants to freely cross the southern border.\nOn Monday, October 30, District Judge Alia Moses, granted Paxton’s request he filed last Tuesday.\nJudge Moses said according to The Texas Tribune:\n“The Court shall grant the temporary relief requested, with one important exception for any medical emergency that mostly likely results in serious bodily injury or death to a person, absent any boats or other life-saving apparatus available to avoid such medical emergencies prior to reaching the concertina wire barrier.”\nThe move by Moses is only temporary until November 13. Paxton’s office and the Biden administration will present their arguments over the concertina wire on November 7.\nAccording to ABC News, Texas states border agents were \"cutting, destroying, or otherwise damaging Texas’s concertina wire that had been strategically positioned for the purpose of securing the border and stemming the flow of illegal migration.\"\nTexas states border agents cut through the wire allowing migrants to freely enter Texas.\nIn a statement, Paxton said according to CBS News:\n“By acting quickly and monitoring their actions closely, we were able to secure a restraining order, and I am confident we will continue to prevail.\"\nThe Biden administration said the wire was cut so they could provide medical aid to migrants.\nThe Department of Homeland Security added according to CBS News:\n\"[Border agents] have a responsibility under federal law to take those who have crossed onto U.S. soil without authorization into custody for processing, as well as to act when there are conditions that put our workforce or migrants at risk.\"\nHow do you think the judge will rule on this case?",
+        "prompt": "Summarize the following news within 77 words:\nGovernor Abbott Gets a Win as Judge Halts Border Agents Removing Wire\nGovernor Greg Abbott can thank President George W. Bush as one of his legal appointees supports a Texas issue. This comes after Attorney General Ken Paxton sued the Biden administration last week. U.S. Customs and Border Patrol agents were cutting concertina wire allowing migrants to freely cross the southern border.\nOn Monday, October 30, District Judge Alia Moses, granted Paxton’s request he filed last Tuesday.\nJudge Moses said according to The Texas Tribune:\n“The Court shall grant the temporary relief requested, with one important exception for any medical emergency that mostly likely results in serious bodily injury or death to a person, absent any boats or other life-saving apparatus available to avoid such medical emergencies prior to reaching the concertina wire barrier.”\nThe move by Moses is only temporary until November 13. Paxton’s office and the Biden administration will present their arguments over the concertina wire on November 7.\nAccording to ABC News, Texas states border agents were \"cutting, destroying, or otherwise damaging Texas’s concertina wire that had been strategically positioned for the purpose of securing the border and stemming the flow of illegal migration.\"\nTexas states border agents cut through the wire allowing migrants to freely enter Texas.\nIn a statement, Paxton said according to CBS News:\n“By acting quickly and monitoring their actions closely, we were able to secure a restraining order, and I am confident we will continue to prevail.\"\nThe Biden administration said the wire was cut so they could provide medical aid to migrants.\nThe Department of Homeland Security added according to CBS News:\n\"[Border agents] have a responsibility under federal law to take those who have crossed onto U.S. soil without authorization into custody for processing, as well as to act when there are conditions that put our workforce or migrants at risk.\"\nHow do you think the judge will rule on this case?\noutput:"
+      },
+      "responseRecord": {
+        "id": "4339",
+        "source_id": "13894",
+        "model": "gpt-3.5-turbo-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Texas Governor Greg Abbott has scored a victory as a judge temporarily halts border agents from removing concertina wire along the southern border. The decision comes after Texas Attorney General Ken Paxton sued the Biden administration over the issue. The judge's ruling allows for exceptions in cases of medical emergencies. The temporary relief will last until November 13, with arguments from both sides scheduled for November 7. Texas claims that border agents were cutting the wire, allowing migrants to freely enter the state, while the Biden administration argues it was done to provide medical aid."
+      },
+      "caseHash": "089a8240378b27f062ec8fd71b99bcdf8b6df1571e9c184c2656840ae059d903"
+    },
+    {
+      "caseId": "RGT-6052",
+      "sourceRecord": {
+        "source_id": "13673",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Holdren's Grill",
+          "address": "6920 Market Pl Dr",
+          "city": "Goleta",
+          "state": "CA",
+          "categories": "Seafood, American (New), Restaurants, Nightlife, Steakhouses, American (Traditional), Bars",
+          "hours": {
+            "Monday": "16:0-21:0",
+            "Tuesday": "16:0-21:0",
+            "Wednesday": "16:0-21:0",
+            "Thursday": "16:0-21:0",
+            "Friday": "16:0-22:0",
+            "Saturday": "16:0-22:0",
+            "Sunday": "16:0-21:0"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": false,
+              "validated": false,
+              "lot": true,
+              "valet": false
+            },
+            "RestaurantsReservations": true,
+            "OutdoorSeating": true,
+            "WiFi": "free",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": true,
+            "Music": null,
+            "Ambience": {
+              "romantic": false,
+              "intimate": true,
+              "classy": false,
+              "hipster": false,
+              "divey": false,
+              "touristy": false,
+              "trendy": false,
+              "upscale": false,
+              "casual": false
+            }
+          },
+          "business_stars": 2.5,
+          "review_info": [
+            {
+              "review_stars": 1.0,
+              "review_date": "2014-05-18 16:27:23",
+              "review_text": "I have to give this restaurant a 1-star rating purely due to horrible service. While the extremely pricey menu options were surprisingly good, the service in the whole restaurant was awful! Our server came to our table twice the entire night. Once to seat us, and once after we waited a very long time to get our check. He never came to check on us or ask how our food was even once! One table next to us even walked out before getting their food, or maybe they just never received it. A couple sat at the hostess stand for a good 10 mins before anyone greeted them as well. I'm surprised they didn't leave! It's too bad that the staff was so un attentive, because the food was actually pretty good! We will probably not be returning here:/"
+            },
+            {
+              "review_stars": 4.0,
+              "review_date": "2014-04-27 01:25:26",
+              "review_text": "I frequent this location often on the weekends as a hang-out location with my friends. Over the many time I have been here, I have had a consistent experience with the food, the environment, as well as the service. \n\nWhen you open the menu, you will be quite surprised at the wide variety of choices available. Dishes range from crab-cakes to artichoke dips to filet mignons. Personally, I have tried the steaks many times at Holdrens, as well as a few of their select appetizers. The food is good for the price, typically around $20-$30 per individual (Combination of entree and appetizer). To me, having frequented many steakhouses in the United States such as Mastro's and Strip House, I would have to say that the quality and presentation of the slab of meat is on par with my expectations. It might be a little bit on the high side in terms of the food, but what can you expect, it is Santa Barbara. I expect the price to be more catered to the location when looking at the prices. Overall, I was happy with my food because it was delicious and I left the restaurant a happy customer. \n\nMany people on Yelp have been complaining about the poor service and lack of attention they received during their experience. During my few times at Holdren's, I have yet to encounter any problems. The service is excellent and attentive, and my table was always served and cared for properly. \n\nOverall, my experience at Holdren's was pleasant. I understand that it is located near Santa Barbara, which is prime real-estate. I expect many restaurants to institute a premium in their prices because of this. As a happy customer, I will continue to frequent this location with my friends when I do have the chance."
+            },
+            {
+              "review_stars": 1.0,
+              "review_date": "2014-04-16 20:31:00",
+              "review_text": "My family went there for my brother's birthday. The wait staff was polite and courteous but the food was terrible. The steaks were burnt and the fish was undercooked. My mom and I split the bill and they ended up charging me for the entire bill!  I spoke with the manager a few days later and she said she would refund the portion I didn't owe, and instead CHARGED me again. Thank god I had enough money in my account to cover the charges. My bill was $86 and instead I got charged twice for a total of $411.08. Ridiculous, they lost me and my family's business forever."
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': \"Holdren's Grill\", 'address': '6920 Market Pl Dr', 'city': 'Goleta', 'state': 'CA', 'categories': 'Seafood, American (New), Restaurants, Nightlife, Steakhouses, American (Traditional), Bars', 'hours': {'Monday': '16:0-21:0', 'Tuesday': '16:0-21:0', 'Wednesday': '16:0-21:0', 'Thursday': '16:0-21:0', 'Friday': '16:0-22:0', 'Saturday': '16:0-22:0', 'Sunday': '16:0-21:0'}, 'attributes': {'BusinessParking': {'garage': False, 'street': False, 'validated': False, 'lot': True, 'valet': False}, 'RestaurantsReservations': True, 'OutdoorSeating': True, 'WiFi': 'free', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': True, 'Music': None, 'Ambience': {'romantic': False, 'intimate': True, 'classy': False, 'hipster': False, 'divey': False, 'touristy': False, 'trendy': False, 'upscale': False, 'casual': False}}, 'business_stars': 2.5, 'review_info': [{'review_stars': 1.0, 'review_date': '2014-05-18 16:27:23', 'review_text': \"I have to give this restaurant a 1-star rating purely due to horrible service. While the extremely pricey menu options were surprisingly good, the service in the whole restaurant was awful! Our server came to our table twice the entire night. Once to seat us, and once after we waited a very long time to get our check. He never came to check on us or ask how our food was even once! One table next to us even walked out before getting their food, or maybe they just never received it. A couple sat at the hostess stand for a good 10 mins before anyone greeted them as well. I'm surprised they didn't leave! It's too bad that the staff was so un attentive, because the food was actually pretty good! We will probably not be returning here:/\"}, {'review_stars': 4.0, 'review_date': '2014-04-27 01:25:26', 'review_text': \"I frequent this location often on the weekends as a hang-out location with my friends. Over the many time I have been here, I have had a consistent experience with the food, the environment, as well as the service. \\n\\nWhen you open the menu, you will be quite surprised at the wide variety of choices available. Dishes range from crab-cakes to artichoke dips to filet mignons. Personally, I have tried the steaks many times at Holdrens, as well as a few of their select appetizers. The food is good for the price, typically around $20-$30 per individual (Combination of entree and appetizer). To me, having frequented many steakhouses in the United States such as Mastro's and Strip House, I would have to say that the quality and presentation of the slab of meat is on par with my expectations. It might be a little bit on the high side in terms of the food, but what can you expect, it is Santa Barbara. I expect the price to be more catered to the location when looking at the prices. Overall, I was happy with my food because it was delicious and I left the restaurant a happy customer. \\n\\nMany people on Yelp have been complaining about the poor service and lack of attention they received during their experience. During my few times at Holdren's, I have yet to encounter any problems. The service is excellent and attentive, and my table was always served and cared for properly. \\n\\nOverall, my experience at Holdren's was pleasant. I understand that it is located near Santa Barbara, which is prime real-estate. I expect many restaurants to institute a premium in their prices because of this. As a happy customer, I will continue to frequent this location with my friends when I do have the chance.\"}, {'review_stars': 1.0, 'review_date': '2014-04-16 20:31:00', 'review_text': \"My family went there for my brother's birthday. The wait staff was polite and courteous but the food was terrible. The steaks were burnt and the fish was undercooked. My mom and I split the bill and they ended up charging me for the entire bill!  I spoke with the manager a few days later and she said she would refund the portion I didn't owe, and instead CHARGED me again. Thank god I had enough money in my account to cover the charges. My bill was $86 and instead I got charged twice for a total of $411.08. Ridiculous, they lost me and my family's business forever.\"}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "6052",
+        "source_id": "13673",
+        "model": "llama-2-13b-chat",
+        "temperature": 0.775,
+        "labels": [
+          {
+            "start": 567,
+            "end": 666,
+            "text": "most customers have reported enjoying their meals and having a positive experience with the service",
+            "meta": "EVIDENT CONFLICT\nOriginal: Only one out of three reviews is positive.\nGenerative: \"most customers have reported enjoying their meals and having a positive experience with the service\"",
+            "label_type": "Evident Conflict",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "Sure! Here's an objective overview of Holdren's Grill based on the provided structured data:\n\nHoldren's Grill is a seafood and steakhouse restaurant located in Goleta, CA. They offer a wide variety of dishes including crab-cakes, artichoke dips, and filet mignons, and have a reputation for serving good quality food at affordable prices. However, some customers have complained about poor service and overcharging. The restaurant has a cozy atmosphere with outdoor seating and free WiFi, making it a popular spot for groups and dates. Despite some negative reviews, most customers have reported enjoying their meals and having a positive experience with the service. Overall, Holdren's Grill seems like a solid choice for those looking for a tasty meal in a relaxed setting."
+      },
+      "caseHash": "25759432d87a37d68db2d89524828aad9811568e85ed8059f6f76dc375343576"
+    },
+    {
+      "caseId": "RGT-10208",
+      "sourceRecord": {
+        "source_id": "14802",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Sanba IM",
+          "address": "Albertsons Supermarket, 7127 Hollister Ave",
+          "city": "Goleta",
+          "state": "CA",
+          "categories": "Bubble Tea, Food Stands, Food, Restaurants, Sushi Bars, Coffee & Tea, Juice Bars & Smoothies",
+          "hours": null,
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": true,
+              "validated": false,
+              "lot": true,
+              "valet": false
+            },
+            "RestaurantsReservations": false,
+            "OutdoorSeating": true,
+            "WiFi": "no",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": true,
+            "Music": null,
+            "Ambience": {
+              "romantic": false,
+              "intimate": false,
+              "touristy": false,
+              "hipster": false,
+              "divey": false,
+              "classy": false,
+              "trendy": false,
+              "upscale": false,
+              "casual": true
+            }
+          },
+          "business_stars": 4.0,
+          "review_info": [
+            {
+              "review_stars": 4.0,
+              "review_date": "2015-08-13 15:25:54",
+              "review_text": "They're moving! This place is awesome, but they are no longer at this location. They're moving into I.V."
+            },
+            {
+              "review_stars": 3.0,
+              "review_date": "2015-08-09 18:12:49",
+              "review_text": "The boba/sushi bar that was here, isn't anymore.  :( I only liked their taro boba tea, but I'm very sad that I won't be able to get Boba in town anymore.  BOO!"
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2015-07-24 03:33:47",
+              "review_text": "This boba is so good that you would not expect it to be in an Albertson's. They don't use powders and the boba is both chewy and sweet. So much better than the boba in IV and costs less too."
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': 'Sanba IM', 'address': 'Albertsons Supermarket, 7127 Hollister Ave', 'city': 'Goleta', 'state': 'CA', 'categories': 'Bubble Tea, Food Stands, Food, Restaurants, Sushi Bars, Coffee & Tea, Juice Bars & Smoothies', 'hours': None, 'attributes': {'BusinessParking': {'garage': False, 'street': True, 'validated': False, 'lot': True, 'valet': False}, 'RestaurantsReservations': False, 'OutdoorSeating': True, 'WiFi': 'no', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': True, 'Music': None, 'Ambience': {'romantic': False, 'intimate': False, 'touristy': False, 'hipster': False, 'divey': False, 'classy': False, 'trendy': False, 'upscale': False, 'casual': True}}, 'business_stars': 4.0, 'review_info': [{'review_stars': 4.0, 'review_date': '2015-08-13 15:25:54', 'review_text': \"They're moving! This place is awesome, but they are no longer at this location. They're moving into I.V.\"}, {'review_stars': 3.0, 'review_date': '2015-08-09 18:12:49', 'review_text': \"The boba/sushi bar that was here, isn't anymore.  :( I only liked their taro boba tea, but I'm very sad that I won't be able to get Boba in town anymore.  BOO!\"}, {'review_stars': 5.0, 'review_date': '2015-07-24 03:33:47', 'review_text': \"This boba is so good that you would not expect it to be in an Albertson's. They don't use powders and the boba is both chewy and sweet. So much better than the boba in IV and costs less too.\"}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "10208",
+        "source_id": "14802",
+        "model": "mistral-7B-instruct",
+        "temperature": 0.775,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Sanba IM is a food stand located in Albertsons Supermarket at 7127 Hollister Ave in Goleta, California. The business offers a variety of food options including bubble tea, sushi bars, coffee & tea, juice bars & smoothies, and restaurants. It has outdoor seating and takeout options available. However, customers have reported that Sanba IM is moving from its current location to Isla Vista and will no longer be available at the original location. Some customers were disappointed with the closure of the business, while others praised the quality of the boba and other menu items. Overall, Sanba IM appears to be a popular and well-regarded food stand."
+      },
+      "caseHash": "6f279675c0f828a2808344e5d4aba0bbf5dd64eb499351562de0a8879b71035c"
+    },
+    {
+      "caseId": "RGT-7582",
+      "sourceRecord": {
+        "source_id": "14135",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Del Pueblo Cafe",
+          "address": "5134 Hollister Ave",
+          "city": "Santa Barbara",
+          "state": "CA",
+          "categories": "Mexican, Restaurants",
+          "hours": {
+            "Monday": "9:0-21:0",
+            "Tuesday": "9:0-21:0",
+            "Wednesday": "9:0-21:0",
+            "Thursday": "9:0-21:0",
+            "Friday": "9:0-21:0",
+            "Saturday": "9:0-21:0",
+            "Sunday": "9:0-21:0"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": false,
+              "validated": false,
+              "lot": true,
+              "valet": false
+            },
+            "RestaurantsReservations": false,
+            "OutdoorSeating": true,
+            "WiFi": "free",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": true,
+            "Music": null,
+            "Ambience": {
+              "romantic": false,
+              "intimate": false,
+              "touristy": false,
+              "hipster": false,
+              "divey": false,
+              "classy": false,
+              "trendy": false,
+              "upscale": false,
+              "casual": true
+            }
+          },
+          "business_stars": 4.0,
+          "review_info": [
+            {
+              "review_stars": 1.0,
+              "review_date": "2022-01-08 02:42:34",
+              "review_text": "Ordered food to go , it was cold . Everything was cold . I only have a 30min lunch break , so I didn't go back to return it. I did not enjoy it at all one bit. Pretty upsetting. I payed $20 something for food and drink . The drink tasted pretty flat , no flavor. Plz go somewhere else for Mexican. Los Arroyos or Los Agaves is better and tastier. I rather do NO STARS on this place , but looks like I have too . Sucks I payed soo much and for nothing. I am not returning, however I will let my friends and family know my situation there ."
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-12-22 05:56:00",
+              "review_text": "What can be said about this spot? Well, nice, cozy, comfortable, and hip environment with authentic Mexican decor to enjoy delicious Mexican dishes offered here! Salsa is spicy tomato sauce based, beans between whole and smashed, soups full of vegetables which comes in handy during flu season! And....they also serve hot Mexican chocolate served in hearty mugs! Recommended!"
+            },
+            {
+              "review_stars": 4.0,
+              "review_date": "2021-11-15 11:22:32",
+              "review_text": "Outdoor seating is an option! This place can be peaceful at certain times of the day, like a Sunday...early evening. \nThe decor inside is super artsy and does help one to leave the daily grind in a different way. The environment really is different inside, in a cool way. I hope to eat inside again, when it feels more comfortable.\nI have mixed feelings about the plates here. I haven't loved my combination plates, but my burritos have been very satisfying! Right now my favorite item on the menu is the Chile Relleno Burrito. The cheese chile relleno is fresh, huge and delicious. I like the moist rice within the burrito, and delicious beans as well. I'm curious to try the house-made mole, chile verde and torta in the future. This is a very unique restaurant. They serve unsweetened mango iced tea as well! Our server was very nice, and refilled our drinks. For now, I will stick to takeout and the patio, until it feels safer to eat inside. That Chile Relleno burrito is comfort food with some nice salsa."
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': 'Del Pueblo Cafe', 'address': '5134 Hollister Ave', 'city': 'Santa Barbara', 'state': 'CA', 'categories': 'Mexican, Restaurants', 'hours': {'Monday': '9:0-21:0', 'Tuesday': '9:0-21:0', 'Wednesday': '9:0-21:0', 'Thursday': '9:0-21:0', 'Friday': '9:0-21:0', 'Saturday': '9:0-21:0', 'Sunday': '9:0-21:0'}, 'attributes': {'BusinessParking': {'garage': False, 'street': False, 'validated': False, 'lot': True, 'valet': False}, 'RestaurantsReservations': False, 'OutdoorSeating': True, 'WiFi': 'free', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': True, 'Music': None, 'Ambience': {'romantic': False, 'intimate': False, 'touristy': False, 'hipster': False, 'divey': False, 'classy': False, 'trendy': False, 'upscale': False, 'casual': True}}, 'business_stars': 4.0, 'review_info': [{'review_stars': 1.0, 'review_date': '2022-01-08 02:42:34', 'review_text': \"Ordered food to go , it was cold . Everything was cold . I only have a 30min lunch break , so I didn't go back to return it. I did not enjoy it at all one bit. Pretty upsetting. I payed $20 something for food and drink . The drink tasted pretty flat , no flavor. Plz go somewhere else for Mexican. Los Arroyos or Los Agaves is better and tastier. I rather do NO STARS on this place , but looks like I have too . Sucks I payed soo much and for nothing. I am not returning, however I will let my friends and family know my situation there .\"}, {'review_stars': 5.0, 'review_date': '2021-12-22 05:56:00', 'review_text': 'What can be said about this spot? Well, nice, cozy, comfortable, and hip environment with authentic Mexican decor to enjoy delicious Mexican dishes offered here! Salsa is spicy tomato sauce based, beans between whole and smashed, soups full of vegetables which comes in handy during flu season! And....they also serve hot Mexican chocolate served in hearty mugs! Recommended!'}, {'review_stars': 4.0, 'review_date': '2021-11-15 11:22:32', 'review_text': \"Outdoor seating is an option! This place can be peaceful at certain times of the day, like a Sunday...early evening. \\nThe decor inside is super artsy and does help one to leave the daily grind in a different way. The environment really is different inside, in a cool way. I hope to eat inside again, when it feels more comfortable.\\nI have mixed feelings about the plates here. I haven't loved my combination plates, but my burritos have been very satisfying! Right now my favorite item on the menu is the Chile Relleno Burrito. The cheese chile relleno is fresh, huge and delicious. I like the moist rice within the burrito, and delicious beans as well. I'm curious to try the house-made mole, chile verde and torta in the future. This is a very unique restaurant. They serve unsweetened mango iced tea as well! Our server was very nice, and refilled our drinks. For now, I will stick to takeout and the patio, until it feels safer to eat inside. That Chile Relleno burrito is comfort food with some nice salsa.\"}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "7582",
+        "source_id": "14135",
+        "model": "llama-2-13b-chat",
+        "temperature": 0.85,
+        "labels": [
+          {
+            "start": 308,
+            "end": 325,
+            "text": "a hip environment",
+            "meta": "EVIDENT CONFLICT\nOriginal: \"hipster\": false,\nGenerative: \"a hip environment\"",
+            "label_type": "Evident Conflict",
+            "implicit_true": false,
+            "due_to_null": false
+          },
+          {
+            "start": 407,
+            "end": 454,
+            "text": "a variety of options for vegetarians and vegans",
+            "meta": "HIGH INTRO OF NEW INFO\nIt mentions that the restaurant has a variety of options for vegetarians and vegans, which is not specified in the original source.",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          },
+          {
+            "start": 509,
+            "end": 546,
+            "text": "has a selection of tequila and mezcal",
+            "meta": "HIGH INTRO OF NEW INFO\nIt mentions that the restaurant has a selection of tequila and mezcal which is not mentioned in the original source.",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          },
+          {
+            "start": 926,
+            "end": 937,
+            "text": "trendy spot",
+            "meta": "EVIDENT CONFLICT\nOriginal: \"trendy\": false\nGenerative: \"trendy spot",
+            "label_type": "Evident Conflict",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "Here is an objective overview of Del Pueblo Cafe based on the provided structured data in JSON format:\n\nDel Pueblo Cafe is a Mexican restaurant located in Santa Barbara, California, with a rating of 4.0 stars out of 5.0. The restaurant has a cozy and comfortable atmosphere, with authentic Mexican decor and a hip environment. It offers delicious Mexican dishes, including soups, combos, and burritos, with a variety of options for vegetarians and vegans. The restaurant also serves hot Mexican chocolate and has a selection of tequila and mezcal. The outdoor seating area is available, and the restaurant offers takeout and delivery options. Some customers have reported mixed reviews, with one customer expressing disappointment with their order being cold, while another customer enjoyed their experience and praised the restaurant's unique atmosphere and delicious food. Overall, Del Pueblo Cafe seems to be a popular and trendy spot for Mexican cuisine in Santa Barbara."
+      },
+      "caseHash": "ee027b46275f8f9842ff7dcd90bf38d4ed74f894d64c831561102fa51149308b"
+    },
+    {
+      "caseId": "RGT-7135",
+      "sourceRecord": {
+        "source_id": "14059",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Savoy Cafe & Deli",
+          "address": "24 W Figueroa St",
+          "city": "Santa Barbara",
+          "state": "CA",
+          "categories": "Restaurants, Delis, Coffee & Tea, Breakfast & Brunch, Food, Gluten-Free, Cafes, Beer, Wine & Spirits",
+          "hours": {
+            "Monday": "7:30-16:0",
+            "Tuesday": "7:30-16:0",
+            "Wednesday": "7:30-16:0",
+            "Thursday": "7:30-16:0",
+            "Friday": "7:30-16:0",
+            "Saturday": "7:30-16:0"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": true,
+              "validated": false,
+              "lot": true,
+              "valet": false
+            },
+            "RestaurantsReservations": false,
+            "OutdoorSeating": true,
+            "WiFi": "free",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": true,
+            "Music": null,
+            "Ambience": {
+              "touristy": false,
+              "hipster": false,
+              "romantic": false,
+              "divey": false,
+              "intimate": false,
+              "trendy": false,
+              "upscale": false,
+              "classy": true,
+              "casual": true
+            }
+          },
+          "business_stars": 4.5,
+          "review_info": [
+            {
+              "review_stars": 5.0,
+              "review_date": "2022-01-12 18:13:50",
+              "review_text": "So good, that we went for breakfast and then again for lunch.\n\nWe really loved the gluten-free bread options. I have not had a sandwich in a long time.  It was so thick with turkey!\n\nA very lovely restaurant with a salad bar (yes, really), open space, nice outdoor seating, and a comfortable bar area."
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-12-28 21:02:56",
+              "review_text": "Savoy is impeccable.  Somehow every single item is delicious and fresh.  I always have a good experience.  The salad bar is for sure the best in the city.  The sandwiches, excellent.  The entrees, you guessed it, so good.  I would recommend them to anyone -- you gotta try it.  Note: closed Sundays!"
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-12-22 20:28:32",
+              "review_text": "Great food and service! I don't live in the area, but next time I'm in Santa Barbara,  I will definitely eat there."
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': 'Savoy Cafe & Deli', 'address': '24 W Figueroa St', 'city': 'Santa Barbara', 'state': 'CA', 'categories': 'Restaurants, Delis, Coffee & Tea, Breakfast & Brunch, Food, Gluten-Free, Cafes, Beer, Wine & Spirits', 'hours': {'Monday': '7:30-16:0', 'Tuesday': '7:30-16:0', 'Wednesday': '7:30-16:0', 'Thursday': '7:30-16:0', 'Friday': '7:30-16:0', 'Saturday': '7:30-16:0'}, 'attributes': {'BusinessParking': {'garage': False, 'street': True, 'validated': False, 'lot': True, 'valet': False}, 'RestaurantsReservations': False, 'OutdoorSeating': True, 'WiFi': 'free', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': True, 'Music': None, 'Ambience': {'touristy': False, 'hipster': False, 'romantic': False, 'divey': False, 'intimate': False, 'trendy': False, 'upscale': False, 'classy': True, 'casual': True}}, 'business_stars': 4.5, 'review_info': [{'review_stars': 5.0, 'review_date': '2022-01-12 18:13:50', 'review_text': 'So good, that we went for breakfast and then again for lunch.\\n\\nWe really loved the gluten-free bread options. I have not had a sandwich in a long time.  It was so thick with turkey!\\n\\nA very lovely restaurant with a salad bar (yes, really), open space, nice outdoor seating, and a comfortable bar area.'}, {'review_stars': 5.0, 'review_date': '2021-12-28 21:02:56', 'review_text': 'Savoy is impeccable.  Somehow every single item is delicious and fresh.  I always have a good experience.  The salad bar is for sure the best in the city.  The sandwiches, excellent.  The entrees, you guessed it, so good.  I would recommend them to anyone -- you gotta try it.  Note: closed Sundays!'}, {'review_stars': 5.0, 'review_date': '2021-12-22 20:28:32', 'review_text': \"Great food and service! I don't live in the area, but next time I'm in Santa Barbara,  I will definitely eat there.\"}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "7135",
+        "source_id": "14059",
+        "model": "gpt-3.5-turbo-0613",
+        "temperature": 0.7,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "Savoy Cafe & Deli is a local business located at 24 W Figueroa St in Santa Barbara, CA. The establishment offers a variety of options, including a deli, coffee and tea, breakfast and brunch, gluten-free food, and a selection of beer and wine. The cafe is known for its quality food and has received positive reviews from customers.\n\nCustomers have praised the gluten-free bread options, particularly mentioning the thickness of the turkey sandwich. The restaurant also features a salad bar that is highly regarded as the best in the city. The overall dining experience is described as lovely, with an open space, comfortable outdoor seating, and a bar area.\n\nThe business operates from Monday to Saturday, opening at 7:30 am and closing at 4:00 pm. The establishment does not take restaurant reservations but offers takeout service. It is suitable for groups and provides free WiFi for customers. The ambience of the cafe is described as classy and casual.\n\nOverall, Savoy Cafe & Deli has a strong reputation for its delicious and fresh food, excellent service, and a pleasant dining atmosphere. It is highly recommended by customers as a must-visit spot in Santa Barbara."
+      },
+      "caseHash": "690f9759e538dbe5db1f4bc8d5f20fc6c2faa6151ff86eea0f650519b2820a18"
+    },
+    {
+      "caseId": "RGT-8054",
+      "sourceRecord": {
+        "source_id": "14219",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Petit Valentien",
+          "address": "1114 State St, Ste 14",
+          "city": "Santa Barbara",
+          "state": "CA",
+          "categories": "Restaurants, Ethiopian, French",
+          "hours": {
+            "Monday": "0:0-0:0",
+            "Tuesday": "17:0-20:30",
+            "Wednesday": "16:30-19:30",
+            "Thursday": "17:30-20:0",
+            "Friday": "17:30-20:0",
+            "Saturday": "17:30-21:0",
+            "Sunday": "17:0-20:30"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": true,
+              "street": true,
+              "validated": false,
+              "lot": false,
+              "valet": false
+            },
+            "RestaurantsReservations": true,
+            "OutdoorSeating": true,
+            "WiFi": "no",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": true,
+            "Music": null,
+            "Ambience": {
+              "touristy": false,
+              "hipster": false,
+              "romantic": true,
+              "divey": false,
+              "intimate": true,
+              "trendy": false,
+              "upscale": false,
+              "classy": true,
+              "casual": false
+            }
+          },
+          "business_stars": 4.0,
+          "review_info": [
+            {
+              "review_stars": 1.0,
+              "review_date": "2021-12-12 04:20:43",
+              "review_text": "Husband and I walked by Petit Valentien this afternoon and the Ethiopian lunch dishes we saw on the patio looked great, so we stopped in for dinner about 30 minutes ago. We weren't in a huge rush, but we didn't have hours to dine, because I had dough proofing at home and needed to attend to it. Hubby walked in and checked in with waitress and came out saying we should take any seat we wanted and she'd be right out with menus. So, we sat next to the Xmas tree on the patio and waited... and waited... and waited.\n\nWe figured she couldn't see us so we moved right next to the front door, where she couldn't miss us. After waiting several minutes, I decided we would wait 5 more minutes and then find somewhere else for dinner. After 3 minutes, a 30-something brunette waitress came and dropped off menus. I let her know the table was wobbly and she said she'd bring a block for it (which she never did). Oddly, I detected a twinge of attitude from the waitress with that exchange... not sure why, but there was an element of nastiness in her tone. She also turned on the table-side heater, which was very effective, if somewhat atmosphere-killing, because of its very bright coils.\n\nI pulled up Yelp to look at the pics of the entrees and we settled on what we wanted to order. After about 5 more minutes, the waitress returned and informed us that dinner would take longer here than other restaurants. I let her know I was proofing dough at home and if we ordered immediately, how long would it take. She replied that if we ordered faster, the food would come faster. (Duh! Crazy how that works!) Again, a twinge of nastiness.\n\nHubby and I heard the specials and I asked her to repeat the sides on one of the specials. Attitude was ramping up from her. I asked her what her favorite item on the menu was and she replied, \"I can't say. You're the one who's going to eat it, not me! The chef wouldn't even tell you.\" \n\nI didn't dare ask another question, because she was in full beeeyatch mode. We both ordered off the regular menu. Then, she said it would be 20 minutes and we ordered wine. Before she left, I asked the waitress if she could please ask the chef not to hold the entree until we finished the appetizer... just to put it all in at once. Her response? \"The chef doesn't need to be micromanaged like that.\" And that, my Yelp friends, was my limit to the abuse I was going to take from this witch of a waitress.\n\nI smiled and said thank you, but we aren't going to stay. She said okay, opened the door, walked into the restaurant, and I could hear her behind me exclaiming with a groan as she entered, \"Oh my Gaaaaawwwdd.\"\n\nGood thing they're in a tourist zone, because Petit Valentien can have a fresh supply of customers the waitress can abuse. As for this local, I'd recommend one of our other many fine dining establishments and give this one a wide berth, if service is important to you.\n\nTwo last comments: First, we noticed the restaurant had a Help Wanted sign posted, looking for servers, which could hint that maybe the attitude starts at the top and they have a hard time keeping servers. Second, I noticed another one of the local Yelp Elite crew (and other reviewers) also commented on the rude and inattentive service here. Seems to be a trend and unfortunately, it was our unlucky turn to experience it tonight."
+            },
+            {
+              "review_stars": 1.0,
+              "review_date": "2021-10-08 16:53:58",
+              "review_text": "Just don't go. They are severely understaffed and incredibly rude. We had to walk out after the waitress ignored us for about 15-20 minutes. We had to ask her three times to let us know what the wait time would be. Very unprofessional."
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-10-02 22:38:26",
+              "review_text": "Amazing experience with a variety of Ethiopian flavors giving it the right touch. A story in flavors you need to experience. Lovely location feels like your in another world.  \nGreat service."
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': 'Petit Valentien', 'address': '1114 State St, Ste 14', 'city': 'Santa Barbara', 'state': 'CA', 'categories': 'Restaurants, Ethiopian, French', 'hours': {'Monday': '0:0-0:0', 'Tuesday': '17:0-20:30', 'Wednesday': '16:30-19:30', 'Thursday': '17:30-20:0', 'Friday': '17:30-20:0', 'Saturday': '17:30-21:0', 'Sunday': '17:0-20:30'}, 'attributes': {'BusinessParking': {'garage': True, 'street': True, 'validated': False, 'lot': False, 'valet': False}, 'RestaurantsReservations': True, 'OutdoorSeating': True, 'WiFi': 'no', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': True, 'Music': None, 'Ambience': {'touristy': False, 'hipster': False, 'romantic': True, 'divey': False, 'intimate': True, 'trendy': False, 'upscale': False, 'classy': True, 'casual': False}}, 'business_stars': 4.0, 'review_info': [{'review_stars': 1.0, 'review_date': '2021-12-12 04:20:43', 'review_text': 'Husband and I walked by Petit Valentien this afternoon and the Ethiopian lunch dishes we saw on the patio looked great, so we stopped in for dinner about 30 minutes ago. We weren\\'t in a huge rush, but we didn\\'t have hours to dine, because I had dough proofing at home and needed to attend to it. Hubby walked in and checked in with waitress and came out saying we should take any seat we wanted and she\\'d be right out with menus. So, we sat next to the Xmas tree on the patio and waited... and waited... and waited.\\n\\nWe figured she couldn\\'t see us so we moved right next to the front door, where she couldn\\'t miss us. After waiting several minutes, I decided we would wait 5 more minutes and then find somewhere else for dinner. After 3 minutes, a 30-something brunette waitress came and dropped off menus. I let her know the table was wobbly and she said she\\'d bring a block for it (which she never did). Oddly, I detected a twinge of attitude from the waitress with that exchange... not sure why, but there was an element of nastiness in her tone. She also turned on the table-side heater, which was very effective, if somewhat atmosphere-killing, because of its very bright coils.\\n\\nI pulled up Yelp to look at the pics of the entrees and we settled on what we wanted to order. After about 5 more minutes, the waitress returned and informed us that dinner would take longer here than other restaurants. I let her know I was proofing dough at home and if we ordered immediately, how long would it take. She replied that if we ordered faster, the food would come faster. (Duh! Crazy how that works!) Again, a twinge of nastiness.\\n\\nHubby and I heard the specials and I asked her to repeat the sides on one of the specials. Attitude was ramping up from her. I asked her what her favorite item on the menu was and she replied, \"I can\\'t say. You\\'re the one who\\'s going to eat it, not me! The chef wouldn\\'t even tell you.\" \\n\\nI didn\\'t dare ask another question, because she was in full beeeyatch mode. We both ordered off the regular menu. Then, she said it would be 20 minutes and we ordered wine. Before she left, I asked the waitress if she could please ask the chef not to hold the entree until we finished the appetizer... just to put it all in at once. Her response? \"The chef doesn\\'t need to be micromanaged like that.\" And that, my Yelp friends, was my limit to the abuse I was going to take from this witch of a waitress.\\n\\nI smiled and said thank you, but we aren\\'t going to stay. She said okay, opened the door, walked into the restaurant, and I could hear her behind me exclaiming with a groan as she entered, \"Oh my Gaaaaawwwdd.\"\\n\\nGood thing they\\'re in a tourist zone, because Petit Valentien can have a fresh supply of customers the waitress can abuse. As for this local, I\\'d recommend one of our other many fine dining establishments and give this one a wide berth, if service is important to you.\\n\\nTwo last comments: First, we noticed the restaurant had a Help Wanted sign posted, looking for servers, which could hint that maybe the attitude starts at the top and they have a hard time keeping servers. Second, I noticed another one of the local Yelp Elite crew (and other reviewers) also commented on the rude and inattentive service here. Seems to be a trend and unfortunately, it was our unlucky turn to experience it tonight.'}, {'review_stars': 1.0, 'review_date': '2021-10-08 16:53:58', 'review_text': \"Just don't go. They are severely understaffed and incredibly rude. We had to walk out after the waitress ignored us for about 15-20 minutes. We had to ask her three times to let us know what the wait time would be. Very unprofessional.\"}, {'review_stars': 5.0, 'review_date': '2021-10-02 22:38:26', 'review_text': 'Amazing experience with a variety of Ethiopian flavors giving it the right touch. A story in flavors you need to experience. Lovely location feels like your in another world.  \\nGreat service.'}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "8054",
+        "source_id": "14219",
+        "model": "mistral-7B-instruct",
+        "temperature": 0.7,
+        "labels": [
+          {
+            "start": 112,
+            "end": 147,
+            "text": "It has been in operation since 1997",
+            "meta": "HIGH INTRODUCTION OF NEW INFORMATION\n\"It has been in operation since 1997\" was not mentioned in the business info",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          },
+          {
+            "start": 179,
+            "end": 184,
+            "text": "Wi-Fi",
+            "meta": "EVIDENT CONFLICT\nOriginal: \"WiFi\": \"no\"\nGenerated: Wi-Fi",
+            "label_type": "Evident Conflict",
+            "implicit_true": false,
+            "due_to_null": false
+          },
+          {
+            "start": 430,
+            "end": 471,
+            "text": "difficulty retaining staff due to low pay",
+            "meta": "HIGH INTRODUCTION OF NEW INFORMATION\n\"difficulty retaining staff due to low pay\" was not mentioned in the business info",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "Petit Valentien is a restaurant located in Santa Barbara, California, that serves Ethiopian and French cuisine. It has been in operation since 1997 and offers outdoor seating and Wi-Fi. According to reviews, the restaurant has a romantic ambiance, good for groups, and offers takeout services. However, some customers have reported poor service, with waitstaff being rude and unprofessional. Additionally, the restaurant may have difficulty retaining staff due to low pay and challenging working conditions. Overall, while Petit Valentien may offer unique and tasty cuisine, customers should be prepared for potential issues with service and staff behavior."
+      },
+      "caseHash": "258d53b20d8bdadd42c960d5516f58836a0339c9442c9e8dacf920e93a9f2519"
+    },
+    {
+      "caseId": "RGT-8658",
+      "sourceRecord": {
+        "source_id": "14530",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Luna Grill",
+          "address": "3925 State St, Unit A",
+          "city": "Santa Barbara",
+          "state": "CA",
+          "categories": "Mediterranean, Restaurants, Salad, Greek",
+          "hours": {
+            "Monday": "0:0-0:0",
+            "Tuesday": "12:0-21:0",
+            "Wednesday": "11:0-21:0",
+            "Thursday": "11:0-21:0",
+            "Friday": "11:0-15:0",
+            "Saturday": "11:0-21:0",
+            "Sunday": "11:0-21:0"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": false,
+              "validated": false,
+              "lot": true,
+              "valet": false
+            },
+            "RestaurantsReservations": false,
+            "OutdoorSeating": true,
+            "WiFi": "free",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": true,
+            "Music": null,
+            "Ambience": {
+              "touristy": false,
+              "hipster": null,
+              "romantic": false,
+              "divey": false,
+              "intimate": false,
+              "trendy": true,
+              "upscale": false,
+              "classy": true,
+              "casual": true
+            }
+          },
+          "business_stars": 4.0,
+          "review_info": [
+            {
+              "review_stars": 4.0,
+              "review_date": "2022-01-17 00:29:01",
+              "review_text": "We went to Luna after a hike in the Goleta butterfly sanctuary.   The food was served quickly, fresh and flavorful.  The service was outstanding.  The manager, Jacob, was great, politely checking on us a couple of times as we dined."
+            },
+            {
+              "review_stars": 4.0,
+              "review_date": "2022-01-13 21:54:40",
+              "review_text": "I seriously wish I could give this place a 4.5 but since I can't, they will get 4 stars. Their food is delicious and tastes fresh. I tend to order the gyro pita and have never been disappointed. I will say that I ask for extra tzatziki sauce because it can be a bit dry for my taste. The salad is nothing special but a nice side. The fries are a solid choice as well. I appreciate the indoor and outdoor seating and parking is plentiful. The reason for not giving five stars is the wait. I really feel like they need another cook in the back. If you order in-person, be aware that you will be waiting for some time. I now order online and they are usually pretty accurate with pickup time. Otherwise, great food!"
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2022-01-12 02:21:42",
+              "review_text": "Food is so good and Sheila was so sweet!! It was her first day and she was literally so nice. Thank you!"
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': 'Luna Grill', 'address': '3925 State St, Unit A', 'city': 'Santa Barbara', 'state': 'CA', 'categories': 'Mediterranean, Restaurants, Salad, Greek', 'hours': {'Monday': '0:0-0:0', 'Tuesday': '12:0-21:0', 'Wednesday': '11:0-21:0', 'Thursday': '11:0-21:0', 'Friday': '11:0-15:0', 'Saturday': '11:0-21:0', 'Sunday': '11:0-21:0'}, 'attributes': {'BusinessParking': {'garage': False, 'street': False, 'validated': False, 'lot': True, 'valet': False}, 'RestaurantsReservations': False, 'OutdoorSeating': True, 'WiFi': 'free', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': True, 'Music': None, 'Ambience': {'touristy': False, 'hipster': None, 'romantic': False, 'divey': False, 'intimate': False, 'trendy': True, 'upscale': False, 'classy': True, 'casual': True}}, 'business_stars': 4.0, 'review_info': [{'review_stars': 4.0, 'review_date': '2022-01-17 00:29:01', 'review_text': 'We went to Luna after a hike in the Goleta butterfly sanctuary.   The food was served quickly, fresh and flavorful.  The service was outstanding.  The manager, Jacob, was great, politely checking on us a couple of times as we dined.'}, {'review_stars': 4.0, 'review_date': '2022-01-13 21:54:40', 'review_text': \"I seriously wish I could give this place a 4.5 but since I can't, they will get 4 stars. Their food is delicious and tastes fresh. I tend to order the gyro pita and have never been disappointed. I will say that I ask for extra tzatziki sauce because it can be a bit dry for my taste. The salad is nothing special but a nice side. The fries are a solid choice as well. I appreciate the indoor and outdoor seating and parking is plentiful. The reason for not giving five stars is the wait. I really feel like they need another cook in the back. If you order in-person, be aware that you will be waiting for some time. I now order online and they are usually pretty accurate with pickup time. Otherwise, great food!\"}, {'review_stars': 5.0, 'review_date': '2022-01-12 02:21:42', 'review_text': 'Food is so good and Sheila was so sweet!! It was her first day and she was literally so nice. Thank you!'}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "8658",
+        "source_id": "14530",
+        "model": "gpt-4-0613",
+        "temperature": 0.7,
+        "labels": [
+          {
+            "start": 150,
+            "end": 176,
+            "text": "Open every day of the week",
+            "meta": "EVIDENT CONFLICT\nClosed on Mondays",
+            "label_type": "Evident Conflict",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "Luna Grill, located at 3925 State St, Unit A in Santa Barbara, CA, is a restaurant specializing in Mediterranean and Greek cuisine, including salads. Open every day of the week, the restaurant offers free Wi-Fi and takeout service, and is good for groups. It has a trendy, classy and casual ambience with the availability of both indoor and outdoor seating, but does not accept reservations. The restaurant has ample parking space in a lot, but does not have garage, street, valet, or validated parking. Customers praise the quick, fresh, and flavorful food, with special mentions for the gyro pita. However, some customers have noted the wait time for in-person orders can be lengthy, suggesting online ordering for a more accurate pickup time. Overall, Luna Grill is well-regarded with a business star rating of 4.0."
+      },
+      "caseHash": "8ac30b18f492125bf3c49c17e940c187a4ee23bb29079b575f4c02935d741ecd"
+    },
+    {
+      "caseId": "RGT-8669",
+      "sourceRecord": {
+        "source_id": "14531",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "The Tully",
+          "address": "1431 San Andres St",
+          "city": "Santa Barbara",
+          "state": "CA",
+          "categories": "Bars, Karaoke, Nightlife",
+          "hours": {
+            "Monday": "11:0-1:0",
+            "Tuesday": "11:0-1:0",
+            "Wednesday": "11:0-1:0",
+            "Thursday": "11:0-1:0",
+            "Friday": "11:0-2:0",
+            "Saturday": "10:0-2:0",
+            "Sunday": "10:0-1:0"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": false,
+              "validated": false,
+              "lot": false,
+              "valet": false
+            },
+            "RestaurantsReservations": false,
+            "OutdoorSeating": true,
+            "WiFi": "free",
+            "RestaurantsTakeOut": null,
+            "RestaurantsGoodForGroups": true,
+            "Music": false,
+            "Ambience": {
+              "touristy": null,
+              "hipster": null,
+              "romantic": null,
+              "divey": null,
+              "intimate": false,
+              "trendy": null,
+              "upscale": null,
+              "classy": null,
+              "casual": true
+            }
+          },
+          "business_stars": 4.5,
+          "review_info": [
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-12-18 18:42:15",
+              "review_text": "Endearing little neighborhood watering hole. \n\nThis is a spot I've driven by several times and have always been intrigued over. From the front, it looks like an old school neighborhood-style bar - and that's exactly what it is behind the door. \n\nWhen I was here last night, my eyes were immediately drawn to the fun Christmas decor. There were lights, stockings, and a tree. There's a long bar, a front and back patio, a juke box and a pool table. The place is dark and divey which I loved. I also noticed that there was a Monday-Friday happy hour which went to 7pm. It's rare to see a happy hour end as late as The Tully's, let alone on a Friday, so I fully took advantage of the perk. \n\nOur bartender was very friendly and helped us with menu selections. I took advantage of ordering a $5 happy hour draught beer and enjoyed it on the front parklet patio. The music is pretty loud in the bar so the outdoor space was a nice place of solace. \n\nThis is a great spot with good service, and I will be back soon for sure."
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-05-11 19:58:25",
+              "review_text": "Came in for a drink while I was visiting the westside. Greeted with the best service providing a positive energy while educating me about different tequilas and lagers. Learned about the famous Micheladas they make, ordered two! Thank you tully! You changed my life in a real positive way and I will be sure to come back and tell all of my friends. Can't wait until old school night!"
+            },
+            {
+              "review_stars": 5.0,
+              "review_date": "2021-05-07 04:11:45",
+              "review_text": "Alma's the best. Nice outdoor patio , pool, and a laid back atmosphere, this is the local neighborhood bar no need to dress to impress everyone is casual."
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': 'The Tully', 'address': '1431 San Andres St', 'city': 'Santa Barbara', 'state': 'CA', 'categories': 'Bars, Karaoke, Nightlife', 'hours': {'Monday': '11:0-1:0', 'Tuesday': '11:0-1:0', 'Wednesday': '11:0-1:0', 'Thursday': '11:0-1:0', 'Friday': '11:0-2:0', 'Saturday': '10:0-2:0', 'Sunday': '10:0-1:0'}, 'attributes': {'BusinessParking': {'garage': False, 'street': False, 'validated': False, 'lot': False, 'valet': False}, 'RestaurantsReservations': False, 'OutdoorSeating': True, 'WiFi': 'free', 'RestaurantsTakeOut': None, 'RestaurantsGoodForGroups': True, 'Music': False, 'Ambience': {'touristy': None, 'hipster': None, 'romantic': None, 'divey': None, 'intimate': False, 'trendy': None, 'upscale': None, 'classy': None, 'casual': True}}, 'business_stars': 4.5, 'review_info': [{'review_stars': 5.0, 'review_date': '2021-12-18 18:42:15', 'review_text': \"Endearing little neighborhood watering hole. \\n\\nThis is a spot I've driven by several times and have always been intrigued over. From the front, it looks like an old school neighborhood-style bar - and that's exactly what it is behind the door. \\n\\nWhen I was here last night, my eyes were immediately drawn to the fun Christmas decor. There were lights, stockings, and a tree. There's a long bar, a front and back patio, a juke box and a pool table. The place is dark and divey which I loved. I also noticed that there was a Monday-Friday happy hour which went to 7pm. It's rare to see a happy hour end as late as The Tully's, let alone on a Friday, so I fully took advantage of the perk. \\n\\nOur bartender was very friendly and helped us with menu selections. I took advantage of ordering a $5 happy hour draught beer and enjoyed it on the front parklet patio. The music is pretty loud in the bar so the outdoor space was a nice place of solace. \\n\\nThis is a great spot with good service, and I will be back soon for sure.\"}, {'review_stars': 5.0, 'review_date': '2021-05-11 19:58:25', 'review_text': \"Came in for a drink while I was visiting the westside. Greeted with the best service providing a positive energy while educating me about different tequilas and lagers. Learned about the famous Micheladas they make, ordered two! Thank you tully! You changed my life in a real positive way and I will be sure to come back and tell all of my friends. Can't wait until old school night!\"}, {'review_stars': 5.0, 'review_date': '2021-05-07 04:11:45', 'review_text': \"Alma's the best. Nice outdoor patio , pool, and a laid back atmosphere, this is the local neighborhood bar no need to dress to impress everyone is casual.\"}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "8669",
+        "source_id": "14531",
+        "model": "llama-2-70b-chat",
+        "temperature": 0.775,
+        "labels": [],
+        "split": "test",
+        "quality": "good",
+        "response": "The Tully is a cozy neighborhood bar located in Santa Barbara, CA, offering a relaxed and welcoming atmosphere for locals and visitors alike. With a rating of 4.5 stars and a diverse selection of amenities, this bar is an excellent choice for those looking for a casual drinking spot with a friendly vibe. The exterior may appear unassuming, but inside, guests will find a long bar, a front and back patio, a jukebox, and a pool table, creating a lively and entertaining environment.\n\nOne of the standout features of The Tully is its extended happy hour, which runs from 11 am to 7 pm, Monday through Friday, allowing patrons to enjoy discounted drinks throughout the day. The bar also offers a variety of beers, including $5 happy hour drafts, and a selection of cocktails, including their famous Micheladas.\n\nAccording to customer reviews, the service at The Tully is exceptional, with friendly and attentive bartenders who are knowledgeable about their drinks and eager to share their expertise with guests. The outdoor patio is a popular spot, providing a peaceful escape from the lively atmosphere inside, and the perfect place to enjoy a cold drink on a warm day.\n\nOverall, The Tully is an endearing neighborhood watering hole that offers a unique and enjoyable experience for anyone looking for a casual, relaxed spot to grab a drink and socialize with friends or meet new people. Its welcoming atmosphere, excellent service, and extensive happy hour make it a must-visit destination for anyone in the area."
+      },
+      "caseHash": "f993a1e2a447d17322f87cf9f211f4e193f1ff5f42defee1002faac00b0ed30f"
+    },
+    {
+      "caseId": "RGT-6634",
+      "sourceRecord": {
+        "source_id": "13775",
+        "task_type": "Data2txt",
+        "source": "Yelp",
+        "source_info": {
+          "name": "Winchell's Donuts",
+          "address": "202 N Milpas",
+          "city": "Santa Barbara",
+          "state": "CA",
+          "categories": "Food, Donuts, Restaurants, Sandwiches, Coffee & Tea",
+          "hours": {
+            "Monday": "0:0-0:0",
+            "Tuesday": "0:0-0:0",
+            "Wednesday": "0:0-0:0",
+            "Thursday": "0:0-0:0",
+            "Friday": "0:0-0:0",
+            "Saturday": "0:0-0:0",
+            "Sunday": "0:0-0:0"
+          },
+          "attributes": {
+            "BusinessParking": {
+              "garage": false,
+              "street": true,
+              "validated": false,
+              "lot": true,
+              "valet": false
+            },
+            "RestaurantsReservations": null,
+            "OutdoorSeating": null,
+            "WiFi": "free",
+            "RestaurantsTakeOut": true,
+            "RestaurantsGoodForGroups": null,
+            "Music": null,
+            "Ambience": null
+          },
+          "business_stars": 3.0,
+          "review_info": [
+            {
+              "review_stars": 1.0,
+              "review_date": "2020-09-16 02:20:17",
+              "review_text": "I love this place I do but when I walked in and saw fly's on the donuts I was devastated. Why!!!???"
+            },
+            {
+              "review_stars": 2.0,
+              "review_date": "2020-07-07 00:47:14",
+              "review_text": "I'm sorry i hate to do this. But I just bough 6 donuts here today that were so stale and dried out. I threw.all but 1 away.   The chocolate old fashioned was so dry I couldn't even get thru one bite.   I get that there is so much less traffic.   But then make less at a time and make them again in the afternoon.   The maple  buttermilk bar weighed a ton and again was so dry.  Usually the apple fritter can save the day... but no go, unfortunately.  Of the six I bought the only one I was able to eat was the chocolate crueller.\n\nI will say the girl who helped me was very friendly and was wearing a mask and washed her hands. So at least there's that!"
+            },
+            {
+              "review_stars": 3.0,
+              "review_date": "2020-02-23 12:53:40",
+              "review_text": "The donuts were okay and the store was not the cleanest. The customer service was good nothing special but it wasn't bad customer service. But overall it was a okay experience"
+            }
+          ]
+        },
+        "prompt": "Instruction:\nWrite an objective overview about the following local business based only on the provided structured data in the JSON format. You should include details and cover the information mentioned in the customers' review. The overview should be 100 - 200 words. Don't make up information. Structured data:\n{'name': \"Winchell's Donuts\", 'address': '202 N Milpas', 'city': 'Santa Barbara', 'state': 'CA', 'categories': 'Food, Donuts, Restaurants, Sandwiches, Coffee & Tea', 'hours': {'Monday': '0:0-0:0', 'Tuesday': '0:0-0:0', 'Wednesday': '0:0-0:0', 'Thursday': '0:0-0:0', 'Friday': '0:0-0:0', 'Saturday': '0:0-0:0', 'Sunday': '0:0-0:0'}, 'attributes': {'BusinessParking': {'garage': False, 'street': True, 'validated': False, 'lot': True, 'valet': False}, 'RestaurantsReservations': None, 'OutdoorSeating': None, 'WiFi': 'free', 'RestaurantsTakeOut': True, 'RestaurantsGoodForGroups': None, 'Music': None, 'Ambience': None}, 'business_stars': 3.0, 'review_info': [{'review_stars': 1.0, 'review_date': '2020-09-16 02:20:17', 'review_text': \"I love this place I do but when I walked in and saw fly's on the donuts I was devastated. Why!!!???\"}, {'review_stars': 2.0, 'review_date': '2020-07-07 00:47:14', 'review_text': \"I'm sorry i hate to do this. But I just bough 6 donuts here today that were so stale and dried out. I threw.all but 1 away.   The chocolate old fashioned was so dry I couldn't even get thru one bite.   I get that there is so much less traffic.   But then make less at a time and make them again in the afternoon.   The maple  buttermilk bar weighed a ton and again was so dry.  Usually the apple fritter can save the day... but no go, unfortunately.  Of the six I bought the only one I was able to eat was the chocolate crueller.\\n\\nI will say the girl who helped me was very friendly and was wearing a mask and washed her hands. So at least there's that!\"}, {'review_stars': 3.0, 'review_date': '2020-02-23 12:53:40', 'review_text': \"The donuts were okay and the store was not the cleanest. The customer service was good nothing special but it wasn't bad customer service. But overall it was a okay experience\"}]}\nOverview:"
+      },
+      "responseRecord": {
+        "id": "6634",
+        "source_id": "13775",
+        "model": "llama-2-13b-chat",
+        "temperature": 0.7,
+        "labels": [
+          {
+            "start": 700,
+            "end": 738,
+            "text": "does not have outdoor seating or music",
+            "meta": "HIGH INTRO OF NEW INFO\nOriginal: \"OutdoorSeating\": null, \"Music\": null\nGenerative: \"does not have outdoor seating or music\"",
+            "label_type": "Evident Baseless Info",
+            "implicit_true": false,
+            "due_to_null": true
+          },
+          {
+            "start": 275,
+            "end": 284,
+            "text": "2.4 stars",
+            "meta": "EVIDENT CONFLICT\nOriginal: \"business_stars\": 3.0\nGenerative: \"2.4 stars\"",
+            "label_type": "Evident Conflict",
+            "implicit_true": false,
+            "due_to_null": false
+          },
+          {
+            "start": 285,
+            "end": 308,
+            "text": "based on three reviews,",
+            "meta": "LOW INTRO OF NEW INFO\nIt is unknown if the rating is only based off of the three reviews showcased in the source information, or more than those three reviews",
+            "label_type": "Subtle Baseless Info",
+            "implicit_true": false,
+            "due_to_null": false
+          }
+        ],
+        "split": "test",
+        "quality": "good",
+        "response": "Sure! Here's an objective overview of Winchell's Donuts based on the provided structured data in JSON format:\n\nWinchell's Donuts is a Food and Beverage business located in Santa Barbara, CA, offering donuts, sandwiches, coffee, and tea. The business has an average rating of 2.4 stars based on three reviews, with customers praising the friendliness of the staff and the availability of free WiFi. However, some customers have reported issues with the quality of the donuts, citing instances of staleness and dryness. The business is open seven days a week from 0:00 AM to 0:00 AM, with parking available on the street and no garage or validated parking options. Winchell's Donuts offers takeout and does not have outdoor seating or music. The ambience of the business is unknown. Overall, customers have mixed opinions about their experiences at Winchell's Donuts, with some enjoying the food and service while others have been disappointed by the quality of the donuts."
+      },
+      "caseHash": "ab3e888b2e45af899ad36539a6a0fea5c6b4ceb6845fd89007316684253f5204"
+    }
+  ]
+}

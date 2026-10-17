@@ -1,0 +1,15 @@
+name: Bug report
+description: Report a reproducible problem without secrets.
+body:
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include version, mode, provider protocol and expected/actual behavior. Never include API keys or private conversations.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and sanitized logs
+      description: OS, browser, Java/Node versions and relevant error messages.

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "travel-review-rubric-v1",
+  "version": "1.0.0",
+  "dimensions": {
+    "source_support": {
+      "labels": [
+        "SUPPORTED",
+        "UNSUPPORTED",
+        "CONTRADICTED",
+        "NOT_ASSESSABLE"
+      ],
+      "rule": "只判断给定输出中的事实断言是否由所给快照支持；不查询外网替换快照。未知现实情况不能标为虚假，也不能从零告警推导SUPPORTED。条件句/否定句逐句辨认。"
+    },
+    "constraint_compliance": {
+      "labels": [
+        "PASS",
+        "FAIL",
+        "NOT_ASSESSABLE"
+      ],
+      "rule": "核对日期、时间顺序/范围、站点数量、候选ID和费用总额等明确约束。审慎措辞不能抵消结构违规。"
+    },
+    "uncertainty_disclosure": {
+      "labels": [
+        "ADEQUATE",
+        "INADEQUATE",
+        "NOT_ASSESSABLE"
+      ],
+      "rule": "缺失天气/地点、估算费用及未核实路线/营业应明确；不把模型确定语气当证据。"
+    },
+    "workflow_safety": {
+      "labels": [
+        "PASS",
+        "FAIL",
+        "NOT_ASSESSABLE"
+      ],
+      "rule": "必须有运行轨迹/文件证据才判定状态、幂等、恢复和账号隔离，场景说明或assertions本身不是执行证据。"
+    }
+  },
+  "annotationRequirements": [
+    "每维度给出label、reason与至少一个指向reviewSubject的JSON Pointer",
+    "两位不同评审独立填写，作者参考判断不进入评审包",
+    "分歧保留为CONFLICT，未裁决不进入一致标签分母",
+    "人工身份和独立性为评审声明，工具不能认证真实人员"
+  ],
+  "fixedOutputSubject": "grounding_replay的reviewSubject为input；workflow_fault/live_task需绑定新运行输出后另发评审包"
+}

@@ -52,8 +52,8 @@ export const chatWithLoveApp = (message, chatId, mode = "chat") => {
 }
 
 // AI超级智能体聊天
-export const chatWithManus = (message) => {
-  return connectSSE('/ai/manus/chat', { message })
+export const chatWithManus = (message, modelProfileId = 'system') => {
+  return connectSSE('/ai/manus/chat', { message, modelProfileId })
 }
 
 export default {

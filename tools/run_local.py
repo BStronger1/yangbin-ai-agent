@@ -5,6 +5,11 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def environment():
     env=os.environ.copy();config=ROOT/'.env'
+    # Windows commonly exposes Path; avoid two conflicting case variants in Popen.
+    path_value=os.environ.get('PATH','')
+    for key in list(env):
+        if key.upper()=='PATH':del env[key]
+    env['PATH']=path_value
     if config.exists():
         for number,line in enumerate(config.read_text(encoding='utf-8-sig').splitlines(),1):
             line=line.strip()

@@ -1,0 +1,197 @@
+{
+  "status": "NOT_HUMAN_GOLD",
+  "notes": [
+    {
+      "caseId": "G01",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "SUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "ADEQUATE"
+      },
+      "rationale": "仅复述该日预报并标注营业/费用/路线未知；不证明真实营业或实际可行性。"
+    },
+    {
+      "caseId": "G02",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "SUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "ADEQUATE"
+      },
+      "rationale": "条件句不是确定天气断言；本例只评价固定文本，不声称工作流实际成功。"
+    },
+    {
+      "caseId": "G03",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "SUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "ADEQUATE"
+      },
+      "rationale": "不虚构具体地点，未定位导致可用性有限，不能把活动类型视作已核实路线。"
+    },
+    {
+      "caseId": "G04",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "UNSUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "日预报概率不能支持确定的小时区间或零降雨断言。"
+    },
+    {
+      "caseId": "G05",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "UNSUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "咖啡馆类别不证明不存在展览，但资料未提供该展览，不能作为已支持事实。"
+    },
+    {
+      "caseId": "G06",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "UNSUPPORTED",
+        "constraint_compliance": "FAIL",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "候选中没有引用ID或名称；需区别约束拒绝与文本规则告警。"
+    },
+    {
+      "caseId": "G07",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "UNSUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "快照只有日预报，没有分钟级变化和拍照窗口依据。"
+    },
+    {
+      "caseId": "G08",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "UNSUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "未提供宣传单，也没有当前票价来源；金额恰好匹配估算不构成核实。"
+    },
+    {
+      "caseId": "G09",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "SUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "ADEQUATE"
+      },
+      "rationale": "否定句不应被当作已核实断言；预算预留与实际价格分开。"
+    },
+    {
+      "caseId": "G10",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "SUPPORTED",
+        "constraint_compliance": "FAIL",
+        "uncertainty_disclosure": "ADEQUATE"
+      },
+      "rationale": "120+400超过480；来源措辞审慎不等于结构约束通过。"
+    },
+    {
+      "caseId": "G11",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "CONTRADICTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "summary称所选日期而仅有前一日预报，日期对应不成立。"
+    },
+    {
+      "caseId": "G12",
+      "status": "AGENT_DRAFT_NOT_GOLD",
+      "proposedLabels": {
+        "source_support": "UNSUPPORTED",
+        "constraint_compliance": "PASS",
+        "uncertainty_disclosure": "INADEQUATE"
+      },
+      "rationale": "地点坐标不等于步行路线耗时或当日营业/预约核实。"
+    },
+    {
+      "caseId": "F01",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F02",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F03",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F04",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F05",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F06",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F07",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "F08",
+      "status": "DESIGN_EXPECTATION_NOT_OBSERVATION",
+      "proposedLabels": null,
+      "rationale": "assertions为执行前的验收约定；未运行，不填写通过或失败。"
+    },
+    {
+      "caseId": "L01",
+      "status": "AWAITING_REAL_OUTPUT",
+      "proposedLabels": null,
+      "rationale": "日期须运行时物化并保存，来源及模型输出未获得，不能预填效果标签。"
+    },
+    {
+      "caseId": "L02",
+      "status": "AWAITING_REAL_OUTPUT",
+      "proposedLabels": null,
+      "rationale": "日期须运行时物化并保存，来源及模型输出未获得，不能预填效果标签。"
+    },
+    {
+      "caseId": "L03",
+      "status": "AWAITING_REAL_OUTPUT",
+      "proposedLabels": null,
+      "rationale": "日期须运行时物化并保存，来源及模型输出未获得，不能预填效果标签。"
+    },
+    {
+      "caseId": "L04",
+      "status": "AWAITING_REAL_OUTPUT",
+      "proposedLabels": null,
+      "rationale": "日期须运行时物化并保存，来源及模型输出未获得，不能预填效果标签。"
+    }
+  ]
+}

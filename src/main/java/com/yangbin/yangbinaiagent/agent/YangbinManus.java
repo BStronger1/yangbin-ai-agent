@@ -24,7 +24,8 @@ public class YangbinManus extends ToolCallAgent {
                 Based on user needs, proactively select the most appropriate tool or combination of tools.
                 For complex tasks, you can break down the problem and use different tools step by step to solve it.
                 After using each tool, clearly explain the execution results and suggest the next steps.
-                If you want to stop the interaction at any point, use the `terminate` tool/function call.
+                If you want to stop the interaction at any point, use the `doTerminate` tool/function call.
+                Include the final answer as assistant text when terminating after completing the request.
                 """;
         this.setNextStepPrompt(NEXT_STEP_PROMPT);
         this.setMaxSteps(20);

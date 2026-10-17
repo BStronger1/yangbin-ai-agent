@@ -72,6 +72,10 @@ logging:
   level:
     org.springframework.ai: INFO
 app:
+  work:
+    presentation-font: ${PRESENTATION_FONT:Microsoft YaHei}
+  build:
+    revision: ${APP_BUILD_REVISION:}
   internal-api-token: ${INTERNAL_API_TOKEN:}
   model:
     provider: ${MODEL_PROVIDER:dashscope}

@@ -35,7 +35,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { useHead } from '@vueuse/head'
 import ChatRoom from '../components/ChatRoom.vue'
 import {checkSession} from '../auth'
 import {api,errorMessage} from '../workspace-api'
@@ -43,20 +42,7 @@ import ExecutionTrace from '../components/ExecutionTrace.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { chatWithLoveApp, getCapabilities } from '../api'
 
-// 设置页面标题和元数据
-useHead({
-  title: 'AI恋爱大师 - yangbinAI超级智能体应用平台',
-  meta: [
-    {
-      name: 'description',
-      content: 'AI恋爱大师是yangbinAI超级智能体应用平台的专业情感顾问，帮你解答各种恋爱问题，提供情感建议'
-    },
-    {
-      name: 'keywords',
-      content: 'AI恋爱大师,情感顾问,恋爱咨询,AI聊天,情感问题,yangbin,AI智能体'
-    }
-  ]
-})
+// 页面标题与描述由路由统一维护。
 
 const router = useRouter()
 const messages = ref([])

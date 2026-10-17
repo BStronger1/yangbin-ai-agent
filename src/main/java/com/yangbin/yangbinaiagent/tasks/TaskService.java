@@ -1,6 +1,7 @@
 package com.yangbin.yangbinaiagent.tasks;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yangbin.yangbinaiagent.evaluation.ExecutionProvenance;
 import com.yangbin.yangbinaiagent.planner.PlannerService;
 import com.yangbin.yangbinaiagent.planner.PlanningEvidence;
 import com.yangbin.yangbinaiagent.planner.PlanQualityService;
@@ -38,6 +39,7 @@ public class TaskService implements AutoCloseable {
         public String confirmedAt;
         public List<Step> steps=new ArrayList<>();
         public List<Event> events=new ArrayList<>();
+        public List<ExecutionProvenance.Attempt> executionAttempts=new ArrayList<>();
         public List<Map<String,Object>> sources=new ArrayList<>();
         public PlanningEvidence.Snapshot evidence;
         public PlannerService.Itinerary itinerary;
@@ -49,6 +51,7 @@ public class TaskService implements AutoCloseable {
     private static final List<String> TITLES=List.of("核对出行要求","检索个人知识库","查询天气与地点","生成行程方案","校验并保存方案","生成 PDF");
     private static final Set<String> ACTIVE=Set.of("QUEUED","RUNNING","CANCELLING");
     private static final Set<String> QUOTA=Set.of("QUEUED","RUNNING","CANCELLING","AWAITING_CONFIRMATION");
+    @Autowired private ExecutionProvenance provenance=ExecutionProvenance.unknown();
     private final ObjectMapper json;
     private final TaskWorkflow workflow;
     private final Path root;
@@ -208,6 +211,11 @@ public class TaskService implements AutoCloseable {
                     }
                     Step step=state.steps.get(index);if("SUCCEEDED".equals(step.status()))continue;
                     state.steps.set(index,new Step(step.id(),step.title(),"RUNNING",step.attempts()+1,now(),null,step.durationMs(),step.summary(),null));
+                    Map<String,Object> input=new LinkedHashMap<>();
+                    input.put("prompt",state.prompt);input.put("requirements",state.requirements);input.put("skill",state.skill);
+                    input.put("executionPlan",state.executionPlan);input.put("sources",state.sources);
+                    input.put("evidence",state.evidence);input.put("itinerary",state.itinerary);
+                    state.executionAttempts.add(provenance.capture(step.id(),step.attempts()+1,json,input));
                     if(Set.of("planning","model").contains(step.id()))state.modelCalls++;
                     if(Set.of("knowledge","evidence","pdf").contains(step.id()))state.toolCalls++;
                     event(state,step.id(),"STEP_STARTED",step.title());persist(state);

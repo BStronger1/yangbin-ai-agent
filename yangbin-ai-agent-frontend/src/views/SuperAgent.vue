@@ -27,27 +27,13 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { useHead } from '@vueuse/head'
 import ChatRoom from '../components/ChatRoom.vue'
 import {checkSession} from '../auth'
 import ExecutionTrace from '../components/ExecutionTrace.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { chatWithManus } from '../api'
 
-// 设置页面标题和元数据
-useHead({
-  title: 'AI超级智能体 - yangbinAI超级智能体应用平台',
-  meta: [
-    {
-      name: 'description',
-      content: 'AI超级智能体是yangbinAI超级智能体应用平台的全能助手，能解答各类专业问题，提供精准建议和解决方案'
-    },
-    {
-      name: 'keywords',
-      content: 'AI超级智能体,智能助手,专业问答,AI问答,专业建议,yangbin,AI智能体'
-    }
-  ]
-})
+// 页面标题与描述由路由统一维护。
 
 const router = useRouter()
 const messages = ref([])

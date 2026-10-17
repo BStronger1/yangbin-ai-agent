@@ -7,3 +7,11 @@
 *.java text eol=lf
 *.js text eol=lf
 *.vue text eol=lf
+
+# Frozen datasets and annotations use byte-level manifest hashes.
+# Preserve original bytes across Windows/Linux; never normalize their newlines.
+/evaluation/datasets/** -text
+/evaluation/annotations/** -text
+
+# This development fixture is part of the frozen overlap audit.
+/src/test/resources/quality/plan-quality-regression-v2.json -text

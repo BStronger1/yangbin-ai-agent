@@ -4,10 +4,12 @@ import WorkspaceNav from './components/WorkspaceNav.vue'
 
 <template>
   <WorkspaceNav v-if="!$route.meta.public" />
-  <router-view />
+  <div :class="{ 'app-content': !$route.meta.public }"><router-view /></div>
 </template>
 
 <style>
+.app-content{margin-left:236px;min-width:0;min-height:100vh}
+@media(max-width:760px){.app-content{margin-left:0;min-height:calc(100vh - 60px)}}
 * {
   box-sizing: border-box;
   margin: 0;

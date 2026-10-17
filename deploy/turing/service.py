@@ -4,6 +4,10 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 os.chdir(ROOT)
 cfg=json.loads((ROOT/"secrets.json").read_text());env=dict(os.environ,**cfg["env"])
+from coding_runtime import prepare as prepare_coding_runtime
+prepare_coding_runtime(ROOT,env)
+if env.get("CODING_ENABLED")=="true" and env.get("CODING_NODE"):
+    env["PATH"]=str(Path(env["CODING_NODE"]).parent)+os.pathsep+env.get("PATH","")
 logger=logging.getLogger("service");logger.setLevel(logging.INFO)
 logger.addHandler(logging.handlers.RotatingFileHandler(ROOT/"logs/service.log",maxBytes=2_000_000,backupCount=3))
 children=[];specs=[];stopping=False

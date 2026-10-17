@@ -19,7 +19,7 @@ public class ChatModelConfig {
     ChatModel compatibleChatModel(@Value("${app.model.base-url}") String baseUrl,
                                  @Value("${app.model.api-key}") String apiKey,
                                  @Value("${app.model.name}") String model) {
-        if (apiKey.isBlank()) throw new IllegalArgumentException("MODEL_API_KEY is required");
+        if (apiKey.isBlank()) return new com.yangbin.yangbinaiagent.models.UnconfiguredChatModel();
         String normalized = baseUrl.replaceAll("/+$", "");
         if (normalized.endsWith("/v1")) normalized = normalized.substring(0, normalized.length() - 3);
         OpenAiApi api = OpenAiApi.builder().baseUrl(normalized).apiKey(apiKey).build();
@@ -30,7 +30,7 @@ public class ChatModelConfig {
     @Bean("appChatModel")
     @Primary
     @ConditionalOnProperty(name = "app.model.provider", havingValue = "dashscope", matchIfMissing = true)
-    ChatModel dashscopeAppChatModel(@Qualifier("dashscopeChatModel") ChatModel model) {
-        return model;
+    ChatModel dashscopeAppChatModel(@Qualifier("dashscopeChatModel") ChatModel model, @Value("${spring.ai.dashscope.api-key:}") String key) {
+        return key.isBlank() || key.equals("development-placeholder") ? new com.yangbin.yangbinaiagent.models.UnconfiguredChatModel() : model;
     }
 }

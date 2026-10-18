@@ -8,7 +8,13 @@ import java.util.*;
 @Component
 public class WorkCatalog {
     public record Skill(String id, String name, String category, String icon, String color, String description,
-                        String output, String instructions, String example, List<String> tags, int version, String kind) {}
+                        String output, String instructions, String example, List<String> tags, int version, String kind, String partnerId, List<String> inputs, List<String> checks) {
+        public Skill { inputs=inputs==null?List.of():List.copyOf(inputs); checks=checks==null?List.of():List.copyOf(checks); }
+        public Skill(String id,String name,String category,String icon,String color,String description,String output,String instructions,String example,List<String> tags,int version,String kind) {
+            this(id,name,category,icon,color,description,output,instructions,example,tags,version,kind,null,List.of(),List.of());
+        }
+        public String qualityInstructions(){return checks.isEmpty()?"":"\n交付前自检（不冒充外部核验，不强制展示清单）：\n- "+String.join("\n- ",checks);}
+    }
     public record Partner(String id, String name, String skillId, String description, String category,
                           String color, String initial, List<String> tags, String workspace, List<String> skillIds) {
         public Partner {skillIds=skillIds==null?List.of(skillId):List.copyOf(skillIds);}
@@ -32,6 +38,12 @@ public class WorkCatalog {
                 || (partner.workspace() != null && !"narrative-ppt".equals(partner.workspace())))
                 throw new IOException("Invalid work partner");
             if(partner.skillIds().isEmpty()||!partner.skillIds().contains(partner.skillId())||new HashSet<>(partner.skillIds()).size()!=partner.skillIds().size()||partner.skillIds().stream().anyMatch(id->!"TEXT".equals(skill(id).kind())))throw new IOException("Invalid partner skills");
+        }
+        validateCoverage();
+    }
+    private void validateCoverage() throws IOException {
+        for(var skill:catalog.skills())if("TEXT".equals(skill.kind())){
+            if(skill.partnerId()==null||!partner(skill.partnerId()).skillIds().contains(skill.id())||skill.inputs().size()<3||skill.checks().size()<3||skill.inputs().stream().anyMatch(String::isBlank)||skill.checks().stream().anyMatch(String::isBlank))throw new IOException("Incomplete domain skill: "+skill.id());
         }
     }
     public Catalog all() { return catalog; }

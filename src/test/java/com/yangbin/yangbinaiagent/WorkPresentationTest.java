@@ -55,7 +55,7 @@ class WorkPresentationTest {
     }
     @Test void generatesEditableSixPageDeckWithNotesAndKeepsOriginalTaskBytes() throws Exception {
         var run=generate();
-        assertThat(run.status()).isEqualTo("SUCCEEDED"); assertThat(run.skill().version()).isEqualTo(2);
+        assertThat(run.status()).isEqualTo("SUCCEEDED"); assertThat(run.skill().version()).isEqualTo(3);
         assertThat(run.presentation()).isEqualTo(draft()); assertThat(run.result()).contains("## 6.","讲稿");
         Path record=root.resolve(TaskWorkflowTest.A.id()).resolve(run.id()+".json");
         byte[] before=Files.readAllBytes(record);

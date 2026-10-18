@@ -40,7 +40,7 @@ class PartnerCapabilitiesTest {
  String id(){return UUID.randomUUID().toString();}
  PartnerChatService.Input input(String text,String skill,String profile){return new PartnerChatService.Input(id(),id(),0,text,skill,List.of(),profile);}
  ModelProfileService.Profile profile(String name)throws Exception{return profiles.create(new ModelProfileService.Input(name,"openai","https://8.8.8.8/v1","fixture-model","TEST-KEY-DO-NOT-PERSIST"));}
- @ParameterizedTest @ValueSource(strings={"presentation","marketing","content","video","product","data","office","career"})
+ @ParameterizedTest @ValueSource(strings={"presentation","marketing","content","video","product","data","office","career","education","ecommerce","travel"})
  void everyPartnerHasDistinctSkillsAndProducesEditableWordAndLiteralExcel(String partner)throws Exception {
   assertThat(catalog.partner(partner).skillIds()).hasSizeGreaterThanOrEqualTo(3);
   var c=chat.send(partner,input("根据资料交付文稿与行动表","auto","system"));var t=c.turns().getLast();assertThat(t.status()).isEqualTo("SUCCEEDED");assertThat(t.artifacts()).hasSize(3);
@@ -48,6 +48,22 @@ class PartnerCapabilitiesTest {
   try(var doc=new XWPFDocument(new ByteArrayInputStream(resources.bytes(partner,word.id())))){assertThat(doc.getParagraphs().stream().map(p->p.getText())).contains("任务成果");assertThat(doc.getTables()).hasSize(1);assertThat(doc.getTables().getFirst().getRow(1).getCell(0).getText()).isEqualTo("核对材料");}
   var excel=t.artifacts().stream().filter(r->r.name().endsWith(".xlsx")).findFirst().orElseThrow();
   try(var wb=new XSSFWorkbook(new ByteArrayInputStream(resources.bytes(partner,excel.id())))){assertThat(wb.getSheet("方案表格1").getRow(2).getCell(0).getCellType()).isEqualTo(CellType.STRING);assertThat(wb.getSheet("方案表格1").getRow(2).getCell(0).getStringCellValue()).startsWith("=HYPERLINK");}
+ }
+ @Test void everyTextSkillHasAnExecutablePartnerAndFrozenQualityContract()throws Exception {
+  var domains=new HashSet<String>();
+  for(var skill:catalog.all().skills())if(skill.kind().equals("TEXT")){
+   domains.add(skill.category());assertThat(catalog.partner(skill.partnerId()).skillIds()).contains(skill.id());
+   var result=chat.send(skill.partnerId(),input("按提供材料完成任务，未知信息标注待确认",skill.id(),"system"));var turn=result.turns().getLast();
+   assertThat(turn.status()).as(skill.id()).isEqualTo("SUCCEEDED");
+   assertThat(turn.systemInstructions()).contains(skill.qualityInstructions(),"优先服从本轮明确要求");
+   assertThat(turn.artifacts().stream().map(PartnerResources.Resource::name)).anyMatch(name->name.endsWith(".docx"));
+  }
+  assertThat(domains).hasSize(9);
+ }
+ @Test void legacySkillSnapshotsRemainReadableWithoutNewGuidance()throws Exception {
+  var tree=json.valueToTree(catalog.skill("weekly-report"));var object=(com.fasterxml.jackson.databind.node.ObjectNode)tree;
+  object.remove(List.of("partnerId","inputs","checks"));var old=json.treeToValue(object,WorkCatalog.Skill.class);
+  assertThat(old.partnerId()).isNull();assertThat(old.inputs()).isEmpty();assertThat(old.qualityInstructions()).isEmpty();
  }
  @Test void explicitFormatWinsAndAutomaticModeDoesNotInjectMeetingTemplate()throws Exception {
   chat.saveProfile("office",new PartnerChatService.Profile(0,"默认写详细会议纪要"));

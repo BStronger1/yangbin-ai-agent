@@ -16,6 +16,7 @@ await page.route('**/*',async route=>{
  if(name.startsWith('/api/')||name.startsWith('/ppt/api/')) {
   if(name==='/api/auth/me')data={user:{id:'partner-fixture',username:'伙伴测试',role:'admin',csrf:'fixture'}};
   else if(name==='/api/ai/models'){if(failModels){status=503;data={message:'unavailable'}}else data={profiles,defaultModelId:profiles[0].id,providers:[{id:'anthropic',name:'Claude',defaultBaseUrl:'https://api.anthropic.com',suggestedModels:['fixture-claude']}]};}
+  else if(name==='/api/ai/capabilities')data={rag:false,mcpTools:[],tools:[]};
   else if(name==='/api/ai/work/catalog')data=catalog;
   else if(name==='/api/ai/work/partners')data=catalog.partners.map(p=>p.id);
   else if(name==='/api/ai/work/library')data={skills:[],partners:catalog.partners.map(p=>p.id)};
@@ -68,6 +69,22 @@ try {
  await page.getByLabel('添加附件或技能').click();await page.getByRole('button',{name:'引用任务资源',exact:true}).click();await page.getByRole('button',{name:'交付文稿.docx',exact:true}).click();assert.match(await page.locator('.composer-attachments').innerText(),/交付文稿/);checks.reuseGeneratedResource=true;
  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(150);const mobile=await page.locator('.task-composer').boundingBox();assert.ok(mobile.x>=0&&mobile.x+mobile.width<=391&&mobile.y+mobile.height<=844);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await shot('office-mobile.png');checks.mobileComposer=true;
  await page.setViewportSize({width:1440,height:1000});page.once('dialog',dialog=>dialog.accept());await page.getByLabel('删除当前任务').click();await page.locator('.partner-quick-actions').waitFor();assert.ok(!conversations.has(office.id));checks.deleteWithRevision=requests.at(-1).revision==='1';
+ await page.goto('http://partners-fixture.test/skills');await page.locator('.capability-card').first().waitFor();
+ for(const s of catalog.skills){const link=page.locator('[data-id="'+s.id+'"] a').first();const target=await link.getAttribute('href');assert.equal(target,s.kind==='TRAVEL'?'/tasks?skill='+s.id:'/partners/'+s.partnerId+'?skill='+s.id)}checks.allSkillRoutes=true;
+ for(const s of catalog.skills.filter(s=>s.kind==='TEXT')) {
+  await page.goto('http://partners-fixture.test/partners/'+s.partnerId+'?skill='+s.id);await page.getByLabel('填写技能需求').waitFor();
+  assert.equal(await page.locator('.skill-chip').innerText(),s.name);
+  await page.getByLabel('填写技能需求').click();await page.getByRole('dialog').waitFor();
+  assert.equal(await page.getByRole('dialog').locator('textarea').count(),s.inputs.length);
+  await page.getByTestId('brief-field-0').fill('本轮用户目标');await page.getByTestId('brief-field-1').fill('仅使用附件中的真实材料');
+  await page.getByRole('button',{name:'填入需求',exact:true}).click();assert.match(await page.getByLabel('发给伙伴的消息').inputValue(),/本轮用户目标/);
+  checks['guided-'+s.id]=true;
+ }
+ await page.goto('http://partners-fixture.test/partners/education?skill=learning-quiz');await page.getByLabel('填写技能需求').waitFor();
+ await page.getByLabel('发给伙伴的消息').fill('保留我的原始需求');await page.locator('.partner-quick-actions>button').last().click();assert.equal(await page.getByLabel('发给伙伴的消息').inputValue(),'保留我的原始需求');checks.skillChangePreservesDraft=true;
+ await page.setViewportSize({width:390,height:844});await page.getByLabel('填写技能需求').click();await page.getByRole('dialog').waitFor();
+ const dialogBox=await page.getByRole('dialog').boundingBox();assert.ok(dialogBox.x>=0&&dialogBox.x+dialogBox.width<=390&&dialogBox.y>=0&&dialogBox.y+dialogBox.height<=844);await shot('domain-intake-mobile.png');await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'detached'});checks.guidanceMobileAndEscape=true;
+ await page.setViewportSize({width:1440,height:1000});await page.goto('http://partners-fixture.test/partners/office?skill=study-plan');await page.getByRole('alert').waitFor();assert.match(await page.getByRole('alert').innerText(),/不属于当前伙伴/);assert.match(await page.locator('.skill-chip').innerText(),/自由对话/);checks.invalidSkillBinding=true;
  failModels=true;await page.goto('http://partners-fixture.test/partners/data');await page.getByRole('button',{name:'模型配置未能加载 · 重试'}).waitFor();await page.getByLabel('发给伙伴的消息').fill('任务');assert.ok(await page.getByRole('button',{name:'发送消息',exact:true}).isDisabled());failModels=false;await page.getByRole('button',{name:'模型配置未能加载 · 重试'}).click();await page.waitForFunction(()=>!document.querySelector('[aria-label="发送消息"]').disabled);checks.modelFailureRecovery=true;
  assert.deepEqual(errors,[]);assert.deepEqual(unknown,[]);assert.ok(Object.values(checks).every(Boolean));
 } finally {await fs.writeFile(path.join(out,'report.json'),JSON.stringify({checks,errors,unknown},null,2));await browser.close();}

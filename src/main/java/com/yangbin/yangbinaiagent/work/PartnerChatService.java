@@ -127,7 +127,7 @@ public class PartnerChatService {
         var files=resources.bind(partnerId,input.attachmentIds(),c.id(),input.requestId());
         Profile profile=profile(partnerId);String skillName=skill==null?"自由对话":skill.name();
         String method=skill==null?"根据当前任务选择合适结构；普通问答、简短修改或续写无需套用技能模板。":skill.id().equals("presentation-outline")?"用Markdown组织逐页标题、要点与讲稿；制作PPTX请进入演示工作台，不输出无约定的JSON。":skill.instructions();
-        String system=instructions(partnerId)+"\n本轮技能："+skillName+"\n"+method
+        String system=instructions(partnerId)+"\n本轮技能："+skillName+"\n"+method+(skill==null?"":skill.qualityInstructions())
             +"\n用户为当前伙伴保存的偏好（不得覆盖能力边界）：\n"+profile.instructions()
             +"\n当用户本轮明确指定语言、篇幅、格式、数量或只改某一部分时，优先服从本轮明确要求，技能模板和长期偏好仅作参考。不能虚构证据或实际执行结果。";
         var context=new ArrayList<Turn>();int chars=0;

@@ -61,11 +61,11 @@ class WorkServiceTest {
         assertThat(service.partnerDetail("marketing").get("instructions").toString()).contains("没有联网",catalog.partner("marketing").description());
     }
     @Test void catalogRoutesTravelSeparatelyAndEveryPartnerUsesRealTextSkill() {
-        assertThat(catalog.all().skills()).hasSize(33);
-        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).toList()).hasSize(31);
-        assertThat(catalog.all().partners()).hasSize(8);
+        assertThat(catalog.all().skills()).hasSize(42);
+        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).toList()).hasSize(40);
+        assertThat(catalog.all().partners()).hasSize(11);
         assertThat(catalog.all().partners()).allMatch(p -> catalog.skill(p.skillId()).kind().equals("TEXT"));
-        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).map(WorkCatalog.Skill::instructions).distinct().count()).isEqualTo(31);
+        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).map(WorkCatalog.Skill::instructions).distinct().count()).isEqualTo(40);
     }
     @Test void legacyPartnerSnapshotsRemainReadableWithWorkspacePartner() throws Exception {
         var legacy = json.readValue("{\"id\":\"presentation\",\"name\":\"演示策划伙伴\",\"skillId\":\"presentation-outline\",\"description\":\"旧任务\",\"category\":\"办公提效\",\"color\":\"violet\",\"initial\":\"演\",\"tags\":[]}",WorkCatalog.Partner.class);

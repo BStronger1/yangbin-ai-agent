@@ -175,7 +175,7 @@ public class WorkService {
     private static String systemFor(WorkCatalog.Skill skill) {
         String system = presentationSkill(skill) ? SYSTEM.replace("使用中文Markdown输出可编辑文稿。","使用中文生成结构化演示内容。")
             + "\n" + PresentationDraft.INSTRUCTIONS : SYSTEM;
-        return system + "\n本任务技能：" + skill.name() + "\n技能指引：\n" + skill.instructions();
+        return system + "\n本任务技能：" + skill.name() + "\n技能指引：\n" + skill.instructions() + skill.qualityInstructions();
     }
     private Run finish(Run old,String status,String result,String error) {
         return new Run(old.id(),old.title(),old.createdAt(),Instant.now().toString(),status,old.skill(),old.partner(),

@@ -48,7 +48,7 @@ async function toggle(item) {
 const isNarrative = item => item?.workspace === 'narrative-ppt'
 function destination(item) {
   if (tab.value === 'partners') return '/partners/' + item.id
-  return item.kind === 'TRAVEL' ? { path: '/tasks', query: { skill: item.id } } : '/work/' + item.id
+  return item.kind === 'TRAVEL' ? { path: '/tasks', query: { skill: item.id } } : item.partnerId ? {path:'/partners/'+item.partnerId,query:{skill:item.id}} : '/work/' + item.id
 }
 async function show(item,event) { if(tab.value === 'partners') { router.push(destination(item)); return } returnFocus = event?.currentTarget; detail.value = item; await nextTick(); document.querySelector('.studio-dialog button')?.focus() }
 function close() { detail.value = null; returnFocus?.focus() }
@@ -83,7 +83,7 @@ onBeforeUnmount(() => { alive = false; epoch++; controller?.abort() })
       <section v-if="!mine && !query && category === '全部'" class="studio-banner">
         <div><div class="banner-eyebrow">A LITTLE HELP. A LOT MORE POSSIBILITY.</div>
           <h1>{{ tab === 'partners' ? '找到与你一起做事的伙伴' : tab === 'plugins' ? '连接资料，让工作多一种可能' : '为每一项工作，找到合适的能力' }}</h1>
-          <p>{{ tab === 'partners' ? 'NarrativePPT 直接制作演示文件；其他伙伴基于你提供的材料生成文本初稿。' : tab === 'plugins' ? '这里展示服务端实际接入的能力，按当前账号的权限使用。' : '从一份会议纪要到一场营销活动，让不同领域的方法触手可及。' }}</p>
+          <p>{{ tab === 'partners' ? '按领域选择伙伴，使用个人模型、上传材料并持续修改 Word 与表格交付。' : tab === 'plugins' ? '这里展示服务端实际接入的能力，按当前账号的权限使用。' : '从一份会议纪要到一场营销活动，让不同领域的方法触手可及。' }}</p>
         </div><div class="banner-mark"><StudioIcon :name="tab === 'partners' ? 'person' : 'layers'" :size="36" /></div>
       </section>
       <div v-if="error" class="studio-error" role="alert">{{ error }} <button class="text-action" @click="load">重新加载</button></div>
@@ -94,14 +94,14 @@ onBeforeUnmount(() => { alive = false; epoch++; controller?.abort() })
           <div class="capability-icon" :class="plugin.color"><StudioIcon :name="plugin.icon" :size="26" /></div>
           <div class="capability-copy"><h3 class="capability-name">{{ plugin.name }}</h3><p class="capability-description">{{ plugin.description }}</p><div class="capability-tags"><span>{{ plugin.tag }}</span><span>{{ capabilities === null ? '状态未获取' : plugin.available ? '服务已启用' : '当前未启用' }}</span></div><div class="card-actions"><RouterLink class="studio-btn" :to="plugin.to">查看能力 <StudioIcon name="arrow" :size="13" /></RouterLink></div></div>
         </article></div>
-        <p class="studio-note" style="margin-top:30px">文本技能目前使用你粘贴的材料；这些外部能力在各自入口使用，不会自动加入伙伴任务。</p>
+        <p class="studio-note" style="margin-top:30px">文字技能支持粘贴与上传材料；知识库和 MCP 在各自入口使用，不会自动加入伙伴任务。</p>
       </template>
       <template v-else>
         <section v-for="group in groups" :key="group.name" :aria-label="group.name">
           <div class="section-heading"><h2>{{ group.name }}</h2><span>{{ group.items.length }} {{ tab === 'partners' ? '位伙伴' : '项技能' }}</span></div>
           <div class="capability-grid"><article v-for="item in group.items" :key="item.id" class="capability-card" :data-id="item.id">
             <div class="capability-icon" :class="[item.color,{ 'partner-avatar': tab === 'partners' }]"><span v-if="tab === 'partners'">{{ item.initial }}</span><StudioIcon v-else :name="item.icon" :size="25" /></div>
-            <div class="capability-copy"><button class="capability-name" @click="show(item,$event)">{{ item.name }}</button><p class="capability-description">{{ item.description }}</p><div class="capability-tags"><span v-if="tab === 'partners' && !isNarrative(item)">文本初稿</span><span v-for="tag in item.tags" :key="tag">{{ tag }}</span></div>
+            <div class="capability-copy"><button class="capability-name" @click="show(item,$event)">{{ item.name }}</button><p class="capability-description">{{ item.description }}</p><div class="capability-tags"><span v-if="tab === 'partners' && !isNarrative(item)">文档与表格</span><span v-for="tag in item.tags" :key="tag">{{ tag }}</span></div>
               <div class="card-actions"><RouterLink class="studio-btn" :to="destination(item)">{{ tab === 'partners' ? (summoned.includes(item.id) ? '进入伙伴' : '召唤') : '使用技能' }}<StudioIcon name="arrow" :size="12" /></RouterLink><button v-if="tab !== 'partners'" class="text-action" :disabled="!!busy" :aria-label="(selected(item) ? '取消收藏' : '收藏') + item.name" @click="toggle(item)">{{ busy === item.id ? '保存中' : selected(item) ? '✓ 已收藏' : '＋ 收藏' }}</button></div>
             </div>
           </article></div>
@@ -113,10 +113,10 @@ onBeforeUnmount(() => { alive = false; epoch++; controller?.abort() })
       <section class="studio-dialog" role="dialog" aria-modal="true" aria-labelledby="capability-title">
         <div class="dialog-heading"><h2 id="capability-title">{{ detail.name }}</h2><button aria-label="关闭详情" @click="close"><StudioIcon name="close" /></button></div>
         <p>{{ detail.description }}</p>
-        <h3>可以获得什么</h3><p>{{ isNarrative(detail) ? '带演讲者备注的可编辑 PPTX，支持逐页在线编辑、主题和配图管理。' : detail.output || catalog.skills.find(s => s.id === detail.skillId)?.output }}</p>
-        <h3>工作方式</h3><p>{{ isNarrative(detail) ? '进入 NarrativePPT 工作台，上传文档或粘贴材料，选择听众与目标，审阅大纲后生成页面，编辑完成后导出。' : detail.instructions || catalog.skills.find(s => s.id === detail.skillId)?.instructions || '跳转到出行工作台，选择技能、确认计划后生成带来源依据的行程。' }}</p>
-        <p class="studio-note" style="margin-top:18px">{{ isNarrative(detail) ? '复用当前账号，无需再次登录。AI生成与修改使用工作台中的模型配置。' : detail.kind === 'TRAVEL' ? '天气、地点和路线的可用性取决于服务配置。' : (detail.id === 'presentation-outline' || detail.skillId === 'presentation-outline') ? '基于粘贴材料生成逐页内容，支持下载可编辑PPTX与演讲者备注。当前为文字演示，不自动制作图表或配图。' : '基于粘贴材料生成文本初稿。图片、视频、PPTX制作及外部资料自动检索尚未接入此任务。' }}</p>
-        <div class="card-actions"><RouterLink class="studio-btn primary" :to="destination(detail)">开始任务 <StudioIcon name="arrow" :size="15" /></RouterLink></div>
+        <h3>可以获得什么</h3><p>{{ isNarrative(detail) ? '带演讲者备注的可编辑 PPTX，支持逐页在线编辑、主题和配图管理。' : detail.id === 'presentation-outline' ? '逐页内容与讲稿；可编辑 PPTX 通过专用制作入口导出。' : detail.output || catalog.skills.find(s => s.id === detail.skillId)?.output }}</p>
+        <template v-if="detail.inputs?.length"><h3>建议准备的材料</h3><ul><li v-for="field in detail.inputs" :key="field">{{field}}</li></ul><h3>交付核对标准</h3><ul><li v-for="check in detail.checks" :key="check">{{check}}</li></ul></template><h3>工作方式</h3><p>{{ isNarrative(detail) ? '进入 NarrativePPT 工作台，上传文档或粘贴材料，选择听众与目标，审阅大纲后生成页面，编辑完成后导出。' : detail.id === 'presentation-outline' ? '在演示伙伴中沟通材料、梳理故事线；需要 PPTX 文件时打开制作入口。' : detail.instructions || catalog.skills.find(s => s.id === detail.skillId)?.instructions || '跳转到出行工作台，选择技能、确认计划后生成带来源依据的行程。' }}</p>
+        <p class="studio-note" style="margin-top:18px">{{ isNarrative(detail) ? '复用当前账号，无需再次登录。AI生成与修改使用工作台中的模型配置。' : detail.kind === 'TRAVEL' ? '天气、地点和路线的可用性取决于服务配置。' : (detail.id === 'presentation-outline' || detail.skillId === 'presentation-outline') ? '基于粘贴材料生成逐页内容，支持下载可编辑PPTX与演讲者备注。当前为文字演示，不自动制作图表或配图。' : '进入对应伙伴，填写需求或上传材料，选择个人模型后执行；支持后续修改与 Word/Excel 下载，不自动联网或发布。' }}</p>
+        <div class="card-actions"><RouterLink v-if="detail.id==='presentation-outline'" class="studio-btn" to="/work/presentation-outline">快速制作 PPTX</RouterLink><RouterLink class="studio-btn primary" :to="destination(detail)">开始任务 <StudioIcon name="arrow" :size="15" /></RouterLink></div>
       </section>
     </div>
   </main>

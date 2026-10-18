@@ -148,7 +148,7 @@ class ModelProfilesHttpEndToEndTest {
         for(var request:OBSERVED){boolean isAlpha=request.path().contains("/alpha/");assertThat(request.model()).isEqualTo(isAlpha?"fixture-model-alpha":"fixture-model-beta");assertThat(request.authorization()).isEqualTo("Bearer "+(isAlpha?KEY_A:KEY_B));}
         assertThat(OBSERVED.getLast().streaming()).isFalse();assertThat(OBSERVED.getLast().model()).isEqualTo("fixture-model-alpha");
         // Every partner uses the same actual encrypted BYOK -> Spring AI -> HTTP path.
-        for(String partner:List.of("presentation","marketing","content","video","product","data","office","career")) {
+        for(String partner:List.of("presentation","marketing","content","video","product","data","office","career","education","ecommerce","travel")) {
             String conversation=UUID.randomUUID().toString();String base="/ai/work/partners/"+partner;
             var input=Map.of("conversationId",conversation,"requestId",UUID.randomUUID().toString(),"expectedRevision",0,"text","Produce a short editable report","skillId","auto","attachmentIds",List.of(),"modelProfileId",alpha);
             JsonNode page=ok(HttpMethod.POST,base+"/jobs",input);long deadline=System.nanoTime()+Duration.ofSeconds(20).toNanos();
@@ -163,7 +163,7 @@ class ModelProfilesHttpEndToEndTest {
             assertThat(call(HttpMethod.DELETE,base+"/conversations/"+conversation+"?revision=0",null,"admin").getStatusCode().value()).isEqualTo(409);
             ok(HttpMethod.DELETE,base+"/conversations/"+conversation+"?revision=1",null);assertThat(ok(HttpMethod.GET,base+"/resources?conversation="+conversation,null)).isEmpty();
         }
-        assertThat(OBSERVED).hasSize(13);
+        assertThat(OBSERVED).hasSize(16);
         ok(HttpMethod.PUT,"/ai/models/profiles/"+alpha,profile("Alpha future version","alpha","future-model-alpha",""));
         ok(HttpMethod.DELETE,"/ai/models/profiles/"+beta,null);
         assertThat(ok(HttpMethod.GET,"/ai/models",null).path("defaultModelId").asText()).isEqualTo("system");
@@ -172,6 +172,6 @@ class ModelProfilesHttpEndToEndTest {
         ok(HttpMethod.DELETE,"/ai/models/profiles/"+personal,null,USER_A);
         assertThat(ok(HttpMethod.GET,"/ai/models",null,USER_A).path("profiles")).isEmpty();
         try(var paths=Files.walk(ROOT)){for(Path file:paths.filter(Files::isRegularFile).filter(p->p.toString().endsWith(".json")||p.toString().endsWith(".jsonl")).toList())assertThat(Files.readString(file)).as(file.toString()).doesNotContain(KEY_A,KEY_B,KEY_USER);}
-        Files.createDirectories(ROOT);JSON.writerWithDefaultPrettyPrinter().writeValue(ROOT.resolve("verification.json").toFile(),Map.of("status","PASSED","keylessSpringContext",true,"realHttp",true,"actualPiSdk",true,"loopbackModelRequests",OBSERVED.size(),"paidModelRequests",0,"project",project,"session",session,"checks",List.of("encrypted owner-scoped CRUD","no key in HTTP metadata or stored task events","default and explicit profile selection","approval before actual write","cross-account denial","request-id model binding","history survives profile changes/deletion","same selected profile through Manus HTTP","eight partners through BYOK HTTP and actual Word downloads","partner replay and revision-checked deletion")));
+        Files.createDirectories(ROOT);JSON.writerWithDefaultPrettyPrinter().writeValue(ROOT.resolve("verification.json").toFile(),Map.of("status","PASSED","keylessSpringContext",true,"realHttp",true,"actualPiSdk",true,"loopbackModelRequests",OBSERVED.size(),"paidModelRequests",0,"project",project,"session",session,"checks",List.of("encrypted owner-scoped CRUD","no key in HTTP metadata or stored task events","default and explicit profile selection","approval before actual write","cross-account denial","request-id model binding","history survives profile changes/deletion","same selected profile through Manus HTTP","eleven partners through BYOK HTTP and actual Word downloads","partner replay and revision-checked deletion")));
     }
 }

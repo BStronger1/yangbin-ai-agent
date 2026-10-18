@@ -58,14 +58,14 @@ class WorkServiceTest {
         service.policy("marketing",new WorkService.PartnerPolicy("RESTRICTED",false));
         assertThat(service.execute(new WorkService.Request(completed.id(),"campaign-brief","marketing",completed.prompt()))).isEqualTo(completed);
         verify(model,times(1)).call(any(Prompt.class));
-        assertThat(service.partnerDetail("marketing").get("instructions").toString()).contains("没有联网",catalog.skill("campaign-brief").instructions());
+        assertThat(service.partnerDetail("marketing").get("instructions").toString()).contains("没有联网",catalog.partner("marketing").description());
     }
     @Test void catalogRoutesTravelSeparatelyAndEveryPartnerUsesRealTextSkill() {
-        assertThat(catalog.all().skills()).hasSize(18);
-        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).toList()).hasSize(16);
+        assertThat(catalog.all().skills()).hasSize(33);
+        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).toList()).hasSize(31);
         assertThat(catalog.all().partners()).hasSize(8);
         assertThat(catalog.all().partners()).allMatch(p -> catalog.skill(p.skillId()).kind().equals("TEXT"));
-        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).map(WorkCatalog.Skill::instructions).distinct().count()).isEqualTo(16);
+        assertThat(catalog.all().skills().stream().filter(s -> s.kind().equals("TEXT")).map(WorkCatalog.Skill::instructions).distinct().count()).isEqualTo(31);
     }
     @Test void legacyPartnerSnapshotsRemainReadableWithWorkspacePartner() throws Exception {
         var legacy = json.readValue("{\"id\":\"presentation\",\"name\":\"演示策划伙伴\",\"skillId\":\"presentation-outline\",\"description\":\"旧任务\",\"category\":\"办公提效\",\"color\":\"violet\",\"initial\":\"演\",\"tags\":[]}",WorkCatalog.Partner.class);

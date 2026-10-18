@@ -16,7 +16,8 @@ Bring your own model, keep projects private, and review tool actions before they
 - **工作**：创建服务端私有项目，让 pi Coding Agent 读取、编写、编辑文件；查看实际工具事件、审批、取消、历史任务和最近一轮文本差异。
 - **自带模型**：Claude 原生 Messages、OpenAI / DeepSeek / Kimi 的兼容接口，以及自定义兼容 Base URL 和模型 ID。配置按账号隔离，API Key 在服务器加密保存、不回显。
 - **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员在服务器单独开启。
-- **原工作台**：技能、伙伴、知识库、出行规划与来源核查仍保留。NarrativePPT 是需要独立配置的可选服务。
+- **工作伙伴**：八个领域伙伴提供独立任务工具箱、个人模型选择、Word/文字 PDF 材料读取、Word/Excel 交付、任务资源复用和清理，详见[伙伴能力](docs/PARTNER-CAPABILITIES.md)。
+- **原工作台**：技能、知识库、出行规划与来源核查仍保留。NarrativePPT 是需要独立配置的可选服务。
 
 ![账号私有模型设置](docs/images/model-settings.png)
 
@@ -106,9 +107,9 @@ flowchart TB
 | 双模式首页 | 对话 / 工作切换，模型选择，最近项目与任务入口 | `/work`；[CodingWorkspace.vue](yangbin-ai-agent-frontend/src/views/CodingWorkspace.vue) | 对话与工作分别记住非密钥模型选择 |
 | AI 超级智能体 | ReAct 推理、Java 工具调用、执行事件与 SSE 回答 | `/work?mode=chat`；[agent](src/main/java/com/yangbin/yangbinaiagent/agent) | 单次 Manus 任务，工具依赖与权限分别配置 |
 | Coding Agent | 私有项目、读写与精确编辑、三档审批、取消、历史恢复、文本差异 | `/work?mode=work`；[coding](src/main/java/com/yangbin/yangbinaiagent/coding)、[pi 运行时](coding-agent) | 命令执行另需管理员开启；未实现本机仓库或 Git/PR 操作 |
-| BYOK 模型管理 | Claude / OpenAI / DeepSeek / Kimi / 自定义兼容配置，增删改与默认模型 | 输入栏“模型设置”；[models](src/main/java/com/yangbin/yangbinaiagent/models) | 本轮主要接入对话与 Coding，不表示所有旧工作台都已迁移到个人模型 |
+| BYOK 模型管理 | Claude / OpenAI / DeepSeek / Kimi / 自定义兼容配置，增删改与默认模型 | 输入栏“模型设置”；[models](src/main/java/com/yangbin/yangbinaiagent/models) | 已接入主对话、Coding 与八个伙伴对话；旧版单次任务及独立 PPT 工作台仍分别配置模型 |
 | 账号与访问控制 | 邀请注册、登录、改密、管理员账号控制、会话与 CSRF | `/account`；[accounts.py](deploy/turing/accounts.py)、[proxy.py](deploy/turing/proxy.py) | 普通账号与管理员权限分开，资源按账号校验 |
-| 技能与工作伙伴 | 技能目录、个人技能管理、伙伴任务与历史、附件及资源产物 | `/skills`、`/skills/manage`、`/partners/:partnerId`；[work](src/main/java/com/yangbin/yangbinaiagent/work) | 伙伴是当前业务工作区，不是并行多 Agent 调度器 |
+| 技能与工作伙伴 | 33 项技能（31 文本 + 2 出行）、八个伙伴工具箱、BYOK、Word/PDF 读取、Word/Excel 交付及资源复用 | `/skills`、`/skills/manage`、`/partners/:partnerId`；[work](src/main/java/com/yangbin/yangbinaiagent/work) | 支持任务删除与资源清理；伙伴尚不具备并行多 Agent 调度 |
 | 任务与出行规划 | 有界步骤规划、确认、检查点、重试/取消、方案版本、来源检查与一次纠错 | `/tasks`、`/planner`；[tasks](src/main/java/com/yangbin/yangbinaiagent/tasks)、[planner](src/main/java/com/yangbin/yangbinaiagent/planner) | 围绕既有出行流程，来源规则不等于全文事实核验 |
 | 知识库 / RAG（可选） | 文档上传、预览、索引、检索、删除与引用 | `/knowledge`；[rag](src/main/java/com/yangbin/yangbinaiagent/rag) | 默认关闭；需配置 Embedding 服务与模型文件 |
 | MCP（可选） | 独立 MCP 服务接入、工具查看与测试 | `/mcp`；[MCP 服务](yangbin-image-search-mcp-server) | 仅开放已注册工具，不宣称任意插件自动接入 |

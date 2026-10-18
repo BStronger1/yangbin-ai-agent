@@ -33,7 +33,7 @@ onBeforeUnmount(()=>{epoch++;controller?.abort()})
    </template>
    <template v-else-if="tab==='abilities'">
     <nav class="partner-pills"><button :class="{active:ability==='skills'}" @click="ability='skills'">技能</button><button :class="{active:ability==='connectors'}" @click="ability='connectors'">连接器</button></nav>
-    <div v-if="ability==='skills'" class="partner-abilities"><article class="partner-ability"><span class="capability-icon" :class="data.partner.color">{{data.partner.initial}}</span><div><h2>{{narrative?'NarrativePPT 完整工作台':data.skill.name}}</h2><p>{{narrative?'材料导入、叙事规划、大纲审阅、逐页编辑、主题配图与PPTX导出。':data.skill.description}}</p><span class="capability-tag">{{narrative?'已接入工作台':'文本生成 · v'+data.skill.version}}</span></div></article><p class="studio-note">{{narrative?'AI生成与修改使用工作台中的模型配置。':'基于提供的材料生成文字初稿；不自动联网、运行代码或制作图片与视频。'}}</p></div>
+    <div v-if="ability==='skills'" class="partner-abilities"><article v-for="s in data.skills||[data.skill]" :key="s.id" class="partner-ability"><span class="capability-icon" :class="data.partner.color">{{data.partner.initial}}</span><div><h2>{{s.name}}</h2><p>{{s.description}}</p><span class="capability-tag">{{s.output}}</span></div></article><p class="studio-note">所有伙伴支持个人模型选择、Word/文字PDF材料读取、可编辑Word及表格Excel交付；数据表另可生成程序统计工作簿与预览图。图片仅保存预览。</p><p v-if="narrative" class="studio-note">实际PPT页面编辑与PPTX导出使用独立NarrativePPT工作台及其模型配置。</p></div>
     <div v-else class="partner-resource"><h2>{{narrative?'NarrativePPT 服务':'暂未绑定外部连接器'}}</h2><p>{{narrative?'复用当前账号连接专用演示服务，项目和材料按账号隔离。':'知识库、MCP 当前在各自入口使用，尚未自动加入此伙伴任务。'}}</p></div>
    </template>
    <form v-else class="partner-management" @submit.prevent="save">

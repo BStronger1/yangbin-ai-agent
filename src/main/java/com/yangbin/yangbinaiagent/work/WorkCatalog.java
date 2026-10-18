@@ -10,7 +10,9 @@ public class WorkCatalog {
     public record Skill(String id, String name, String category, String icon, String color, String description,
                         String output, String instructions, String example, List<String> tags, int version, String kind) {}
     public record Partner(String id, String name, String skillId, String description, String category,
-                          String color, String initial, List<String> tags, String workspace) {}
+                          String color, String initial, List<String> tags, String workspace, List<String> skillIds) {
+        public Partner {skillIds=skillIds==null?List.of(skillId):List.copyOf(skillIds);}
+    }
     public record Catalog(String version, List<Skill> skills, List<Partner> partners) {}
     private final Catalog catalog;
     public WorkCatalog(ObjectMapper json) throws IOException {
@@ -29,6 +31,7 @@ public class WorkCatalog {
             if (!ids.add(partner.id()) || !"TEXT".equals(skill(partner.skillId()).kind())
                 || (partner.workspace() != null && !"narrative-ppt".equals(partner.workspace())))
                 throw new IOException("Invalid work partner");
+            if(partner.skillIds().isEmpty()||!partner.skillIds().contains(partner.skillId())||new HashSet<>(partner.skillIds()).size()!=partner.skillIds().size()||partner.skillIds().stream().anyMatch(id->!"TEXT".equals(skill(id).kind())))throw new IOException("Invalid partner skills");
         }
     }
     public Catalog all() { return catalog; }

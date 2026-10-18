@@ -99,9 +99,9 @@ public class WorkService {
     public synchronized Map<String,Object> partnerDetail(String id) throws IOException {
         var partner = catalog.partner(id); var skill = catalog.skill(partner.skillId());
         boolean narrative = "narrative-ppt".equals(partner.workspace());
-        return Map.of("partner", partner, "skill", skill, "policy", policy(id),
-            "instructions", narrative ? "导入材料，确定听众与目标，审阅叙事和逐页大纲，生成后在线编辑并导出可编辑PPTX。实际生成指令随工作台步骤与模型配置变化。" : systemFor(skill),
-            "behavior", narrative ? "保留材料来源，区分材料事实与生成建议；生成前审阅大纲。工作台按项目保存内容，账号之间隔离。" : SYSTEM);
+        return Map.of("partner", partner, "skill", skill, "skills", partner.skillIds().stream().map(catalog::skill).toList(), "policy", policy(id),
+            "instructions", narrative ? "导入材料，确定听众与目标，审阅叙事和逐页大纲，生成后在线编辑并导出可编辑PPTX。实际生成指令随工作台步骤与模型配置变化。" : PartnerDeliverables.SYSTEM+"\n工作定位："+partner.description(),
+            "behavior", narrative ? "保留材料来源，区分材料事实与生成建议；生成前审阅大纲。工作台按项目保存内容，账号之间隔离。" : PartnerDeliverables.SYSTEM);
     }
     public synchronized List<Summary> list() throws IOException {
         try (var files = Files.list(ownerRoot())) {

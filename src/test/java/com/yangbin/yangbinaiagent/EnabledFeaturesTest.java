@@ -91,6 +91,7 @@ class EnabledFeaturesTest {
         properties.add("app.rag.index-dir",()->index.toString());
         properties.add("app.rag.upload-dir",()->index.resolve("uploads").toString());
         properties.add("app.plans.dir",()->index.resolve("plans").toString());
+        properties.add("app.work.dir",()->index.resolve("work").toString());
         properties.add("app.tasks.dir",()->index.resolve("tasks").toString());
         properties.add("app.skills.dir",()->index.resolve("skills").toString());
         properties.add("spring.ai.mcp.client.sse.connections.knowledge.url",()->"http://127.0.0.1:"+mcpPort);
@@ -137,6 +138,17 @@ class EnabledFeaturesTest {
         var result=http.postForEntity("/ai/mcp/call",Map.of("name",name,"arguments",Map.of("timezone","Asia/Shanghai")),String.class);
         assertThat(result.getBody()).contains("\"success\":true","+08:00","durationMs");
         assertThat(http.getForObject("/ai/mcp/history",String.class)).contains(name);
+        String requestId=java.util.UUID.randomUUID().toString();
+        var input=Map.of("name",name,"arguments",Map.of("timezone","Asia/Singapore"),"requestId",requestId);
+        var first=json.readTree(http.postForObject("/ai/mcp/call",input,String.class));
+        assertThat(first.path("status").asText()).isEqualTo("SUCCEEDED");
+        assertThat(json.readTree(http.postForObject("/ai/mcp/call",input,String.class))).isEqualTo(first);
+        assertThat(http.getForObject("/ai/mcp/history/"+requestId+"/download",String.class)).contains(requestId,name,"Asia/Singapore");
+        var attached=json.readTree(http.postForObject("/ai/mcp/history/"+requestId+"/attach",Map.of("partnerId","office"),String.class));
+        assertThat(attached.path("name").asText()).endsWith(".md");
+        assertThat(http.getForObject("/ai/work/partners/office/resources/"+attached.path("id").asText()+"/content",String.class)).contains(requestId,name);
+        assertThat(json.readTree(http.postForObject("/ai/mcp/history/"+requestId+"/attach",Map.of("partnerId","office"),String.class))).isEqualTo(attached);
+
         assertThat(http.postForEntity("/ai/mcp/call",Map.of("name","executeTerminalCommand","arguments",Map.of("command","echo no")),String.class).getStatusCode().value()).isEqualTo(400);
         assertThat(http.postForEntity("/ai/mcp/call",Map.of("name",name,"arguments",Map.of("timezone",42)),String.class).getStatusCode().value()).isEqualTo(400);
     }

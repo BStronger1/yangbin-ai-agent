@@ -34,7 +34,7 @@ onBeforeUnmount(()=>{epoch++;controller?.abort()})
    <template v-else-if="tab==='abilities'">
     <nav class="partner-pills"><button :class="{active:ability==='skills'}" @click="ability='skills'">技能</button><button :class="{active:ability==='connectors'}" @click="ability='connectors'">连接器</button></nav>
     <div v-if="ability==='skills'" class="partner-abilities"><article v-for="s in data.skills||[data.skill]" :key="s.id" class="partner-ability"><span class="capability-icon" :class="data.partner.color">{{data.partner.initial}}</span><div><h2>{{s.name}}</h2><p>{{s.description}}</p><span class="capability-tag">{{s.output}}</span><details v-if="s.checks?.length"><summary>交付核对标准</summary><ul><li v-for="check in s.checks" :key="check">{{check}}</li></ul></details><RouterLink class="text-action" :to="{path:'/partners/'+s.partnerId,query:{skill:s.id}}">使用此技能 →</RouterLink></div></article><p class="studio-note">所有伙伴支持个人模型选择、Word/文字PDF材料读取、可编辑Word及表格Excel交付；数据表另可生成程序统计工作簿与预览图。图片仅保存预览。</p><p v-if="narrative" class="studio-note">实际PPT页面编辑与PPTX导出使用独立NarrativePPT工作台及其模型配置。</p></div>
-    <div v-else class="partner-resource"><h2>{{narrative?'NarrativePPT 服务':'暂未绑定外部连接器'}}</h2><p>{{narrative?'复用当前账号连接专用演示服务，项目和材料按账号隔离。':'知识库、MCP 当前在各自入口使用，尚未自动加入此伙伴任务。'}}</p></div>
+    <div v-else class="partner-resource"><h2>{{narrative?'NarrativePPT 服务':'引用 MCP 工具结果'}}</h2><p>{{narrative?'复用当前账号连接专用演示服务，项目和材料按账号隔离。':'在 MCP 工作台手动运行只读工具，再把成功结果保存为本伙伴附件；此伙伴不会自主调用工具。个人知识库仍在独立入口使用。'}}</p><RouterLink v-if="!narrative" to="/mcp" class="text-action">打开 MCP 工作台 →</RouterLink></div>
    </template>
    <form v-else class="partner-management" @submit.prevent="save">
     <h2>授权模式</h2>

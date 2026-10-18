@@ -16,6 +16,7 @@ Bring your own model, keep projects private, and review tool actions before they
 - **工作**：创建服务端私有项目，让 pi Coding Agent 读取、编写、编辑文件；查看实际工具事件、审批、取消、历史任务和最近一轮文本差异。
 - **自带模型**：Claude 原生 Messages、OpenAI / DeepSeek / Kimi 的兼容接口，以及自定义兼容 Base URL 和模型 ID。配置按账号隔离，API Key 在服务器加密保存、不回显。
 - **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员在服务器单独开启。
+- **MCP 工作台**：参数表单、调用校验、持久历史、结果下载与显式交给伙伴，详见[MCP 使用说明](docs/MCP-WORKBENCH.md)。
 - **工作伙伴**：覆盖 9 个领域的 11 位伙伴提供独立任务工具箱和需求填写引导、个人模型选择、Word/文字 PDF 材料读取、Word/Excel 交付、任务资源复用和清理，详见[伙伴能力](docs/PARTNER-CAPABILITIES.md)。
 - **原工作台**：技能、知识库、出行规划与来源核查仍保留。NarrativePPT 是需要独立配置的可选服务。
 

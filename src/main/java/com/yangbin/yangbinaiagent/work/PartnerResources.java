@@ -40,6 +40,13 @@ public class PartnerResources {
   else if(ext.equals("docx")||ext.equals("pdf"))PartnerDeliverables.readDocument(bytes,ext.equals("pdf"));else if(ext.equals("xlsx"))readWorkbook(bytes,name);else if(ext.equals("csv"))csv(new String(bytes,StandardCharsets.UTF_8));
   return save(new Resource(UUID.randomUUID().toString(),partner,null,null,name,mime,bytes.length,"upload",Instant.now().toString()),bytes);
  }
+ public synchronized Resource importMcp(String partner,String callId,String text)throws IOException{
+  String id=UUID.nameUUIDFromBytes(("mcp:"+callId+":"+partner).getBytes(StandardCharsets.UTF_8)).toString();
+  if(Files.isRegularFile(meta(partner,id)))return get(partner,id);
+  byte[] bytes=text.getBytes(StandardCharsets.UTF_8);var all=list(partner,null);
+  if(all.size()>=200||all.stream().mapToLong(Resource::size).sum()+bytes.length>30L*1024*1024)throw new IllegalStateException("此伙伴资源已达上限");
+  return save(new Resource(id,partner,null,null,"MCP结果-"+callId+".md","text/plain",bytes.length,"upload",Instant.now().toString()),bytes);
+ }
  private Resource save(Resource r,byte[] data)throws IOException{Path dir=folder(r.partnerId()),tmp=Files.createTempFile(dir,"resource-",".tmp");try{Files.write(tmp,data);Files.move(tmp,dir.resolve(r.id()+".bin"),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);json.writeValue(meta(r.partnerId(),r.id()).toFile(),r);}finally{Files.deleteIfExists(tmp);}return r;}
  public synchronized List<Resource> bind(String partner,List<String> ids,String conversation,String turn)throws IOException{
   var found=new ArrayList<Resource>();for(String id:ids){var r=get(partner,id);if(!Set.of("upload","generated").contains(r.kind())||r.conversationId()!=null&&!r.conversationId().equals(conversation))throw new IllegalArgumentException("附件不属于当前任务");found.add(r);}

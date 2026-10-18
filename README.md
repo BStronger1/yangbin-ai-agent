@@ -2,6 +2,8 @@
 
 **一个网页，两种工作方式：AI 超级智能体对话与基于 pi 的 Coding Agent。**
 
+基于 **Spring Boot 3 + Java 21 + Spring AI + Vue 3** 构建的 AI 智能体工作台，集成 AI 恋爱大师、ReAct 自主规划智能体 **YangbinManus** 和基于 **pi** 的 Coding Agent，覆盖多厂商模型接入、用户自带 API Key（BYOK）、Prompt 工程、RAG 检索增强、Tool Calling、MCP、任务审批与文件产物管理。在课程项目基础上持续扩展对话与编程能力；RAG、MCP 等扩展需额外配置。
+
 Bring your own model, keep projects private, and review tool actions before they run.
 
 [![Build](https://github.com/BStronger1/yangbin-ai-agent/actions/workflows/build.yml/badge.svg)](https://github.com/BStronger1/yangbin-ai-agent/actions/workflows/build.yml)
@@ -22,7 +24,17 @@ Bring your own model, keep projects private, and review tool actions before they
 
 ## 项目架构
 
-项目采用 **Vue 网页 + Python 账号网关 + Spring Boot 业务服务 + Node.js Coding 运行时**。聊天和编码共用账号与个人模型配置，但走不同的执行链路。下图实线表示核心调用或数据访问，虚线表示需要额外启用或部署的扩展；这些层次不代表每个模块都是独立微服务。
+项目采用 **Vue 网页 + Python 账号网关 + Spring Boot 业务服务 + Node.js Coding 运行时**。聊天和编码共用账号与个人模型配置，但走不同的执行链路。
+
+### 技术架构全景
+
+![yangbin AI Agent 技术架构全景：前端、后端、Coding Agent、可选扩展与开发交付工具](docs/images/architecture-overview.svg)
+
+图中按当前实现分组，可选扩展需额外启用；开发与交付工具不属于用户运行链路。图片由[标准库 Python 脚本](tools/generate_architecture.py)生成，可随技术栈更新后重新生成。
+
+### 服务调用与数据流
+
+下图实线表示核心调用或数据访问，虚线表示需要额外启用或部署的扩展；这些层次不代表每个模块都是独立微服务。
 
 ```mermaid
 flowchart TB

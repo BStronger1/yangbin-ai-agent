@@ -43,6 +43,12 @@ class McpWorkbenchTest {
   when(work.policy("office")).thenReturn(new WorkService.PartnerPolicy("RESTRICTED",false));assertThatThrownBy(()->controller.attach(entry.id(),input)).isInstanceOf(IllegalStateException.class);
   service.clear();assertThat(resources.bytes("office",imported.id())).isNotEmpty();
  }
+ @Test void realSdkTextArraysAndNestedJsonStringsRemainReadable()throws Exception{
+  String raw=json.writeValueAsString(List.of(Map.of("text",json.writeValueAsString("a.md\nb.md"))));
+  assertThat(McpWorkbench.readable(raw)).isEqualTo("a.md\nb.md");
+  when(callbacks.getToolCallbacks()).thenReturn(new ToolCallback[]{tool(name,schema,()->raw)});var entry=service.call(id(),name,args());assertThat(entry.result()).isEqualTo(raw);assertThat(service.markdown(entry.id())).contains("a.md\nb.md");
+  when(callbacks.getToolCallbacks()).thenReturn(new ToolCallback[]{tool(name,schema,()->"[{\"text\":\"Error: unavailable\"}]")});assertThat(service.call(id(),name,args()).status()).isEqualTo("FAILED");
+ }
  @Test void schemaValidatorAcceptsTypedArgumentsAndRejectsMissingUnknownAndUnsupported()throws Exception{
   var s=json.readTree("{\"type\":\"object\",\"required\":[\"n\"],\"properties\":{\"n\":{\"type\":\"integer\",\"minimum\":1},\"ok\":{\"type\":\"boolean\"},\"names\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"enum\":[\"a\",\"b\"]}}}}");
   McpArguments.validate(s,json.readTree("{\"n\":2,\"ok\":true,\"names\":[\"a\"]}"));

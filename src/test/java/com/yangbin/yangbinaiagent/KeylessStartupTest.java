@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class KeylessStartupTest {
     static final Path ROOT = Path.of("target", "keyless-startup-" + UUID.randomUUID()).toAbsolutePath();
     @DynamicPropertySource static void isolatedStores(DynamicPropertyRegistry properties) {
-        for (String component : List.of("models", "coding", "memory", "plans", "repairs", "skills", "tasks", "work"))
+        for (String component : List.of("governance", "models", "coding", "memory", "plans", "repairs", "skills", "tasks", "work"))
             properties.add("app." + component + ".dir", () -> ROOT.resolve(component).toString());
         properties.add("app.rag.upload-dir", () -> ROOT.resolve("knowledge").toString());
         properties.add("app.rag.index-dir", () -> ROOT.resolve("rag").toString());

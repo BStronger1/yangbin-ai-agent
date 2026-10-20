@@ -1,5 +1,6 @@
 """Authenticated frontend and streaming API proxy for a personal deployment."""
 import asyncio
+from gateway_policy import Admission, Metrics, trace, admit, response_headers, transport_settings, operations, UNTRUSTED, configure_log
 from accounts import Accounts,RateLimit,COOKIE,auth_api
 import hmac
 import os
@@ -41,8 +42,9 @@ async def clients(app):
 
 async def api(request):
     # authenticate already enforces same-origin; do not trigger CORS again on the loopback hop.
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP | {"host", "authorization", "content-length", "cookie", "x-internal-token", "origin", "x-user-id", "x-user-role", "x-csrf-token"}}
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP | UNTRUSTED | {"host", "authorization", "content-length", "cookie", "x-internal-token", "origin", "x-user-id", "x-user-role", "x-csrf-token"}}
     if os.environ.get("INTERNAL_API_TOKEN"): headers["X-Internal-Token"] = os.environ["INTERNAL_API_TOKEN"]
+    headers["X-Request-Id"] = request["request_id"]
     headers["X-User-Id"] = request["user"]["id"]
     headers["X-User-Role"] = request["user"]["role"]
     try:
@@ -58,7 +60,7 @@ async def api(request):
             async for chunk in upstream.content.iter_any(): await response.write(chunk)
             await response.write_eof()
             return response
-    except ClientError:
+    except (ClientError, asyncio.TimeoutError):
         raise web.HTTPBadGateway(text="Backend unavailable")
 
 async def ppt_status(request):
@@ -69,7 +71,7 @@ async def ppt_status(request):
         async with request.app["client"].get(
                 "http://127.0.0.1:" + os.environ["NARRATIVE_PORT"] + "/api/v1/health",
                 headers={"X-Agent-Bridge-Token": os.environ["AGENT_BRIDGE_SECRET"],
-                         "X-Agent-Owner": request["user"]["id"]},
+                         "X-Agent-Owner": request["user"]["id"], "X-Request-Id": request["request_id"]},
                 timeout=ClientTimeout(total=3)) as result:
             body = await result.json()
             return web.json_response({"enabled": True, "ready": result.status == 200 and body.get("database") == "ok" and body.get("redis") == "ok"})
@@ -78,7 +80,7 @@ async def ppt_status(request):
 
 
 async def narrative_access(request):
-    headers = {"X-Internal-Token": os.environ.get("INTERNAL_API_TOKEN", ""),
+    headers = {"X-Internal-Token": os.environ.get("INTERNAL_API_TOKEN", ""), "X-Request-Id": request["request_id"],
                "X-User-Id": request["user"]["id"], "X-User-Role": request["user"]["role"]}
     try:
         async with request.app["client"].get("http://127.0.0.1:" + os.environ.get("SERVER_PORT", "18126")
@@ -98,9 +100,10 @@ async def narrative(request):
     await narrative_access(request)
     suffix = request.raw_path.removeprefix("/ppt")
     headers = {k: v for k, v in request.headers.items()
-               if k.lower() not in HOP | {"host", "authorization", "content-length", "cookie",
+               if k.lower() not in HOP | UNTRUSTED | {"host", "authorization", "content-length", "cookie",
                    "origin", "x-csrf-token", "x-user-id", "x-user-role",
                    "x-agent-owner", "x-agent-bridge-token", "x-internal-token"}}
+    headers["X-Request-Id"] = request["request_id"]
     headers["X-Agent-Owner"] = request["user"]["id"]
     headers["X-Agent-Bridge-Token"] = secret
     try:
@@ -110,7 +113,7 @@ async def narrative(request):
                 timeout=ClientTimeout(total=None, sock_connect=5, sock_read=660)) as upstream:
             response = web.StreamResponse(status=upstream.status)
             for key, value in upstream.headers.items():
-                if key.lower() not in HOP | {"set-cookie", "location"}:
+                if key.lower() not in HOP | UNTRUSTED | {"set-cookie", "location"}:
                     response.headers.add(key, value)
             if "Location" in upstream.headers:
                 location = upstream.headers["Location"]
@@ -138,7 +141,7 @@ async def frontend(request):
     return web.FileResponse(target, headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
 
 def create_app(accounts=None):
-    app=web.Application(middlewares=[authenticate],client_max_size=12*1024*1024)
+    app=web.Application(middlewares=[trace,authenticate,admit],client_max_size=12*1024*1024)
     public_origin=os.environ.get('PUBLIC_ORIGIN','').rstrip('/')
     if public_origin:
         parsed=urlsplit(public_origin)
@@ -147,10 +150,15 @@ def create_app(accounts=None):
         if parsed.scheme=='https' and os.environ.get('SESSION_COOKIE_SECURE')!='true':
             raise ValueError('HTTPS PUBLIC_ORIGIN requires SESSION_COOKIE_SECURE=true')
     app['public_origin']=public_origin
+    app['transport'],app['ssl_context']=transport_settings(public_origin)
+    app['admission']=Admission();app['gateway_metrics']=Metrics()
+    app.on_response_prepare.append(response_headers)
     app['accounts']=accounts or Accounts(ROOT/'tmp/auth/accounts.sqlite',os.environ['ACCESS_USER'],os.environ['ACCESS_PASSWORD'])
     app['rate_limit']=RateLimit();app['password_slots']=asyncio.Semaphore(2)
     app.cleanup_ctx.append(clients)
     app.router.add_route('*','/api/auth/{action:.*}',auth_api)
+    app.router.add_get('/api/ops/health',operations)
+    app.router.add_get('/api/ops/metrics',operations)
     app.router.add_get('/api/ppt/status',ppt_status)
     app.router.add_route('*','/ppt/{path:.*}',narrative)
     app.router.add_route('*','/api/{path:.*}',api)
@@ -158,4 +166,6 @@ def create_app(accounts=None):
     return app
 
 if __name__ == '__main__':
-    web.run_app(create_app(),host=os.environ.get('PUBLIC_BIND','127.0.0.1'),port=int(os.environ.get('PUBLIC_PORT','18825')),access_log=None)
+    configure_log(ROOT)
+    app=create_app()
+    web.run_app(app,ssl_context=app['ssl_context'],host=os.environ.get('PUBLIC_BIND','127.0.0.1'),port=int(os.environ.get('PUBLIC_PORT','18825')),access_log=None)

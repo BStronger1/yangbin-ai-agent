@@ -80,7 +80,7 @@ class ModelProfilesHttpEndToEndTest {
         registry.add("app.models.dir",()->ROOT.resolve("profiles").toString());registry.add("app.coding.dir",()->ROOT.resolve("coding").toString());
         registry.add("app.model.base-url",()->base("must-not-call-global"));registry.add("app.coding.base-url",()->"");
         registry.add("app.coding.node",()->System.getProperty("coding.test.node","node"));
-        for(String component:List.of("memory","plans","repairs","skills","tasks","work"))registry.add("app."+component+".dir",()->ROOT.resolve(component).toString());
+        for(String component:List.of("governance","memory","plans","repairs","skills","tasks","work"))registry.add("app."+component+".dir",()->ROOT.resolve(component).toString());
         registry.add("app.rag.upload-dir",()->ROOT.resolve("knowledge").toString());registry.add("app.rag.index-dir",()->ROOT.resolve("rag").toString());
         registry.add("logging.file.name",()->ROOT.resolve("application.log").toString());
     }
@@ -142,8 +142,14 @@ class ModelProfilesHttpEndToEndTest {
         assertThat(secondDone.path("turns").get(0).path("modelSnapshot")).isEqualTo(frozenAlpha);assertThat(secondDone.path("turns").get(1).path("modelSnapshot").path("profileId").asText()).isEqualTo(beta);
         assertThat(call(HttpMethod.GET,"/ai/coding/sessions/"+session,null,USER_A).getStatusCode().is4xxClientError()).isTrue();
         var sseHeaders=headers("admin");sseHeaders.setAccept(List.of(MediaType.TEXT_EVENT_STREAM));
-        var manus=http.exchange("/ai/manus/chat?message=reply-with-selected-model&modelProfileId="+alpha,HttpMethod.GET,new HttpEntity<>(null,sseHeaders),String.class);
+        String manusChat=UUID.randomUUID().toString(),manusRequest=UUID.randomUUID().toString();
+        var manus=http.exchange("/ai/manus/chat?message=reply-with-selected-model&modelProfileId="+alpha+"&chatId="+manusChat+"&requestId="+manusRequest,HttpMethod.GET,new HttpEntity<>(null,sseHeaders),String.class);
         assertThat(manus.getStatusCode().is2xxSuccessful()).isTrue();assertThat(manus.getBody()).contains("Manus selected fixture-model-alpha","[DONE]").doesNotContain(KEY_A,KEY_B,"执行错误");
+        assertThat(ok(HttpMethod.GET,"/ai/manus/conversations/"+manusChat,null).path("turns").get(0).path("status").asText()).isEqualTo("SUCCEEDED");
+        assertThat(call(HttpMethod.GET,"/ai/manus/conversations/"+manusChat,null,USER_A).getStatusCode().is4xxClientError()).isTrue();
+        var replay=http.exchange("/ai/manus/chat?message=reply-with-selected-model&modelProfileId="+alpha+"&chatId="+manusChat+"&requestId="+manusRequest,HttpMethod.GET,new HttpEntity<>(null,sseHeaders),String.class);
+        assertThat(replay.getBody()).contains("[DONE]");
+        assertThat(ok(HttpMethod.GET,"/ai/governance",null).path("requests").asLong()).isGreaterThan(0);
         assertThat(OBSERVED).hasSize(5);assertThat(OBSERVED.stream().filter(Observed::streaming)).hasSize(4);
         for(var request:OBSERVED){boolean isAlpha=request.path().contains("/alpha/");assertThat(request.model()).isEqualTo(isAlpha?"fixture-model-alpha":"fixture-model-beta");assertThat(request.authorization()).isEqualTo("Bearer "+(isAlpha?KEY_A:KEY_B));}
         assertThat(OBSERVED.getLast().streaming()).isFalse();assertThat(OBSERVED.getLast().model()).isEqualTo("fixture-model-alpha");

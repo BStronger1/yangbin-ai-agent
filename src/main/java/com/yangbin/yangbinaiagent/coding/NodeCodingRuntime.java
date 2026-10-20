@@ -17,9 +17,12 @@ public class NodeCodingRuntime implements CodingRuntime {
     private final ObjectMapper json;
     private final String node, key, baseUrl, model, provider;
     @Value("${app.coding.api:${CODING_MODEL_API:openai-completions}}") private String systemApi="openai-completions";
+    @Value("${app.coding.context-window:${CODING_CONTEXT_WINDOW:64000}}") private int contextWindow=64000;
+    @Value("${app.governance.output-tokens:4096}") private int outputTokens=4096;
     private final Path entry;
     private final boolean enabled;
     private final long timeoutSeconds;
+    private volatile Map<String,Object> sandbox=Map.of("available",false,"reason","Verified isolation has not been checked");
     private volatile long checkedAt; private volatile String runtimeProblem="";
     public NodeCodingRuntime(ObjectMapper json,
         @Value("${app.coding.enabled:${CODING_ENABLED:false}}") boolean enabled,
@@ -45,11 +48,12 @@ public class NodeCodingRuntime implements CodingRuntime {
         if(reason.isEmpty())reason=probeRuntime();
         return new Availability(reason.isEmpty(),reason,effectiveModel);
     }
+    public Map<String,Object> shellAvailability(){if(!enabled)return Map.of("available",false,"reason","Coding runtime is disabled");probeRuntime();return sandbox;}
     private synchronized String probeRuntime(){
         long now=System.currentTimeMillis();if(now-checkedAt<30000)return runtimeProblem;
-        Process process=null;runtimeProblem="Coding Agent 运行时检查失败，请检查 Node 版本和依赖";
+        Process process=null;sandbox=Map.of("available",false,"reason","Verified isolation is unavailable");runtimeProblem="Coding Agent 运行时检查失败，请检查 Node 版本和依赖";
         try{var probe=new ProcessBuilder(node,entry.toString(),"--check").directory(entry.getParent().getParent().toFile()).redirectError(ProcessBuilder.Redirect.DISCARD);restrictEnvironment(probe);process=probe.start();
-            if(process.waitFor(10,TimeUnit.SECONDS)&&process.exitValue()==0){String output=new String(process.getInputStream().readNBytes(4096),StandardCharsets.UTF_8);if(json.readTree(output).path("ok").asBoolean())runtimeProblem="";}
+            if(process.waitFor(10,TimeUnit.SECONDS)&&process.exitValue()==0){String output=new String(process.getInputStream().readNBytes(4096),StandardCharsets.UTF_8);var result=json.readTree(output);if(result.path("ok").asBoolean()){runtimeProblem="";if(result.path("sandbox").isObject())sandbox=json.convertValue(result.path("sandbox"),new TypeReference<Map<String,Object>>(){});}}
         }catch(Exception ignored){}finally{if(process!=null)kill(process);checkedAt=now;}return runtimeProblem;
     }
     public void run(Request request,Consumer<Map<String,Object>> sink,BlockingQueue<Map<String,Object>> commands)throws Exception {
@@ -57,6 +61,9 @@ public class NodeCodingRuntime implements CodingRuntime {
         String activeKey=selected==null?key:selected.apiKey(),activeBase=selected==null?baseUrl:selected.snapshot().baseUrl(),activeModel=selected==null?model:selected.snapshot().model(),activeProvider=selected==null?provider:selected.snapshot().provider(),activeApi=selected==null?systemApi:selected.snapshot().api();
         ProcessBuilder builder=new ProcessBuilder(node,entry.toString()).directory(entry.getParent().getParent().toFile());
         restrictEnvironment(builder);
+        builder.environment().put("CODING_GOVERNANCE_REQUIRED","true");
+        builder.environment().put("CODING_CONTEXT_WINDOW",Integer.toString(Math.max(4096,Math.min(contextWindow,200000))));
+        builder.environment().put("CODING_OUTPUT_TOKENS",Integer.toString(Math.max(1,Math.min(outputTokens,65536))));
         builder.environment().put("CODING_MODEL_API_KEY",activeKey);builder.environment().put("CODING_MODEL_BASE_URL",activeBase);
         builder.environment().put("CODING_MODEL_NAME",activeModel);builder.environment().put("CODING_MODEL_MODEL",activeModel);builder.environment().put("CODING_MODEL_PROVIDER",activeProvider);
         builder.environment().put("CODING_MODEL_API",activeApi);builder.environment().put("CODING_MODEL_ALLOW_PRIVATE",Boolean.toString(selected==null||selected.allowPrivate()));
@@ -75,8 +82,7 @@ public class NodeCodingRuntime implements CodingRuntime {
             boolean started=false,completed=false;
             try{
                 String line;
-                while((line=reader.readLine())!=null){
-                    if(line.length()>2_000_000)throw new IOException("Runtime event too large");
+                while((line=readBoundedLine(reader,2_000_000))!=null){
                     Map<String,Object> item=json.readValue(line,new TypeReference<>(){});
                     if("ready".equals(item.get("type"))&&!started){
                         var start=new LinkedHashMap<String,Object>();start.put("id",request.sessionId());start.put("type","start");start.put("sessionId",request.sessionId());start.put("workspace",request.workspace().toString());start.put("sessionDir",request.sessionDir().toString());start.put("prompt",request.prompt());start.put("approvalMode",request.approvalMode());start.put("allowShell",request.allowShell());
@@ -94,6 +100,18 @@ public class NodeCodingRuntime implements CodingRuntime {
             }finally{commandWriter.interrupt();}
         }finally{timer.shutdownNow();kill(process);}
     }
-    private static void restrictEnvironment(ProcessBuilder builder){Map<String,String> inherited=new HashMap<>(builder.environment());builder.environment().clear();for(String name:List.of("PATH","Path","SystemRoot","WINDIR","TEMP","TMP","LANG"))if(inherited.containsKey(name))builder.environment().put(name,inherited.get(name));}
+    /** Stop before allocating an unbounded child-process line. Reader buffering stays bounded too. */
+    static String readBoundedLine(Reader reader,int limit)throws IOException {
+        if(limit<1)throw new IllegalArgumentException("Invalid line limit");
+        StringBuilder line=new StringBuilder(Math.min(limit,4096));
+        int value;
+        while((value=reader.read())!=-1){
+            if(value=='\n')return line.toString();
+            if(line.length()>=limit)throw new IOException("Runtime event too large");
+            line.append((char)value);
+        }
+        return line.isEmpty()?null:line.toString();
+    }
+    private static void restrictEnvironment(ProcessBuilder builder){Map<String,String> inherited=new HashMap<>(builder.environment());builder.environment().clear();for(String name:List.of("PATH","Path","SystemRoot","WINDIR","TEMP","TMP","LANG","CODING_BWRAP"))if(inherited.containsKey(name))builder.environment().put(name,inherited.get(name));}
     private static void kill(Process process){process.descendants().forEach(ProcessHandle::destroyForcibly);process.destroyForcibly();}
 }

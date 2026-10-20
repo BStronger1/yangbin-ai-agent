@@ -19,7 +19,7 @@ class PartnerChatServiceTest {
  final ExecutionProvenance provenance=new ExecutionProvenance("m013-test","openai","test-model","");
  ChatModel model;WorkCatalog catalog;WorkService work;PartnerChatService chat;UserContext.Scope scope;
  @BeforeEach void setup()throws Exception{scope=UserContext.open(TaskWorkflowTest.A);model=mock(ChatModel.class);catalog=new WorkCatalog(json);work=new WorkService(json,model,catalog,provenance,root.toString());chat=create();clearInvocations(model);when(model.call(any(Prompt.class))).thenReturn(answer("第一轮答复"));}
- @AfterEach void close(){scope.close();}
+ @AfterEach void close(){chat.close();scope.close();}
  PartnerChatService create()throws Exception{return new PartnerChatService(json,model,catalog,work,provenance,root.toString());}
  static ChatResponse answer(String text){return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));}
  static PartnerChatService.Input input(String id,int revision,String text){return new PartnerChatService.Input(id,UUID.randomUUID().toString(),revision,text);}
@@ -58,4 +58,9 @@ class PartnerChatServiceTest {
  @Test void profilesAreVersionCheckedClearableAndNarrativeBoundariesExplicit()throws Exception{
   chat.saveProfile("office",new PartnerChatService.Profile(0,"偏好"));assertThatThrownBy(()->chat.saveProfile("office",new PartnerChatService.Profile(0,"冲突"))).hasMessageContaining("刷新");assertThat(chat.saveProfile("office",new PartnerChatService.Profile(1," ")).instructions()).isEmpty();assertThat(create().profile("office").version()).isEqualTo(2);assertThat(chat.instructions("presentation")).contains("不能直接操作项目");assertThatThrownBy(()->chat.profile("../bad")).isInstanceOf(IllegalArgumentException.class);assertThatThrownBy(()->chat.saveProfile("office",new PartnerChatService.Profile(2,"x".repeat(2001)))).isInstanceOf(IllegalArgumentException.class);verify(model,never()).call(any(Prompt.class));
  }
+ @Test void backgroundSubmitPreservesOnlyValidatedRequestCorrelation()throws Exception{
+  var observed=new java.util.concurrent.atomic.AtomicReference<String>();var called=new CountDownLatch(1);
+  when(model.call(any(Prompt.class))).thenAnswer(call->{assertThat(UserContext.current()).isEqualTo(TaskWorkflowTest.A);observed.set(org.slf4j.MDC.get("requestId"));called.countDown();return answer("完成");});String conversation=id();try(var trace=org.slf4j.MDC.putCloseable("requestId","c".repeat(32))){chat.submit("office",input(conversation,0,"任务"));}assertThat(called.await(5,TimeUnit.SECONDS)).isTrue();assertThat(observed.get()).isEqualTo("c".repeat(32));for(int i=0;i<500&&chat.get("office",conversation).turns().getLast().status().equals("RUNNING");i++)Thread.sleep(10);assertThat(chat.get("office",conversation).turns().getLast().status()).isEqualTo("SUCCEEDED");
+ }
+
 }

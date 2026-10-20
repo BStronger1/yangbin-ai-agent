@@ -37,6 +37,7 @@ public abstract class ReActAgent extends BaseAgent {
         if (!think()) {
             return getMessageList().getLast().getText();
         }
+        if (getStopped().get() || Thread.currentThread().isInterrupted()) throw new IllegalStateException("Agent interrupted before tool execution");
         return act();
     }
 

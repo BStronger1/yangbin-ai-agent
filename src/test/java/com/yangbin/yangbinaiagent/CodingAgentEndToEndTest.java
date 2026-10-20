@@ -54,6 +54,7 @@ class CodingAgentEndToEndTest {
         String endpoint="http://127.0.0.1:"+PROVIDER.getAddress().getPort()+"/v1";
         r.add("app.model.base-url",()->endpoint);r.add("app.coding.base-url",()->"");
         r.add("app.coding.dir",ROOT::toString);
+        r.add("app.governance.dir",()->ROOT.resolve("governance").toString());
         r.add("app.coding.node",()->System.getProperty("coding.test.node","node"));
     }
     @AfterAll static void stop(){PROVIDER.stop(0);}

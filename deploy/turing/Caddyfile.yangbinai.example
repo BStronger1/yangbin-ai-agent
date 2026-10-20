@@ -1,0 +1,20 @@
+# Candidate virtual host only. Merge into the existing operator-managed Caddy
+# configuration after DNS, port ownership and certificate issuance are verified.
+# Do not replace a shared Caddyfile or launch another listener on occupied ports.
+yangbinai.homes {
+    reverse_proxy 127.0.0.1:18825 {
+        header_up -X-Internal-Token
+        header_up -X-User-Id
+        header_up -X-User-Role
+        header_up -X-Agent-Owner
+        header_up -X-Agent-Bridge-Token
+        header_up -X-Request-Id
+        header_up -Traceparent
+        header_up -Tracestate
+        header_up -Baggage
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 360s
+        }
+    }
+}

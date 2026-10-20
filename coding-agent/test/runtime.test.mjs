@@ -46,13 +46,16 @@ test('symlink and hardlink escapes are rejected', async t => {
   await assert.rejects(tools.execute('write', { path: 'hard.txt', content: 'overwrite' }), /Linked/);
   assert.equal(await fs.readFile(path.join(external, 'secret.txt'), 'utf8'), 'private');
 });
-test('shell is disabled by default; trusted shell runs after approval without model credentials', async t => {
+test('shell is disabled by default and unavailable isolation never falls back to host', async t => {
   const disabled = await fixture(t); await assert.rejects(disabled.tools.execute('bash', { command: 'echo nope' }), /disabled/);
-  const { tools, events } = await fixture(t, { allowShell: true, approvalMode: 'on-risk' });
-  const command = process.platform === 'win32' ? "Write-Output 'shell-ok'; Write-Output $env:CODING_MODEL_API_KEY" : 'echo shell-ok; printf %s "$CODING_MODEL_API_KEY"';
-  process.env.CODING_MODEL_API_KEY = 'test-private-key'; t.after(() => delete process.env.CODING_MODEL_API_KEY);
-  const running = tools.execute('bash', { command }); tools.approve(events.at(-1).approvalId, true);
-  const result = await running; assert.match(result.content[0].text, /shell-ok/); assert.doesNotMatch(result.content[0].text, /test-private-key/);
+  const { tools, workspace } = await fixture(t, { allowShell: true, approvalMode: 'allow' });
+  if (!tools.sandbox.available) {
+    await assert.rejects(tools.execute('bash', { command: 'echo unsafe > marker.txt' }), /isolation is required/);
+    await assert.rejects(fs.stat(path.join(workspace, 'marker.txt')));
+  } else {
+    const result = await tools.execute('bash', { command: 'echo sandbox-ok; test ! -e /home; test ! -e /etc' });
+    assert.match(result.content[0].text, /sandbox-ok/);
+  }
 });
 test('actual pi SDK + loopback model completes write/read/edit tool loop and restores session', { timeout: 60000 }, async t => {
   const { root, workspace } = await fixture(t); const requests = [];
@@ -93,7 +96,8 @@ test('actual pi SDK + loopback model completes write/read/edit tool loop and res
 
 test('cancelling an active command terminates its process tree', { timeout: 10000 }, async t => {
   const { tools, abort } = await fixture(t, { allowShell: true });
-  const command = process.platform === 'win32' ? 'Start-Sleep -Seconds 20' : 'sleep 20';
+  if (!tools.sandbox.available) { await assert.rejects(tools.execute('bash', { command: 'sleep 20' }), /isolation is required/); return; }
+  const command = 'sleep 20';
   const running = tools.execute('bash', { command, timeoutSeconds: 30 });
   const timer = setTimeout(() => abort.abort(), 200); t.after(() => clearTimeout(timer));
   await assert.rejects(running, /cancelled/);

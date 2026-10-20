@@ -48,5 +48,9 @@ class PrivateModelProtocolTest {
         server.createContext("/error/chat/completions",e->reply(e,401,Map.of("error",Map.of("message","rejected "+credential))));
         assertThatThrownBy(()->new PrivateChatModels().create(selected("openai","/error")).call(new Prompt("hello"))).isInstanceOf(IllegalStateException.class).hasMessageNotContaining(credential).hasNoCause();
     }
+    @Test void usageMetadataIsPreservedOnlyWhenProviderActuallyReportsIt()throws Exception{
+        server.createContext("/usage/chat/completions",e->{int n=tools.incrementAndGet();var payload=new java.util.HashMap<String,Object>(Map.of("id","usage","object","chat.completion","created",1,"model","fixture-model","choices",List.of(Map.of("index",0,"message",Map.of("role","assistant","content","ok"),"finish_reason","stop"))));if(n==1)payload.put("usage",Map.of("prompt_tokens",12,"completion_tokens",4,"total_tokens",16));reply(e,200,payload);});
+        var model=new PrivateChatModels().create(selected("openai","/usage"));var known=model.call(new Prompt("hello"));assertThat(known.getMetadata().getUsage().getTotalTokens()).isEqualTo(16);var unknown=model.call(new Prompt("hello"));assertThat(unknown.getMetadata().getUsage()).isInstanceOf(org.springframework.ai.chat.metadata.EmptyUsage.class);
+    }
     @Test void unconfiguredSharedModelFailsClearlyWithoutExternalRequest(){assertThatThrownBy(()->new UnconfiguredChatModel().call(new Prompt("hello"))).isInstanceOf(IllegalStateException.class).hasMessageContaining("个人模型");}
 }

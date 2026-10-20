@@ -145,6 +145,8 @@ async def auth_api(request):
             if not isinstance(body,dict):raise ValueError("请求格式无效")
             request.app['rate_limit'].check('ip:'+str(request.remote),limit=20)
             request.app['rate_limit'].check('user:'+str(body.get('username','')).lower(),limit=10)
+            if request.app['password_slots'].locked():
+                raise web.HTTPServiceUnavailable(text=json.dumps({'message':'身份验证繁忙，请稍后重试'}),content_type='application/json',headers={'Retry-After':'2'})
             async with request.app['password_slots']:
                 if action=='login':token,identity=await asyncio.to_thread(accounts.login,body.get('username'),body.get('password'))
                 else:token,identity=await asyncio.to_thread(accounts.register,body.get('username'),body.get('password'),body.get('invite'))

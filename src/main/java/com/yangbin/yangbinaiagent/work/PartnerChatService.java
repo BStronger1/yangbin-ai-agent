@@ -140,8 +140,8 @@ public class PartnerChatService {
     }
     public Conversation send(String partner,Input input)throws IOException{var prepared=prepare(partner,input);return prepared.existing()?prepared.conversation():execute(prepared);}
     public Conversation submit(String partner,Input input)throws IOException{
-        var prepared=prepare(partner,input);if(prepared.existing())return prepared.conversation();var user=UserContext.current();
-        try{executor.execute(()->{try(var ignored=UserContext.open(user)){execute(prepared);}catch(Exception ignored){/* Reservation remains readable and is interrupted on restart. */}});}catch(RejectedExecutionException e){update(partner,input.conversationId(),input.requestId(),t->finish(t,null,"FAILED","任务队列已满，请稍后重新发送。"));}
+        var prepared=prepare(partner,input);if(prepared.existing())return prepared.conversation();var user=UserContext.current();String trace=org.slf4j.MDC.get("requestId");String requestTrace=trace!=null&&trace.matches("[a-f0-9]{32}")?trace:"";
+        try{executor.execute(()->{try(var ignored=UserContext.open(user);var correlation=org.slf4j.MDC.putCloseable("requestId",requestTrace)){execute(prepared);}catch(Exception ignored){/* Reservation remains readable and is interrupted on restart. */}});}catch(RejectedExecutionException e){update(partner,input.conversationId(),input.requestId(),t->finish(t,null,"FAILED","任务队列已满，请稍后重新发送。"));}
         return get(partner,input.conversationId());
     }
     public synchronized Conversation cancel(String partner,String id)throws IOException{var c=get(partner,id);var t=c.turns().getLast();if(t.status().equals("RUNNING"))update(partner,id,t.id(),old->finish(old,null,"CANCELLED","已停止后续处理；已经发出的模型请求可能仍在服务商端运行。"));return get(partner,id);}

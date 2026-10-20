@@ -8,14 +8,16 @@ Bring your own model, keep projects private, and review tool actions before they
 
 [![Build](https://github.com/BStronger1/yangbin-ai-agent/actions/workflows/build.yml/badge.svg)](https://github.com/BStronger1/yangbin-ai-agent/actions/workflows/build.yml)
 
-[架构](#项目架构) · [功能模块](#功能模块) · [技术选型](#技术选型) · [快速开始](#本地运行) · [模型接入](docs/MODEL-PROVIDERS.md) · [部署](docs/SELF-HOSTING.md) · [贡献](CONTRIBUTING.md) · [来源与许可](NOTICE.md)
+[架构](#项目架构) · [功能模块](#功能模块) · [技术选型](#技术选型) · [快速开始](#本地运行) · [模型接入](docs/MODEL-PROVIDERS.md) · [运行治理](docs/PRODUCTION-GOVERNANCE.md) · [部署](docs/SELF-HOSTING.md) · [贡献](CONTRIBUTING.md) · [来源与许可](NOTICE.md)
 
 ## 能做什么
 
 - **对话**：选择自己的模型，使用现有 ReAct 超级智能体与工具链。
 - **工作**：创建服务端私有项目，让 pi Coding Agent 读取、编写、编辑文件；查看实际工具事件、审批、取消、历史任务和最近一轮文本差异。
 - **自带模型**：Claude 原生 Messages、OpenAI / DeepSeek / Kimi 的兼容接口，以及自定义兼容 Base URL 和模型 ID。配置按账号隔离，API Key 在服务器加密保存、不回显。
-- **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员在服务器单独开启。
+- **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员授权及可用的 Linux 隔离环境，不回退宿主 shell。
+- **运行治理**：账号/全局模型并发、每日请求与保守 Token 配额、持久用量账本、失败熔断、请求关联及网关指标；未知用量和费用明确区分，详见[运行治理与安全边界](docs/PRODUCTION-GOVERNANCE.md)。
+- **主对话历史**：按账号保存会话与任务状态、重复请求去重、取消和有界历史上下文；支持用户显式维护参考便签。
 - **MCP 工作台**：参数表单、调用校验、持久历史、结果下载与显式交给伙伴，详见[MCP 使用说明](docs/MCP-WORKBENCH.md)。
 - **工作伙伴**：覆盖 9 个领域的 11 位伙伴提供独立任务工具箱和需求填写引导、个人模型选择、Word/文字 PDF 材料读取、Word/Excel 交付、任务资源复用和清理，详见[伙伴能力](docs/PARTNER-CAPABILITIES.md)。
 - **原工作台**：技能、知识库、出行规划与来源核查仍保留。NarrativePPT 是需要独立配置的可选服务。
@@ -47,6 +49,7 @@ flowchart TB
     subgraph Backend["Spring Boot 业务服务"]
         API["HTTP API / 用户上下文<br/>内部令牌校验 · 权限检查"]
         Profiles["ModelProfileService<br/>账号私有模型 · 配置解析"]
+        Governance["ModelGovernance<br/>逐次准入 · 配额账本 · 熔断 · 安全事件"]
         Chat["YangbinManus / ReAct<br/>模型推理 · Java 工具调用"]
         Coding["CodingService / NodeCodingRuntime<br/>任务状态 · 审批 · 取消 · 模型快照"]
         Modules["技能 · 伙伴 · 规划 · 知识库 · 产物"]
@@ -69,9 +72,12 @@ flowchart TB
     Profiles --> Storage
     Profiles -->|选中模型| Chat
     Profiles -->|冻结本轮配置| Coding
-    Chat --> Models
+    Chat --> Governance
+    Governance --> Models
     Coding -->|stdin / stdout JSONL| Pi
-    Pi --> Models
+    Pi -->|请求准入 / 用量结算| Coding
+    Coding --> Governance
+    Pi -->|准入后请求| Models
     Pi -->|经工具权限和审批检查| Storage
     Coding --> Storage
     Modules --> Storage
@@ -82,7 +88,7 @@ flowchart TB
 
 ### 两条核心执行链路
 
-- **对话**：浏览器经网关提交消息和模型配置 ID → 后端按当前账号解析模型 → `YangbinManus` 执行 ReAct 推理与工具调用 → 通过 SSE 返回步骤、工具事件与回答。当前是单次任务，不是新增的跨会话长期记忆系统。
+- **对话**：浏览器经网关提交消息和模型配置 ID → 后端按当前账号解析模型 → `YangbinManus` 执行 ReAct 推理与工具调用 → 逐轮通过模型准入后，通过 SSE 返回步骤、工具事件与回答。每轮任务有独立状态与编号，成功历史以有界上下文继续使用；用户便签可跨会话引用，尚非自动语义长期记忆。
 - **工作**：浏览器提交项目、提示词、`requestId`、版本号和模型配置 ID → `CodingService` 校验并保存轮次 → 独立 Node 子进程运行 pi → 需要确认的工具等待网页审批 → 实际执行文件操作并保存事件、状态及最近一轮差异。网页通过 HTTP 轮询恢复任务状态；Java 与 Node 之间使用 JSONL，不把它误写成浏览器 SSE。
 
 个人模型配置提供统一的账号归属和选择语义；Java 对话通过 Spring AI 适配，Node 编码通过 pi 适配，二者分别处理对应供应商协议。RAG、MCP 和技能工作台的存在不意味着 Coding Agent 已自动接入这些扩展。
@@ -93,11 +99,13 @@ flowchart TB
 | --- | --- | --- |
 | 账号、邀请码、登录会话 | 网关 SQLite，默认 `tmp/auth/accounts.sqlite` | 密码使用 scrypt；会话 Cookie 与写操作 CSRF 校验 |
 | 个人模型配置 | `tmp/model-profiles/` 下的账号文件 | API Key 使用 AES-256-GCM；只返回是否已保存，主密钥与密文须共同备份 |
+| 模型治理账本 | `tmp/governance/<owner>/<UTC-day>.json` | 按账号持久保存预留/报告用量与安全状态；单实例准入，不作为供应商金额账单 |
+| 主对话与参考便签 | `tmp/work/<owner>/manus/` | 持久轮次与显式便签；重启中断不自动重放 |
 | Coding 项目与轮次 | `tmp/coding/<owner>/` | 服务端私有目录；保存轮次、事件、模型快照和文件，不等于用户电脑的仓库 |
 | 任务、伙伴、技能与产物 | `tmp/` 下对应模块目录 | JSON 检查点与文件存储，按业务入口校验账号归属；不是统一关系型业务数据库 |
 | 知识库向量索引 | 启用 RAG 后的 `SimpleVectorStore` 与本地 JSON 索引 | 检索限制为公共资料和当前账号资料；Embedding 服务需另行配置 |
 
-浏览器不持有内部服务鉴权令牌。网关注入已认证的账号身份，后端校验内部请求并在业务层执行权限检查；独立部署时应按[部署指南](docs/SELF-HOSTING.md)限制后端入口。工具审批是应用层控制，Node 子进程与目录约束不构成操作系统沙箱。
+浏览器不持有内部服务鉴权令牌。网关注入已认证的账号身份，后端校验内部请求并在业务层执行权限检查；独立部署时应按[部署指南](docs/SELF-HOSTING.md)限制后端入口。工具审批仍是应用层控制。命令能力只使用经过探测的 Linux bubblewrap 隔离，不可用时拒绝执行；Node 编排进程与文件工具并未整体容器化，仍须限制服务账号权限。
 
 ## 功能模块
 
@@ -106,8 +114,9 @@ flowchart TB
 | 模块 | 已实现功能 | 页面或源码入口 | 范围说明 |
 | --- | --- | --- | --- |
 | 双模式首页 | 对话 / 工作切换，模型选择，最近项目与任务入口 | `/work`；[CodingWorkspace.vue](yangbin-ai-agent-frontend/src/views/CodingWorkspace.vue) | 对话与工作分别记住非密钥模型选择 |
-| AI 超级智能体 | ReAct 推理、Java 工具调用、执行事件与 SSE 回答 | `/work?mode=chat`；[agent](src/main/java/com/yangbin/yangbinaiagent/agent) | 单次 Manus 任务，工具依赖与权限分别配置 |
+| AI 超级智能体 | ReAct 推理、Java 工具调用、执行事件与 SSE 回答 | `/work?mode=chat`；[agent](src/main/java/com/yangbin/yangbinaiagent/agent) | 持久会话、重复请求去重、有界上下文与取消；工具依赖和权限分别配置 |
 | Coding Agent | 私有项目、读写与精确编辑、三档审批、取消、历史恢复、文本差异 | `/work?mode=work`；[coding](src/main/java/com/yangbin/yangbinaiagent/coding)、[pi 运行时](coding-agent) | 命令执行另需管理员开启；未实现本机仓库或 Git/PR 操作 |
+| 运行治理 | 模型准入、保守配额、未知用量标记、熔断、关联事件、显式便签及管理员网关状态 | `/governance`；[governance](src/main/java/com/yangbin/yangbinaiagent/governance) | 单实例控制；不含 Embedding/独立 PPT 费用，不是账单或完整监控平台 |
 | BYOK 模型管理 | Claude / OpenAI / DeepSeek / Kimi / 自定义兼容配置，增删改与默认模型 | 输入栏“模型设置”；[models](src/main/java/com/yangbin/yangbinaiagent/models) | 已接入主对话、Coding 与 11 个伙伴对话；旧版单次任务及独立 PPT 工作台仍分别配置模型 |
 | 账号与访问控制 | 邀请注册、登录、改密、管理员账号控制、会话与 CSRF | `/account`；[accounts.py](deploy/turing/accounts.py)、[proxy.py](deploy/turing/proxy.py) | 普通账号与管理员权限分开，资源按账号校验 |
 | 技能与工作伙伴 | 42 项技能（40 文本 + 2 出行）、11 个伙伴工具箱与领域交付标准、BYOK、Word/PDF 读取、Word/Excel 交付及资源复用 | `/skills`、`/skills/manage`、`/partners/:partnerId`；[work](src/main/java/com/yangbin/yangbinaiagent/work) | 支持任务删除与资源清理；伙伴尚不具备并行多 Agent 调度 |
@@ -163,9 +172,9 @@ python tools/run_local.py --build
 
 ## 当前边界
 
-当前文件位于服务器的账号私有项目中，**不是你浏览器所在电脑的仓库**。尚无本机连接器、Git/PR工作流、应用预览或产品内多Agent并行调度。对话模式沿用单次Manus任务；Coding任务支持历史恢复。
+当前文件位于服务器的账号私有项目中，**不是你浏览器所在电脑的仓库**。尚无本机连接器、Git/PR工作流、应用预览或产品内多Agent并行调度。主对话保存轮次与有界历史上下文，Coding 支持历史会话与上下文压缩；服务中断后不会自动重放模型请求。
 
-命令工具以服务账号执行，**不是操作系统沙箱**。请勿把开启命令的部署用于不可信多租户。文件工具支持有界UTF-8文本；最近一轮差异不等于完整Git diff。厂商/模型可用性和工具调用支持取决于你的账号及所选模型，协议模拟测试不等于每家付费模型实测。
+命令工具要求经过验证的 **Linux bubblewrap 隔离**，使用无网络、只读工作区快照及资源限制；不具备隔离时禁用命令。它尚不是覆盖整个应用的多租户容器平台。文件工具支持有界UTF-8文本；最近一轮差异不等于完整Git diff。厂商/模型可用性和工具调用支持取决于你的账号及所选模型，协议模拟测试不等于每家付费模型实测。
 
 ## 源码导航
 
@@ -177,6 +186,7 @@ python tools/run_local.py --build
 | `deploy/turing/` | 会话/CSRF网关、账号库及专用部署脚本 |
 | `tools/run_local.py` | 不依赖个人服务器目录的本地启动 |
 | `src/main/java/com/yangbin/yangbinaiagent/models/` | 个人模型配置、加密、端点策略与 Java 模型适配 |
+| `src/main/java/com/yangbin/yangbinaiagent/governance/` | 模型逐次准入、保守配额、持久账本和安全事件 |
 | `src/main/java/com/yangbin/yangbinaiagent/agent/` | ReAct 推理、工具调用与 SSE 输出 |
 | `src/main/java/com/yangbin/yangbinaiagent/coding/` | Coding 项目、轮次、审批状态和 Node 进程桥接 |
 | `src/main/java/com/yangbin/yangbinaiagent/work/` | 工作伙伴、技能任务和产物服务 |

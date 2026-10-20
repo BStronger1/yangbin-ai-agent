@@ -1,7 +1,7 @@
 import { constants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { sandboxStatus, runIsolatedCommand } from './sandbox.mjs';
 import { randomUUID } from 'node:crypto';
 
 const LIMIT = 64 * 1024;
@@ -14,7 +14,7 @@ export class ToolRuntime {
     this.pending = new Map(); this.count = 0; this.onLimit = onLimit; this.approvalTimeoutMs = Math.max(1, Math.min(approvalTimeoutMs, 300000));
     signal?.addEventListener('abort', () => this.cancel(), { once: true });
   }
-  async init() { this.workspace = await fs.realpath(this.workspace); }
+  async init() { this.workspace = await fs.realpath(this.workspace); this.sandbox = await sandboxStatus(); this.shellRequested = this.allowShell; this.allowShell = this.allowShell && this.sandbox.available; }
   async resolve(input, allowMissing = false) {
     if (typeof input !== 'string' || !input || input.includes('\0')) throw new Error('A relative workspace path is required');
     if (path.isAbsolute(input) || /^[a-zA-Z]:/.test(input) || input.includes(':') || input.includes('\\')) throw new Error('Only relative paths with / separators are allowed');
@@ -39,10 +39,10 @@ export class ToolRuntime {
   async authorize(name, args, callId) {
     this.signal?.throwIfAborted();
     if (++this.count > 80) { const error = new Error('Tool limit reached (80 per turn)'); this.onLimit(error); throw error; }
-    if (name === 'bash' && !this.allowShell) throw new Error('Shell execution is disabled');
+    if (name === 'bash' && !this.allowShell) throw new Error(this.shellRequested ? this.sandbox.reason : 'Shell execution is disabled');
     if (this.approvalMode === 'allow' || (this.approvalMode === 'on-risk' && !['write', 'edit', 'bash'].includes(name))) return;
     const approvalId = randomUUID();
-    const reason = name === 'bash' ? '以服务账号运行命令；工作目录不是操作系统沙箱。' : '当前模式要求确认本次工具操作。';
+    const reason = name === 'bash' ? '在禁网隔离环境的只读工作区快照中运行验证命令；更改不会写回工作区。' : '当前模式要求确认本次工具操作。';
     const resolution = await new Promise(resolve => {
       const settle = (approved, resolutionReason) => {
         if (!this.pending.has(approvalId)) return;
@@ -105,29 +105,7 @@ export class ToolRuntime {
     }
   }
   async runCommand(args) {
-    if (typeof args.command !== 'string' || !args.command.trim() || args.command.length > 8000) throw new Error('Invalid command');
-    const seconds = Math.max(1, Math.min(Number(args.timeoutSeconds) || 30, 120));
-    const executable = process.platform === 'win32' ? 'powershell.exe' : '/bin/bash';
-    const commandArgs = process.platform === 'win32' ? ['-NoProfile', '-NonInteractive', '-Command', args.command] : ['--noprofile', '--norc', '-c', args.command];
-    // Never inherit model credentials, Java secrets, or user shell profiles.
-    const env = {};
-    for (const key of ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'PATHEXT', 'COMSPEC']) if (process.env[key]) env[key] = process.env[key];
-    env.HOME = this.workspace; env.USERPROFILE = this.workspace;
-    return await new Promise((resolve, reject) => {
-      const child = spawn(executable, commandArgs, { cwd: this.workspace, env, windowsHide: true, detached: process.platform !== 'win32' });
-      let output = '', stopped = false;
-      const stop = () => {
-        stopped = true;
-        if (process.platform === 'win32') spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => child.kill());
-        else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
-      };
-      const timer = setTimeout(stop, seconds * 1000);
-      this.signal?.addEventListener('abort', stop, { once: true });
-      const append = chunk => { output += chunk.toString(); if (output.length > LIMIT) { output = output.slice(0, LIMIT); stop(); } };
-      child.stdout.on('data', append); child.stderr.on('data', append);
-      const cleanup = () => { clearTimeout(timer); this.signal?.removeEventListener('abort', stop); };
-      child.on('error', error => { cleanup(); reject(error); });
-      child.on('close', code => { cleanup(); if (stopped) reject(new Error(`Command cancelled, timed out or exceeded output limit.\n${output}`)); else resolve(`Exit code: ${code}\n${output}`); });
-    });
+    if (!this.allowShell) throw new Error(this.sandbox?.reason || 'Shell execution is disabled');
+    return runIsolatedCommand({ workspace: this.workspace, ...args, signal: this.signal });
   }
 }

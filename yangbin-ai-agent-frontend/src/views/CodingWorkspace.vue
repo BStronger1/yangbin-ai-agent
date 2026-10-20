@@ -8,7 +8,7 @@ import { modelApi } from '../api/models'
 import { codingApi } from '../api/coding'
 import { chatWithManus } from '../api'
 import { auth, checkSession } from '../auth'
-import { errorMessage } from '../workspace-api'
+import { api, errorMessage } from '../workspace-api'
 import '../coding-workspace.css'
 
 const route = useRoute(), router = useRouter()
@@ -17,6 +17,7 @@ const projects = ref([]), sessions = ref([]), session = ref(null), capabilities 
 const projectId = ref(''), draft = ref(''), error = ref(''), busy = ref(false), loading = ref(true)
 const policy = ref('on-risk'), policyOpen = ref(false), historyOpen = ref(false), projectOpen = ref(false)
 const projectName = ref(''), projectBusy = ref(false), filePanel = ref(false), files = ref([]), changes = ref([]), openedFile = ref(null)
+const chatId = ref(''), chatHistory = ref([])
 const conversation = ref(null), promptInput = ref(null), chatMessages = ref([]), chatEvents = ref([]), chatRunning = ref(false)
 const pending = ref(null), fileEditing = ref(false), filePath = ref(''), fileContent = ref(''), fileSaving = ref(false)
 const modelCatalog = ref({ profiles: [], providers: [], defaultModelId: 'system' }), selectedModels = ref({ work: 'system', chat: 'system' })
@@ -125,7 +126,7 @@ async function loadSession(sessionId) {
   finally { if (token === generation) loading.value = false }
 }
 function closeChat() { source?.close(); source = null; chatRunning.value = false }
-function newTask(nextMode = mode.value) { if (busy.value) return; closeChat(); chatMessages.value = []; chatEvents.value = []; draft.value = ''; error.value = ''; historyOpen.value = false; router.push({ path: '/work', query: nextMode === 'chat' ? { mode: 'chat' } : {} }) }
+function newTask(nextMode = mode.value) { if (busy.value || running.value) return; closeChat(); chatId.value = ''; chatHistory.value = []; chatMessages.value = []; chatEvents.value = []; draft.value = ''; error.value = ''; historyOpen.value = false; router.push({ path: '/work', query: nextMode === 'chat' ? { mode: 'chat' } : {} }) }
 function selectMode(nextMode) { if (nextMode !== mode.value) newTask(nextMode) }
 function openSession(item) { if (busy.value) return; historyOpen.value = false; router.push({ path: '/work', query: { session: item.id } }) }
 async function createProject() {
@@ -159,11 +160,33 @@ async function send() {
   }
   finally { busy.value = false }
 }
+async function showHistory() {
+  historyOpen.value = !historyOpen.value
+  if (historyOpen.value && mode.value === 'chat') {
+    const owner=auth.user?.id || auth.user?.username
+    try { const {data}=await api.get('/ai/manus/conversations'); if(owner===(auth.user?.id || auth.user?.username))chatHistory.value=data } catch(e) {error.value=errorMessage(e)}
+  }
+}
+async function openChat(cid) {
+  if (chatRunning.value || busy.value) return
+  const owner=auth.user?.id || auth.user?.username, token=++generation
+  try { const {data}=await api.get('/ai/manus/conversations/'+cid); if(disposed||token!==generation||owner!==(auth.user?.id || auth.user?.username))return
+    chatId.value=cid; chatMessages.value=data.turns.flatMap(t=>[{id:t.id+'u',role:'user',text:t.prompt},{id:t.id+'a',role:'assistant',text:t.answer || '任务状态：'+statusLabel(t.status)}]);historyOpen.value=false
+    error.value=data.turns.at(-1)?.status==='RUNNING'?'任务仍在服务端执行，请稍后重新打开历史查看结果。':''
+    router.replace({path:'/work',query:{mode:'chat',chat:cid}});scrollBottom(true)
+  }catch(e){error.value=errorMessage(e)}
+}
+async function deleteChat(cid) {
+  if(chatRunning.value||!confirm('删除此对话历史？已创建的文件不会删除。'))return
+  try{await api.delete('/ai/manus/conversations/'+cid);chatHistory.value=chatHistory.value.filter(c=>c.id!==cid);if(chatId.value===cid)newTask('chat')}catch(e){error.value=errorMessage(e)}
+}
 function sendChat() {
   const prompt = draft.value.trim(), profileId = effectiveModelId.value; chatModelSnapshot.value = { profileId, name: modelLabel.value, model: selectedProfile.value?.model || '' }; draft.value = ''; error.value = ''; closeChat(); chatEvents.value = []
   chatMessages.value.push({ id: id(), role: 'user', text: prompt }, { id: id(), role: 'assistant', text: '', modelSnapshot: { ...chatModelSnapshot.value } })
   const response = chatMessages.value[chatMessages.value.length - 1]
-  chatRunning.value = true; source = chatWithManus(prompt, profileId); const connection = source
+  if (!chatId.value) chatId.value = id();
+  router.replace({path:'/work',query:{mode:'chat',chat:chatId.value}});
+  chatRunning.value = true; source = chatWithManus(prompt, profileId, chatId.value, id()); const connection = source
   connection.onmessage = event => { if (source !== connection) return; if (event.data === '[DONE]') closeChat(); else { response.text += (response.text ? '\n\n' : '') + event.data; scrollBottom() } }
   connection.addEventListener('trace', event => { if (source !== connection) return; try { const value = JSON.parse(event.data); const index = chatEvents.value.findIndex(item => item.id === value.id); if (index < 0) chatEvents.value.push(value); else chatEvents.value[index] = value } catch { /* Non-JSON trace cannot be rendered. */ } })
   connection.addEventListener('failure', event => { if (source === connection) { error.value = event.data || '对话未完成'; closeChat() } })
@@ -177,7 +200,7 @@ async function decide(approvalId, approved) {
   catch (e) { error.value = errorMessage(e) } finally { busy.value = false }
 }
 async function cancel() {
-  if (mode.value === 'chat') { closeChat(); error.value = '已停止接收回复；服务端已发出的调用可能继续执行。'; return }
+  if (mode.value === 'chat') { const cid=chatId.value; closeChat(); try { if(cid) await api.post('/ai/manus/conversations/'+cid+'/cancel'); error.value = '已请求停止后续工具操作；已发出的供应商请求可能仍在运行。' } catch(e) { error.value=errorMessage(e) } return }
   if (!session.value || busy.value) return
   busy.value = true; const currentId = session.value.id
   try { const value = await codingApi.cancel(currentId); if (session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
@@ -203,8 +226,8 @@ async function saveFile() {
 async function openFile(path) { const project = session.value?.projectId || projectId.value; try { const value = await codingApi.file(project, path); if ((session.value?.projectId || projectId.value) === project) openedFile.value = value } catch (e) { error.value = errorMessage(e) } }
 watch(effectiveModelId, () => { modelPickerOpen.value = false; if (mode.value === 'work') refreshCapabilities() })
 watch(() => route.query.session, value => { if (value !== session.value?.id) loadSession(typeof value === 'string' ? value : null) })
-watch(() => mode.value, () => { modelPickerOpen.value = false; modelManagerOpen.value = false; generation++; closeChat(); chatMessages.value = []; chatEvents.value = []; draft.value = ''; policyOpen.value = false; error.value = ''; filePanel.value = false; if (mode.value === 'chat') { stopPoll(); session.value = null; pending.value = null } else refreshCapabilities() })
-watch(() => auth.user?.id || auth.user?.username, (_, previousOwner) => { for (const currentMode of ['work','chat']) { try { sessionStorage.removeItem(modelPreferenceKey(previousOwner, currentMode)) } catch {} } modelGeneration++; capabilityGeneration++; modelPickerOpen.value = false; modelManagerOpen.value = false; modelCatalog.value = { profiles: [], providers: [], defaultModelId: 'system' }; selectedModels.value = { work: 'system', chat: 'system' }; chatModelSnapshot.value = null; capabilitiesModelId.value = ''; generation++; closeChat(); stopPoll(); session.value = null; sessions.value = []; projects.value = []; draft.value = ''; pending.value = null; chatMessages.value = []; chatEvents.value = []; projectId.value = ''; projectName.value = ''; openedFile.value = null; files.value = []; changes.value = []; filePanel.value = false; fileEditing.value = false; fileContent.value = ''; projectOpen.value = false; historyOpen.value = false; policyOpen.value = false; capabilities.value = null })
+watch(() => mode.value, () => { modelPickerOpen.value = false; modelManagerOpen.value = false; generation++; closeChat(); chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; draft.value = ''; policyOpen.value = false; error.value = ''; filePanel.value = false; if (mode.value === 'chat') { stopPoll(); session.value = null; pending.value = null } else refreshCapabilities() })
+watch(() => auth.user?.id || auth.user?.username, (_, previousOwner) => { for (const currentMode of ['work','chat']) { try { sessionStorage.removeItem(modelPreferenceKey(previousOwner, currentMode)) } catch {} } modelGeneration++; capabilityGeneration++; modelPickerOpen.value = false; modelManagerOpen.value = false; modelCatalog.value = { profiles: [], providers: [], defaultModelId: 'system' }; selectedModels.value = { work: 'system', chat: 'system' }; chatModelSnapshot.value = null; capabilitiesModelId.value = ''; generation++; closeChat(); stopPoll(); session.value = null; sessions.value = []; projects.value = []; draft.value = ''; pending.value = null; chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; projectId.value = ''; projectName.value = ''; openedFile.value = null; files.value = []; changes.value = []; filePanel.value = false; fileEditing.value = false; fileContent.value = ''; projectOpen.value = false; historyOpen.value = false; policyOpen.value = false; capabilities.value = null })
 onMounted(async () => {
   const owner = auth.user?.id || auth.user?.username
   const results = await Promise.allSettled([codingApi.capabilities(), codingApi.projects(), codingApi.sessions(), modelApi.list()])
@@ -218,6 +241,7 @@ onMounted(async () => {
   modelsLoading.value = false; refreshCapabilities()
   loading.value = false
   if (typeof route.query.session === 'string') await loadSession(route.query.session)
+  if(mode.value==='chat'&&typeof route.query.chat==='string')await openChat(route.query.chat)
 })
 onBeforeUnmount(() => { disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
 </script>
@@ -226,9 +250,9 @@ onBeforeUnmount(() => { disposed = true; modelGeneration++; capabilityGeneration
   <main class="coding-workspace" data-testid="coding-workspace" @keydown.esc="policyOpen = false; projectOpen = false; historyOpen = false; modelPickerOpen = false">
     <header class="coding-topbar">
       <div class="coding-location"><StudioIcon :name="mode === 'work' ? 'layout' : 'chat'" :size="19" /><strong>{{ mode === 'work' ? 'Coding Agent' : 'AI 超级智能体' }}</strong><span v-if="session" class="coding-project-label">/ {{ selectedProject?.name || '项目' }}</span></div>
-      <div class="coding-top-actions"><button v-if="mode === 'work'" class="quiet-button" @click="historyOpen = !historyOpen" data-testid="coding-history"><StudioIcon name="clock" :size="18" /><span>历史任务</span></button><button v-if="mode === 'work' && (session || projectId)" class="quiet-button" @click="showFiles" data-testid="coding-files"><StudioIcon name="folder" :size="18" /><span>项目文件</span></button><button v-if="hasContent" class="quiet-button" :disabled="busy" @click="newTask()"><StudioIcon name="plus" :size="18" /><span>新任务</span></button></div>
+      <div class="coding-top-actions"><RouterLink class="quiet-button" to="/governance">用量与运行状态</RouterLink><button class="quiet-button" @click="showHistory" data-testid="coding-history"><StudioIcon name="clock" :size="18" /><span>{{ mode === 'chat' ? '对话历史' : '历史任务' }}</span></button><button v-if="mode === 'work' && (session || projectId)" class="quiet-button" @click="showFiles" data-testid="coding-files"><StudioIcon name="folder" :size="18" /><span>项目文件</span></button><button v-if="hasContent" class="quiet-button" :disabled="busy" @click="newTask()"><StudioIcon name="plus" :size="18" /><span>新任务</span></button></div>
     </header>
-    <div v-if="historyOpen" class="coding-history-panel" data-testid="coding-history-panel"><div class="panel-heading"><h2>工作任务</h2><button class="icon-button" aria-label="关闭历史任务" @click="historyOpen = false"><StudioIcon name="close" :size="18" /></button></div><p v-if="!sessions.length" class="muted">开始一个任务后，可以在这里继续。</p><button v-for="item in sessions" :key="item.id" class="history-row" @click="openSession(item)"><strong>{{ item.title || '未命名任务' }}</strong><span>{{ statusLabel(item.status) }} · {{ date(item.updatedAt || item.createdAt) }}</span></button></div>
+    <div v-if="historyOpen" class="coding-history-panel" data-testid="coding-history-panel"><div class="panel-heading"><h2>{{ mode === 'chat' ? '对话历史' : '工作任务' }}</h2><button class="icon-button" aria-label="关闭历史任务" @click="historyOpen = false"><StudioIcon name="close" :size="18" /></button></div><p v-if="!(mode === 'chat' ? chatHistory : sessions).length" class="muted">开始一个任务后，可以在这里继续。</p><button v-for="item in (mode === 'chat' ? chatHistory : sessions)" :key="item.id" class="history-row" :disabled="running" @click="mode === 'chat' ? openChat(item.id) : openSession(item)"><strong>{{ item.title || '未命名任务' }}</strong><span>{{ statusLabel(item.status) }} · {{ date(item.updatedAt || item.createdAt) }}</span></button><button v-if="mode === 'chat' && chatId && !running" class="quiet-button" @click="deleteChat(chatId)">删除当前对话</button></div>
     <div class="coding-body" :class="{ 'with-files': filePanel }">
       <section ref="conversation" class="coding-conversation" aria-label="任务内容" data-testid="coding-scroll">
         <div v-if="!hasContent" class="coding-welcome">
@@ -257,12 +281,12 @@ onBeforeUnmount(() => { disposed = true; modelGeneration++; capabilityGeneration
       <form class="coding-composer" @submit.prevent="send" data-testid="coding-composer">
         <textarea ref="promptInput" v-model="draft" rows="2" maxlength="16000" :disabled="busy || Boolean(pending)" :placeholder="mode === 'work' ? '描述你要完成的工作，或继续当前任务…' : '给 AI 超级智能体发消息…'" aria-label="消息内容" data-testid="coding-prompt" @keydown.enter.exact.prevent="!$event.isComposing && send()"></textarea>
         <div class="coding-composer-toolbar"><div class="composer-controls">
-          <template v-if="mode === 'work'"><span class="composer-chip environment-chip" title="文件工具限定服务端项目目录；命令以服务账号执行，不是操作系统沙箱"><StudioIcon name="layout" :size="17" />服务端工作区</span><div class="project-control"><button type="button" class="composer-chip project-chip" :disabled="Boolean(session) || busy" :aria-expanded="projectOpen" @click="projectOpen = !projectOpen; policyOpen = false" data-testid="project-picker"><StudioIcon name="folder" :size="17" /><span>{{ selectedProject?.name || '选择项目' }}</span><span>⌄</span></button><div v-if="projectOpen" class="composer-popover project-popover"><h2>选择项目</h2><button v-for="project in projects" :key="project.id" type="button" @click="projectId = project.id; projectOpen = false"><StudioIcon name="folder" :size="17" />{{ project.name }}<StudioIcon v-if="projectId === project.id" name="check" :size="16" /></button><p v-if="!projects.length" class="muted">创建项目后即可开始编码</p><div class="create-project"><input v-model="projectName" maxlength="80" placeholder="新项目名称" aria-label="新项目名称" @keydown.enter.prevent="createProject" /><button type="button" :disabled="!projectName.trim() || projectBusy" @click="createProject" data-testid="create-project">创建</button></div><small>新建空白项目，文件保存在服务端。</small></div></div><div class="policy-control"><button type="button" class="composer-chip" :disabled="running || busy || Boolean(pending)" :aria-expanded="policyOpen" @click="policyOpen = !policyOpen; projectOpen = false" data-testid="approval-policy"><StudioIcon name="check" :size="17" />{{ policyLabel }}<span>⌄</span></button><div v-if="policyOpen" class="composer-popover policy-popover"><button v-for="item in policies" :key="item.id" type="button" :class="{ selected: item.id === policy }" @click="policy = item.id; policyOpen = false" :data-testid="`policy-${item.id}`"><StudioIcon :name="item.id === 'ask' ? 'person' : item.id === 'allow' ? 'spark' : 'check'" :size="19" /><span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span><StudioIcon v-if="item.id === policy" name="check" :size="18" /></button></div></div></template>
+          <template v-if="mode === 'work'"><span class="composer-chip environment-chip" title="文件工具限定服务端项目目录；命令仅在隔离环境验证通过后启用"><StudioIcon name="layout" :size="17" />服务端工作区</span><div class="project-control"><button type="button" class="composer-chip project-chip" :disabled="Boolean(session) || busy" :aria-expanded="projectOpen" @click="projectOpen = !projectOpen; policyOpen = false" data-testid="project-picker"><StudioIcon name="folder" :size="17" /><span>{{ selectedProject?.name || '选择项目' }}</span><span>⌄</span></button><div v-if="projectOpen" class="composer-popover project-popover"><h2>选择项目</h2><button v-for="project in projects" :key="project.id" type="button" @click="projectId = project.id; projectOpen = false"><StudioIcon name="folder" :size="17" />{{ project.name }}<StudioIcon v-if="projectId === project.id" name="check" :size="16" /></button><p v-if="!projects.length" class="muted">创建项目后即可开始编码</p><div class="create-project"><input v-model="projectName" maxlength="80" placeholder="新项目名称" aria-label="新项目名称" @keydown.enter.prevent="createProject" /><button type="button" :disabled="!projectName.trim() || projectBusy" @click="createProject" data-testid="create-project">创建</button></div><small>新建空白项目，文件保存在服务端。</small></div></div><div class="policy-control"><button type="button" class="composer-chip" :disabled="running || busy || Boolean(pending)" :aria-expanded="policyOpen" @click="policyOpen = !policyOpen; projectOpen = false" data-testid="approval-policy"><StudioIcon name="check" :size="17" />{{ policyLabel }}<span>⌄</span></button><div v-if="policyOpen" class="composer-popover policy-popover"><button v-for="item in policies" :key="item.id" type="button" :class="{ selected: item.id === policy }" @click="policy = item.id; policyOpen = false" :data-testid="`policy-${item.id}`"><StudioIcon :name="item.id === 'ask' ? 'person' : item.id === 'allow' ? 'spark' : 'check'" :size="19" /><span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span><StudioIcon v-if="item.id === policy" name="check" :size="18" /></button></div></div></template>
           <span v-else class="composer-chip"><StudioIcon name="spark" :size="17" />AI 超级智能体</span>
           <div class="model-picker-control"><button type="button" class="composer-chip model-picker-trigger" :disabled="running || busy || Boolean(pending) || modelsLoading" :aria-expanded="modelPickerOpen" @click="modelPickerOpen = !modelPickerOpen; projectOpen = false; policyOpen = false" data-testid="model-picker"><StudioIcon name="spark" :size="16" /><span>{{ modelsLoading ? '加载模型…' : modelLabel }}</span><span>⌄</span></button><div v-if="modelPickerOpen" class="composer-popover model-picker-popover"><p>为{{ mode === 'work' ? '工作' : '对话' }}选择模型</p><button type="button" :class="{ selected: effectiveModelId === 'system' }" @click="chooseModel('system')" data-testid="model-option-system"><span><strong>系统默认</strong><small>使用当前部署的模型配置</small></span><StudioIcon v-if="effectiveModelId === 'system'" name="check" :size="16" /></button><button v-for="profile in modelCatalog.profiles" :key="profile.id" type="button" :class="{ selected: effectiveModelId === profile.id }" @click="chooseModel(profile.id)" :data-testid="`model-option-${profile.id}`"><span><strong>{{ profile.name }}</strong><small>{{ profile.model }}</small></span><StudioIcon v-if="effectiveModelId === profile.id" name="check" :size="16" /></button><button type="button" class="model-manage-link" @click="openModelManager" data-testid="model-manage"><StudioIcon name="plus" :size="16" />管理模型与 API Key</button></div></div><RouterLink to="/skills?tab=skills" class="composer-link"><StudioIcon name="layers" :size="17" />技能</RouterLink><RouterLink to="/mcp" class="composer-link"><StudioIcon name="plug" :size="17" />插件</RouterLink>
         </div><button v-if="running" type="button" class="coding-stop" :disabled="busy" aria-label="停止任务" @click="cancel" data-testid="coding-cancel"><span></span></button><button v-else type="submit" class="coding-send" :disabled="busy || !draft.trim() || (mode === 'work' && (!workAvailable || !projectId))" :aria-label="pending ? '重试原消息' : '发送消息'" data-testid="coding-send"><StudioIcon name="arrow" :size="21" /></button></div>
       </form>
-      <p class="composer-footnote">{{ mode === 'work' ? (capabilities?.shellEnabled ? '服务端项目文件 · 管理员命令执行已启用（非操作系统沙箱）' : '当前支持项目文件读取与编辑 · 此账号未启用命令执行') : '当前对话使用 AI 超级智能体链路 · 页面离开后不保存此处的对话记录' }}</p>
+      <p class="composer-footnote">{{ mode === 'work' ? (capabilities?.shellEnabled ? '服务端项目文件 · 隔离命令执行已启用（无网络、只读项目快照）' : '当前支持项目文件读取与编辑 · 命令执行未启用或隔离环境不可用') : '当前对话由 AI 超级智能体执行 · 历史按账号保存，可从历史列表恢复' }}</p>
     </footer>
     <ModelManager v-if="modelManagerOpen" :catalog="modelCatalog" @close="modelManagerOpen = false" @changed="reloadModels" />
   </main>

@@ -57,6 +57,7 @@ class DeploymentSmokeTest {
     }
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
+        registry.add("app.governance.dir",()->"target/governance-smoke-"+UUID.randomUUID());
         registry.add("app.model.base-url", () -> "http://127.0.0.1:" + provider.getAddress().getPort() + "/v1");
     }
     @AfterAll static void stopProvider() { provider.stop(0); }

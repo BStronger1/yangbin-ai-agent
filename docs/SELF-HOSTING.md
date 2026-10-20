@@ -13,11 +13,16 @@
 ```dotenv
 PUBLIC_ORIGIN=https://agent.example.com
 SESSION_COOKIE_SECURE=true
+AGENT_PRODUCTION_MODE=true
+GATEWAY_TLS_MODE=reverse-proxy
+PUBLIC_BIND=127.0.0.1
 ```
 
 将TLS入口反向代理到 `http://127.0.0.1:18825`，保留Host，关闭流式响应缓冲并允许长请求。网关只信任显式配置的PUBLIC_ORIGIN，不信任任意X-Forwarded-Host来放宽来源检查。后端不能直接暴露公网，内部鉴权令牌不得发送给浏览器。
 
-邀请码、账号管理、CSRF和HTTP-only会话由现有网关提供。不要把开启shell的实例当作不可信用户执行平台；容器/独立runner隔离仍需另外实现。内网HTTP可用于可信网络，但API Key传输不加密，公网必须使用HTTPS。
+邀请码、账号管理、CSRF和HTTP-only会话由现有网关提供。命令工具仅在 Linux bubblewrap + prlimit 完整探测通过后启用，不满足条件时禁用且不回退宿主 shell。整个应用的容器隔离、cgroup 聚合配额及不可信多租户安全验收仍需另外完成，详见 [治理与隔离边界](PRODUCTION-GOVERNANCE.md)。内网HTTP可用于可信网络，但API Key传输不加密，公网必须使用HTTPS。
+
+没有公网 IP 的服务器可以使用独立命名隧道，参见 [Cloudflare Tunnel 接入](CLOUDFLARE-TUNNEL.md)。它可保留现有内网入口与共享反向代理；域名、账号认证和最终 HTTPS 验收需要实际完成。
 
 ## 运行与恢复
 

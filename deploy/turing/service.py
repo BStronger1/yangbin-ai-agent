@@ -6,6 +6,8 @@ os.chdir(ROOT)
 cfg=json.loads((ROOT/"secrets.json").read_text());env=dict(os.environ,**cfg["env"])
 from coding_runtime import prepare as prepare_coding_runtime
 prepare_coding_runtime(ROOT,env)
+if env.get("CODING_ENTRY"):
+    env["CODING_SANDBOX_ENTRY"]=str(Path(env["CODING_ENTRY"]).parent/"sandbox.mjs")
 if env.get("CODING_ENABLED")=="true" and env.get("CODING_NODE"):
     env["PATH"]=str(Path(env["CODING_NODE"]).parent)+os.pathsep+env.get("PATH","")
 logger=logging.getLogger("service");logger.setLevel(logging.INFO)

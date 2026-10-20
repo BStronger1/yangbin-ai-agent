@@ -85,12 +85,12 @@ public class ToolCallAgent extends ReActAgent {
             List<AssistantMessage.ToolCall> toolCallList = assistantMessage.getToolCalls();
             // 输出提示信息
             String result = assistantMessage.getText();
-            log.info(getName() + "的思考：" + result);
+            log.info("agent_model_result toolCount={}", toolCallList.size());
             log.info(getName() + "选择了 " + toolCallList.size() + " 个工具来使用");
             String toolCallInfo = toolCallList.stream()
                     .map(toolCall -> String.format("工具名称：%s，参数：%s", toolCall.name(), toolCall.arguments()))
                     .collect(Collectors.joining("\n"));
-            log.info(toolCallInfo);
+            // Do not log user tool arguments.
             // 如果不需要调用工具，返回 false
             if (toolCallList.isEmpty()) {
                 // 只有不调用工具时，才需要手动记录助手消息
@@ -102,7 +102,7 @@ public class ToolCallAgent extends ReActAgent {
                 return true;
             }
         } catch (Exception e) {
-            log.error(getName() + "的思考过程遇到了问题：" + e.getMessage());
+            log.warn("agent_model_failed type={}",e.getClass().getSimpleName());
             throw new IllegalStateException("Model request failed", e);
         }
     }
@@ -133,7 +133,7 @@ public class ToolCallAgent extends ReActAgent {
         String results = toolResponseMessage.getResponses().stream()
                 .map(response -> "工具 " + response.name() + " 返回的结果：" + response.responseData())
                 .collect(Collectors.joining("\n"));
-        log.info(results);
+        log.info("agent_tools_completed count={}",toolResponseMessage.getResponses().size());
         // A response may contain both the user-facing answer and a terminal tool call.
         // Keep that answer in the step output before FINISHED prevents another model turn.
         String assistantText = toolCallChatResponse.getResult().getOutput().getText();

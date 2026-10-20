@@ -41,12 +41,14 @@ public class CodingService {
     }
     private static final int FILE_LIMIT=262144,MAX_FILES=1000,MAX_SNAPSHOT=8*1024*1024;
     private static final Set<String> ACTIVE=Set.of("RUNNING","WAITING_APPROVAL");
-    private static final Set<String> EVENT_TYPES=Set.of("text_delta","tool_start","tool_end","approval_required","approval_resolved","status","error","usage");
+    private static final Set<String> EVENT_TYPES=Set.of("text_delta","tool_start","tool_end","approval_required","approval_resolved","status","error","usage","sandbox","context");
     private static final Set<String> DENIED_SEGMENTS=Set.of(".git",".env","node_modules",".ssh",".aws",".codex",".pi");
     private final ObjectMapper json;private final Path root;private final CodingRuntime runtime;private final boolean shellEnabled;private final ModelProfileService modelProfiles;
     private final ExecutorService executor=Executors.newVirtualThreadPerTaskExecutor();
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.governance.ModelGovernance governance;
+    @Value("${app.coding.global-concurrency:8}") private int globalConcurrency=8;
     private final Map<String,ActiveRun> active=new HashMap<>();
-    private static class ActiveRun {final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();}
+    private static class ActiveRun {final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();final Map<String,com.yangbin.yangbinaiagent.governance.ModelGovernance.Lease> leases=new HashMap<>();}
     public CodingService(ObjectMapper json,CodingRuntime runtime,String dir,boolean shellEnabled)throws IOException {this(json,runtime,dir,shellEnabled,null);}
     @Autowired
     public CodingService(ObjectMapper json,CodingRuntime runtime,@Value("${app.coding.dir:tmp/coding}") String dir,@Value("${app.coding.shell-enabled:${CODING_SHELL_ENABLED:false}}") boolean shellEnabled,ModelProfileService modelProfiles)throws IOException {
@@ -60,7 +62,7 @@ public class CodingService {
         }}
     }
     public Map<String,Object> capabilities(){try{return capabilities(null);}catch(IOException e){throw new IllegalStateException("模型配置暂不可用");}}
-    public Map<String,Object> capabilities(String modelProfileId)throws IOException{var selected=modelProfiles==null?null:modelProfiles.resolve(modelProfileId);var a=runtime.availability(selected);return Map.of("available",a.available(),"reason",a.reason(),"model",a.model(),"shellEnabled",shellEnabled&&UserContext.current().admin());}
+    public Map<String,Object> capabilities(String modelProfileId)throws IOException{var selected=modelProfiles==null?null:modelProfiles.resolve(modelProfileId);var a=runtime.availability(selected);var sandbox=runtime.shellAvailability();return Map.of("available",a.available(),"reason",a.reason(),"model",a.model(),"shellEnabled",shellEnabled&&UserContext.current().admin()&&Boolean.TRUE.equals(sandbox.get("available")),"sandbox",sandbox);}
     public synchronized List<Project> projects()throws IOException {
         Path projects=ownerRoot().resolve("projects");Files.createDirectories(projects);var result=new ArrayList<Project>();
         try(var paths=Files.list(projects)){for(Path p:paths.filter(p->Files.isDirectory(p,LinkOption.NOFOLLOW_LINKS)).toList()){Path f=p.resolve("project.json");if(Files.isRegularFile(f,LinkOption.NOFOLLOW_LINKS))result.add(json.readValue(f.toFile(),Project.class));}}
@@ -105,19 +107,36 @@ public class CodingService {
         if(s.turns.size()>=100)throw new IllegalStateException("会话达到100轮上限，请新建任务");
         if(s.events.size()>19000)throw new IllegalStateException("会话事件达到上限，请新建任务");
         if(hasActiveWorker()||sessions().stream().anyMatch(x->ACTIVE.contains(x.status)))throw new IllegalStateException("请等待当前 Coding Agent 任务结束");
+        if(active.size()>=Math.max(1,globalConcurrency))throw new IllegalStateException("Coding 执行容量已满，请稍后再试");
         var selected=modelProfiles==null?null:modelProfiles.resolve(input.modelProfileId());
         var availability=runtime.availability(selected);if(!availability.available())throw new IllegalStateException(availability.reason());
         Path workspace=workspace(s.projectId);var baseline=snapshot(workspace);Path state=ownerRoot().resolve("runtime").resolve(s.id);Files.createDirectories(state);write(state.resolve("baseline.json"),baseline);
         s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.requestedModelProfileId=input.modelProfileId();turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
         var user=UserContext.current();var run=new ActiveRun();String key=key(id);active.put(key,run);
-        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin(),selected);
-        executor.submit(()->{try(var ignored=UserContext.open(user)){execute(id,request,run);} });return s;
+        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected);
+        String requestTrace=org.slf4j.MDC.get("requestId");
+        executor.submit(()->{try(var ignored=UserContext.open(user);var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){execute(id,request,run);} });return s;
     }
     private void execute(String id,CodingRuntime.Request request,ActiveRun run){
         String result="SUCCEEDED",message=null;
-        try{runtime.run(request,e->{try{acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
+        try{runtime.run(request,e->{try{if(handleModelEvent(request,run,e))return;acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
         catch(Exception e){result="FAILED";message="Coding Agent 执行未完成，请检查已产生的文件与事件。不会自动重试。";}
+        for(var lease:run.leases.values())if(governance!=null)try{governance.finish(lease,null,null,"UNKNOWN");}catch(Exception settlementFailure){result="FAILED";message="模型账本结算暂不可用，新的模型调用已暂停；不会自动重试模型。";}
         synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
+    }
+    private synchronized boolean handleModelEvent(CodingRuntime.Request request,ActiveRun run,Map<String,Object> event)throws IOException {
+        String type=Objects.toString(event.get("type"),"");if(!Set.of("model_request","model_usage").contains(type))return false;
+        String rid=Objects.toString(event.get("requestId"),"");if(!rid.matches("[a-f0-9-]{36}"))throw new IOException("Invalid model request identifier");
+        if(type.equals("model_request")){
+            if(run.leases.containsKey(rid))throw new IOException("Duplicate model reservation");
+            try{if(!ACTIVE.contains(session(request.sessionId()).status))throw new IllegalStateException("Task cancelled");if(governance==null)throw new IllegalStateException("Model governance unavailable");Object amount=event.get("reservedTokens");if(!(amount instanceof Number n)||n.longValue()<1)throw new IllegalArgumentException("Invalid token reservation");
+                var profile=request.model();var lease=governance.reserve(profile==null?"system":profile.snapshot().provider(),profile==null?"coding":profile.snapshot().model(),n.longValue());run.leases.put(rid,lease);run.commands.add(Map.of("type","model_permission","requestId",rid,"approved",true,"traceId",lease.traceId()));
+            }catch(IllegalStateException|IllegalArgumentException e){run.commands.add(Map.of("type","model_permission","requestId",rid,"approved",false));}
+        }else{var lease=run.leases.get(rid);if(lease==null)throw new IOException("Missing model reservation");String status=Objects.toString(event.get("status"),"UNKNOWN");if(!Set.of("SUCCEEDED","FAILED","CANCELLED","UNKNOWN").contains(status))status="UNKNOWN";
+            Long input=event.get("inputTokens") instanceof Number n?n.longValue():null,output=event.get("outputTokens") instanceof Number n?n.longValue():null;
+            governance.finish(lease,input,output,status);run.leases.remove(rid);
+            var safe=new LinkedHashMap<String,Object>();safe.put("type","usage");safe.put("traceId",lease.traceId());safe.put("inputTokens",input);safe.put("outputTokens",output);safe.put("costStatus","UNKNOWN");safe.put("status",status);acceptEvent(request.sessionId(),safe);
+        }return true;
     }
     private synchronized void acceptEvent(String id,Map<String,Object> incoming)throws IOException {
         Session s=session(id);if(!ACTIVE.contains(s.status))return;String type=Objects.toString(incoming.get("type"),"");if(!EVENT_TYPES.contains(type))return;

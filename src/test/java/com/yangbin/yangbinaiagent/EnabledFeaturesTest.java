@@ -58,6 +58,7 @@ class EnabledFeaturesTest {
                 var request=json.readTree(lastChat.get());
                 if(!request.path("stream").asBoolean(false)) {
                     String content="{\"title\":\"轻松相处的一天\",\"summary\":\"活动与费用均为估算\",\"stops\":[{\"time\":\"14:00\",\"activity\":\"咖啡与交流\",\"estimatedCost\":50,\"note\":\"请确认店铺营业时间\"},{\"time\":\"16:00\",\"activity\":\"室内展览\",\"estimatedCost\":50,\"note\":\"请确认票价\"}],\"alternatives\":[\"雨天选择室内活动\"],\"cautions\":[\"价格和地点待确认\"]}";
+                    if(request.has("tools"))content="feature-ok";
                     byte[] bytes=json.writeValueAsBytes(Map.of("id","plan-test","object","chat.completion","created",1,"model","test-model","choices",List.of(Map.of("index",0,"message",Map.of("role","assistant","content",content),"finish_reason","stop"))));
                     exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();return;
                 }
@@ -92,6 +93,7 @@ class EnabledFeaturesTest {
         properties.add("app.rag.upload-dir",()->index.resolve("uploads").toString());
         properties.add("app.plans.dir",()->index.resolve("plans").toString());
         properties.add("app.work.dir",()->index.resolve("work").toString());
+        properties.add("app.governance.dir",()->index.resolve("governance").toString());
         properties.add("app.tasks.dir",()->index.resolve("tasks").toString());
         properties.add("app.skills.dir",()->index.resolve("skills").toString());
         properties.add("spring.ai.mcp.client.sse.connections.knowledge.url",()->"http://127.0.0.1:"+mcpPort);
@@ -116,9 +118,10 @@ class EnabledFeaturesTest {
         assertThat(stream).contains("feature-ok","[DONE]");
         assertThat(lastChat.get()).contains("currentTime","listKnowledgeDocuments");
     }
-    @Test void terminalRegisteredAndExecutable(){
-        assertThat(tool("executeTerminalCommand").call("{\"command\":\"echo terminal-feature-ok\"}")).contains("terminal-feature-ok","Exit code: 0");
-        assertThat(http.getForObject("/ai/capabilities",String.class)).contains("\"rag\":true","\"terminal\":true","currentTime");
+    @Test void terminalRegisteredButFailsClosedWithoutVerifiedIsolation(){
+        String result=tool("executeTerminalCommand").call("{\"command\":\"echo terminal-feature-ok\"}");
+        assertThat(result).satisfiesAnyOf(value->assertThat(value).contains("terminal-feature-ok","Exit code: 0"),value->assertThat(value).contains("Error: terminal unavailable;"));
+        assertThat(http.getForObject("/ai/capabilities",String.class)).contains("\"rag\":true","currentTime");
     }
 
     @Test void uploadIsSearchableAndDeleteRemovesEvidence()throws Exception{

@@ -33,6 +33,7 @@ const active = to => {
       <RouterLink to="/planner" :class="{ selected: active('/planner') }"><StudioIcon name="map" :size="20" /><span>约会与出行规划</span></RouterLink>
       <RouterLink to="/love-master" :class="{ selected: active('/love-master') }"><StudioIcon name="chat" :size="20" /><span>情感问答</span></RouterLink>
       <div class="nav-label">能力与设置</div>
+      <RouterLink to="/governance" :class="{ selected: active('/governance') }"><StudioIcon name="check" :size="20" /><span>用量与运行状态</span></RouterLink>
       <RouterLink to="/mcp" :class="{ selected: active('/mcp') }"><StudioIcon name="plug" :size="20" /><span>MCP 工具</span></RouterLink>
       <RouterLink to="/skills/manage" :class="{ selected: route.path === '/skills/manage' }"><StudioIcon name="notes" :size="20" /><span>出行技能管理</span></RouterLink>
     </nav>

@@ -15,6 +15,7 @@ public class CapabilitiesController {
     private final ObjectProvider<KnowledgeService> knowledge;
     private final ObjectProvider<SyncMcpToolCallbackProvider> mcp;
     private final ToolCallback[] tools;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.coding.CodingRuntime runtime;
     public CapabilitiesController(ObjectProvider<KnowledgeService> knowledge,ObjectProvider<SyncMcpToolCallbackProvider> mcp,
                                   @Qualifier("allTools") ToolCallback[] tools) {
         this.knowledge=knowledge;this.mcp=mcp;this.tools=tools;
@@ -24,7 +25,7 @@ public class CapabilitiesController {
         var user=com.yangbin.yangbinaiagent.security.UserContext.current();
         var names=Arrays.stream(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(tools,user)).map(t->t.getToolDefinition().name()).toList();
         var mcpNames=mcp.getIfAvailable()==null?List.of():Arrays.stream(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(mcp.getObject().getToolCallbacks(),user)).map(t->t.getToolDefinition().name()).toList();
-        return Map.of("rag",knowledge.getIfAvailable()!=null,"mcpTools",mcpNames,"terminal",names.contains("executeTerminalCommand"),"tools",names);
+        return Map.of("rag",knowledge.getIfAvailable()!=null,"mcpTools",mcpNames,"terminal",names.contains("executeTerminalCommand")&&runtime!=null&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),"tools",names);
     }
     @GetMapping("/rag/search")
     public List<Map<String,Object>> search(@RequestParam String query) {

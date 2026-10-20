@@ -30,14 +30,15 @@ public class AiController {
     private ChatModel appChatModel;
     @Resource private com.yangbin.yangbinaiagent.models.ModelProfileService modelProfiles;
     @Resource private com.yangbin.yangbinaiagent.models.PrivateChatModels privateChatModels;
+    @Resource private com.yangbin.yangbinaiagent.chatmemory.ManusConversations manusConversations;
 
     @GetMapping(value="/love_app/chat/events",produces=MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<Object>> events(String message,String chatId,@RequestParam(defaultValue="rag") String mode) {
-        var user=com.yangbin.yangbinaiagent.security.UserContext.current();
+        var user=com.yangbin.yangbinaiagent.security.UserContext.current();String requestTrace=safeRequestId();
         return Flux.<ServerSentEvent<Object>>create(sink -> {
             var subscription=reactor.core.Disposables.swap();
             sink.onDispose(subscription);
-            subscription.update(com.yangbin.yangbinaiagent.security.UserContext.call(user,()->loveApp.doChatByStream(message,chatId,mode,event -> sink.next(ServerSentEvent.builder((Object)event).event("trace").build())))
+            subscription.update(com.yangbin.yangbinaiagent.security.UserContext.call(user,()->{try(var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){return loveApp.doChatByStream(message,chatId,mode,event -> sink.next(ServerSentEvent.builder((Object)event).event("trace").build()));}})
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .subscribe(chunk -> sink.next(ServerSentEvent.builder((Object)chunk).build()),
                     error -> {sink.next(ServerSentEvent.builder((Object)"请求未完成，请检查服务状态后重试").event("failure").build());sink.complete();},
@@ -94,20 +95,26 @@ public class AiController {
      */
     @GetMapping(value = "/love_app/chat/sse_emitter")
     public SseEmitter doChatWithLoveAppServerSseEmitter(String message, String chatId) {
-        // 创建一个超时时间较长的 SseEmitter
-        SseEmitter sseEmitter = new SseEmitter(180000L); // 3 分钟超时
-        // 获取 Flux 响应式数据流并且直接通过订阅推送给 SseEmitter
-        loveApp.doChatByStream(message, chatId)
-                .subscribe(chunk -> {
-                    try {
-                        sseEmitter.send(chunk);
-                    } catch (IOException e) {
-                        sseEmitter.completeWithError(e);
-                    }
-                }, sseEmitter::completeWithError, sseEmitter::complete);
-        // 返回
-        return sseEmitter;
+        return relay(loveApp.doChatByStream(message,chatId),new SseEmitter(180000L));
     }
+
+    /** Register cancellation before subscribing so early disconnects cannot orphan a subscription. */
+    static SseEmitter relay(Flux<String> source,SseEmitter emitter){
+        var subscription=reactor.core.Disposables.swap();
+        emitter.onTimeout(()->{subscription.dispose();emitter.complete();});
+        emitter.onError(error->subscription.dispose());emitter.onCompletion(subscription::dispose);
+        subscription.update(source.subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()).subscribe(chunk->{
+            try{emitter.send(chunk);}catch(IOException|IllegalStateException error){subscription.dispose();emitter.completeWithError(new IllegalStateException("消息传输已中断"));}
+        },error->{try{emitter.send(SseEmitter.event().name("failure").data("请求未完成，请查看任务状态后重试"));}catch(Exception ignored){}finally{emitter.complete();}},emitter::complete));
+        return emitter;
+    }
+    private static String safeRequestId(){String id=org.slf4j.MDC.get("requestId");return id!=null&&id.matches("[a-f0-9]{32}")?id:"";}
+    @org.springframework.web.bind.annotation.ExceptionHandler(IllegalArgumentException.class)
+    public org.springframework.http.ResponseEntity<?> invalid(IllegalArgumentException error){return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message","请求参数无效，请检查消息、模型或会话编号"));}
+    @org.springframework.web.bind.annotation.ExceptionHandler(com.yangbin.yangbinaiagent.governance.ModelGovernance.Denied.class)
+    public org.springframework.http.ResponseEntity<?> limited(com.yangbin.yangbinaiagent.governance.ModelGovernance.Denied error){return org.springframework.http.ResponseEntity.status(429).body(java.util.Map.of("message","模型额度不足、并发已满或服务熔断中，请稍后重试"));}
+    @org.springframework.web.bind.annotation.ExceptionHandler(IllegalStateException.class)
+    public org.springframework.http.ResponseEntity<?> conflict(IllegalStateException error){return org.springframework.http.ResponseEntity.status(409).body(java.util.Map.of("message","任务状态冲突或服务暂不可用，请检查任务状态后重试"));}
 
     /**
      * 流式调用 Manus 超级智能体
@@ -116,11 +123,21 @@ public class AiController {
      * @return
      */
     @GetMapping("/manus/chat")
-    public SseEmitter doChatWithManus(String message, @RequestParam(required=false) String modelProfileId) throws IOException {
-        com.yangbin.yangbinaiagent.models.ModelProfileService.Resolved selected;
-        try{selected=modelProfiles.resolve(modelProfileId);}catch(IllegalArgumentException e){throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"模型选择无效，请刷新模型列表");}catch(IllegalStateException e){throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"模型配置暂不可用，请检查设置");}
-        ChatModel model=selected==null?appChatModel:privateChatModels.create(selected);
-        YangbinManus yangbinManus = new YangbinManus(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(allTools,com.yangbin.yangbinaiagent.security.UserContext.current()), model);
-        return yangbinManus.runStream(message);
+    public SseEmitter doChatWithManus(String message,@RequestParam(required=false) String modelProfileId,@RequestParam(required=false) String chatId,@RequestParam(required=false) String requestId)throws Exception {
+        var selected=modelProfiles.resolve(modelProfileId);ChatModel model=selected==null?appChatModel:privateChatModels.create(selected);
+        var owner=com.yangbin.yangbinaiagent.security.UserContext.current();
+        String cid=chatId==null?java.util.UUID.randomUUID().toString():chatId,rid=requestId==null?java.util.UUID.randomUUID().toString():requestId;
+        var reserved=manusConversations.reserve(cid,rid,message,modelProfileId);
+        if(reserved.existing()){
+            var turn=reserved.conversation().turns().stream().filter(t->t.id().equals(rid)).findFirst().orElseThrow();
+            var emitter=new SseEmitter(300000L);
+            if(turn.status().equals("RUNNING"))emitter.send(SseEmitter.event().name("failure").data("同一任务仍在执行，请查看对话历史，不会重复发送。"));
+            else {if(!turn.answer().isBlank())emitter.send(turn.answer());if(!turn.status().equals("SUCCEEDED"))emitter.send(SseEmitter.event().name("failure").data("历史任务状态："+turn.status()));emitter.send("[DONE]");}emitter.complete();return emitter;
+        }
+        var agent=new YangbinManus(com.yangbin.yangbinaiagent.security.ToolAccess.forUser(allTools,owner),model);
+        agent.setMessageList(new java.util.ArrayList<>(reserved.context()));
+        agent.onFinished((status,text)->{try(var scope=com.yangbin.yangbinaiagent.security.UserContext.open(owner)){try{manusConversations.complete(cid,rid,status,text);}catch(Exception e){throw new IllegalStateException("Unable to persist conversation");}}});
+        agent.onSettled(()->{try(var scope=com.yangbin.yangbinaiagent.security.UserContext.open(owner)){manusConversations.release(cid);}});
+        manusConversations.attach(cid,rid,agent);return agent.runStream(message);
     }
 }

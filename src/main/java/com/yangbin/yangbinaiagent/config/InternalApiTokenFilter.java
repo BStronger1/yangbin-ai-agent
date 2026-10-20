@@ -30,6 +30,8 @@ public class InternalApiTokenFilter extends OncePerRequestFilter {
             try {user=new UserContext.User(request.getHeader("X-User-Id"),request.getHeader("X-User-Role"));}
             catch(Exception e){response.sendError(401);return;}
         }
-        try(var ignored=UserContext.open(user)){chain.doFilter(request,response);}
+        String suppliedId=request.getHeader("X-Request-Id");String requestId=!token.isBlank()&&suppliedId!=null&&suppliedId.matches("[a-f0-9]{32}")?suppliedId:java.util.UUID.randomUUID().toString().replace("-","");
+        response.setHeader("X-Request-Id",requestId);
+        try(var ignored=UserContext.open(user);var trace=org.slf4j.MDC.putCloseable("requestId",requestId)){chain.doFilter(request,response);}
     }
 }

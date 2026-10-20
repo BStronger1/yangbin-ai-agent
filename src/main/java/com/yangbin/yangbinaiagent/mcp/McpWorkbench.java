@@ -50,7 +50,7 @@ public class McpWorkbench {
    pending=new Entry(id,name,args.deepCopy(),"RUNNING",false,"工具执行中",0,Instant.now().toString(),false);write(target,pending);
   }
   long start=System.nanoTime();String status="SUCCEEDED",result;boolean truncated=false;Future<String> future=null;var user=UserContext.current();
-  try{future=workers.submit(()->UserContext.call(user,()->tool.call(args.toString())));result=future.get(timeout,TimeUnit.MILLISECONDS);if(result==null||result.isBlank())throw new IllegalStateException();
+  try{String requestTrace=org.slf4j.MDC.get("requestId");future=workers.submit(()->{try(var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){return UserContext.call(user,()->tool.call(args.toString()));}});result=future.get(timeout,TimeUnit.MILLISECONDS);if(result==null||result.isBlank())throw new IllegalStateException();
    if(readable(result).startsWith("Error")||readable(result).startsWith("错误"))status="FAILED";try{if(json.readTree(result).path("isError").asBoolean(false))status="FAILED";}catch(Exception ignored){}
    if(result.length()>16000){result=result.substring(0,16000)+"\n[结果已截断]";truncated=true;}
   }catch(TimeoutException e){status="TIMEOUT";result="调用超时，远端完成情况未知；不会自动重试。";if(future!=null)future.cancel(true);}

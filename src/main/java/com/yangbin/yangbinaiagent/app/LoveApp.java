@@ -81,7 +81,7 @@ public class LoveApp {
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
-        log.info("content: {}", content);
+        log.info("chat_response_completed");
         return content;
     }
 
@@ -108,6 +108,7 @@ public class LoveApp {
     public Flux<String> doChatByStream(String message,String chatId,String mode,java.util.function.Consumer<java.util.Map<String,Object>> events) {
       var user=UserContext.current();
       String scopedChatId=UserContext.chatId(chatId);
+      String requestTrace=java.util.Objects.toString(org.slf4j.MDC.get("requestId"),"");
       return Flux.defer(() -> {
         if(message==null||message.isBlank()||message.length()>8000||chatId==null||chatId.length()>100)
             throw new IllegalArgumentException("请输入 1-8000 字符，且会话 ID 不超过 100 字符");
@@ -137,7 +138,7 @@ public class LoveApp {
         }
         String key=scopedChatId+":"+mode;
         return Flux.using(()->{if(!memory.begin(key))throw new IllegalStateException("此会话正在生成，请稍后重试");return key;},ignored->request.stream().content(),memory::end);
-      });
+      }).contextWrite(context->context.put(UserContext.User.class,user).put("requestId",requestTrace));
     }
 
     record LoveReport(String title, List<String> suggestions) {
@@ -159,7 +160,7 @@ public class LoveApp {
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, UserContext.chatId(chatId)))
                 .call()
                 .entity(LoveReport.class);
-        log.info("loveReport: {}", loveReport);
+        log.info("chat_response_completed");
         return loveReport;
     }
 
@@ -213,7 +214,7 @@ public class LoveApp {
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
-        log.info("content: {}", content);
+        log.info("chat_response_completed");
         return content;
     }
 
@@ -239,7 +240,7 @@ public class LoveApp {
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
-        log.info("content: {}", content);
+        log.info("chat_response_completed");
         return content;
     }
 
@@ -268,7 +269,7 @@ public class LoveApp {
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
-        log.info("content: {}", content);
+        log.info("chat_response_completed");
         return content;
     }
 }

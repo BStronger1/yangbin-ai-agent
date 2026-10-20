@@ -27,7 +27,7 @@ async function run(f, overrides = {}, prompt = 'Please create provider.txt with 
   let stderr = '', stdout = ''; const events=[];
   child.stderr.on('data', x => { stderr += x; }); child.stdout.on('data', x => { stdout += x; });
   const lines = readline.createInterface({input:child.stdout});
-  lines.on('line', line => { const e=JSON.parse(line); events.push(e); if(e.type==='ready') child.stdin.write(JSON.stringify({type:'start',id:'turn',workspace:f.workspace,sessionDir:path.join(f.root,'session'),prompt,approvalMode:'allow',allowShell:false})+'\n'); if(e.type==='response'&&e.id==='turn') child.stdin.end(); });
+  lines.on('line', line => { const e=JSON.parse(line); events.push(e); if(e.type==='ready') child.stdin.write(JSON.stringify({type:'start',id:'turn',workspace:f.workspace,sessionDir:path.join(f.root,'session'),prompt,approvalMode:'allow',allowShell:false})+'\n'); if(e.event?.type==='model_request') child.stdin.write(JSON.stringify({type:'model_permission',requestId:e.event.requestId,approved:f.allowModel!==false})+'\n'); if(e.type==='response'&&e.id==='turn') child.stdin.end(); });
   const timer = setTimeout(() => child.kill(), 30000);
   const code = await new Promise(resolve => child.once('close',resolve)); clearTimeout(timer);
   assert.equal(code,0,stderr); assert.ok(events.some(x=>x.type==='response'&&x.id==='turn'),stdout);
@@ -123,4 +123,15 @@ test('provider echoed secret split across SSE deltas is redacted before UI and s
   const displayed=result.events.filter(x=>x.event?.type==='text_delta').map(x=>x.event.delta).join('');
   assert.equal(displayed,'Echo [redacted] completed');
   for(const file of await fs.readdir(path.join(f.root,'session'))) assert.ok(!(await fs.readFile(path.join(f.root,'session',file),'utf8')).includes(key));
+});
+
+test('production JSONL admission denies HTTP and then allows one separately accounted request', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_request,res)=>openai(res,{role:'assistant',content:'approved'}));
+  f.allowModel=false;const denied=await run(f,{CODING_GOVERNANCE_REQUIRED:'true'});
+  assert.equal(denied.ok,false);assert.equal(f.requests.length,0);
+  f.allowModel=true;const allowed=await run(f,{CODING_GOVERNANCE_REQUIRED:'true'});
+  assert.equal(allowed.ok,true,allowed.stdout);assert.equal(f.requests.length,1);
+  const admission=allowed.events.find(x=>x.event?.type==='model_request').event;
+  const usage=allowed.events.find(x=>x.event?.type==='model_usage').event;
+  assert.equal(usage.requestId,admission.requestId);assert.equal(usage.inputTokens,null);assert.equal(usage.outputTokens,null);assert.equal(usage.status,'SUCCEEDED');
 });

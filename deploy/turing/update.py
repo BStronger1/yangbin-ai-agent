@@ -3,6 +3,8 @@ Run with Python 3.12: python update.py /absolute/path/to/workspace-release.tar.g
 """
 import hashlib,json,os,shutil,subprocess,sys,tarfile,tempfile,time,urllib.request,uuid
 from pathlib import Path
+from readiness import gateway_ready
+from public_gateway import running as public_running, stop as stop_public, start as start_public
 ROOT=Path.home()/"apps/yangbin-ai-agent"
 os.umask(0o077)
 archive=Path(sys.argv[1]).resolve()
@@ -80,28 +82,32 @@ def ready():
   try:
    with urllib.request.urlopen(request,timeout=2) as response:
     if response.status==200 and isinstance(json.load(response),list):
-     with urllib.request.urlopen("http://"+env["PUBLIC_BIND"]+":"+env["PUBLIC_PORT"]+"/api/auth/me",timeout=2) as auth:
-      if auth.status==200 and json.load(auth).get("user") is None:
-       if manifest.get("codingRuntime"):
-        headers={"X-Internal-Token":env["INTERNAL_API_TOKEN"],"X-User-Id":"admin","X-User-Role":"admin"}
-        coding=urllib.request.Request("http://127.0.0.1:18126/api/ai/coding/capabilities?modelProfileId=system",headers=headers)
-        with urllib.request.urlopen(coding,timeout=10) as result:
-         capability=json.load(result)
-         configured=bool(env.get("CODING_MODEL_API_KEY") or env.get("MODEL_API_KEY"))
-         if not isinstance(capability.get("available"),bool) or (configured and not capability["available"]):raise RuntimeError("Coding runtime not ready")
-        models=urllib.request.Request("http://127.0.0.1:18126/api/ai/models",headers=headers)
-        with urllib.request.urlopen(models,timeout=10) as result:
-         if not isinstance(json.load(result).get("profiles"),list):raise RuntimeError("Model profiles not ready")
-       return
+     if gateway_ready(env,timeout=2):
+      if manifest.get("codingRuntime"):
+       headers={"X-Internal-Token":env["INTERNAL_API_TOKEN"],"X-User-Id":"admin","X-User-Role":"admin"}
+       coding=urllib.request.Request("http://127.0.0.1:18126/api/ai/coding/capabilities?modelProfileId=system",headers=headers)
+       with urllib.request.urlopen(coding,timeout=10) as result:
+        capability=json.load(result)
+        configured=bool(env.get("CODING_MODEL_API_KEY") or env.get("MODEL_API_KEY"))
+        if not isinstance(capability.get("available"),bool) or (configured and not capability["available"]):raise RuntimeError("Coding runtime not ready")
+       models=urllib.request.Request("http://127.0.0.1:18126/api/ai/models",headers=headers)
+       with urllib.request.urlopen(models,timeout=10) as result:
+        if not isinstance(json.load(result).get("profiles"),list):raise RuntimeError("Model profiles not ready")
+      return
   except Exception:pass
   time.sleep(1)
  raise RuntimeError("New application did not become ready")
-stop()
+was_public_running=public_running()
+stop_public()
+try:stop()
+except Exception:
+ if was_public_running:start_public(ROOT)
+ raise
 try:
  # Services are stopped so SQLite and task/checkpoint files are consistent.
  for name in ("tmp","knowledge"):
   if (ROOT/name).exists():shutil.copytree(ROOT/name,backup/name,symlinks=True)
- data_hashes={str(p.relative_to(backup)):hashlib.sha256(p.read_bytes()).hexdigest() for folder in ("tasks","plans","repairs","pdf","skills","chat-memory-v2","work","coding","model-profiles") for p in (backup/"tmp"/folder).rglob("*") if p.is_file()}
+ data_hashes={str(p.relative_to(backup)):hashlib.sha256(p.read_bytes()).hexdigest() for folder in ("tasks","plans","repairs","pdf","skills","chat-memory-v2","work","coding","model-profiles","governance") for p in (backup/"tmp"/folder).rglob("*") if p.is_file()}
  (backup/"data-sha256.json").write_text(json.dumps(data_hashes))
  config=json.loads((ROOT/"secrets.json").read_text())
  if manifest.get("narrativeEmbed"):
@@ -122,9 +128,13 @@ try:
  (ROOT/"secrets.json").write_text(json.dumps(config));(ROOT/"secrets.json").chmod(0o600)
  replace(stage)
  if manifest:shutil.copy2(manifest_path,ROOT/"release.json")
- start();ready();print(json.dumps({"updated":True,"backup":str(backup)}),flush=True)
+ start();ready()
+ if was_public_running:start_public(ROOT)
+ print(json.dumps({"updated":True,"backup":str(backup)}),flush=True)
 except Exception:
- stop();replace(backup);shutil.copy2(backup/"secrets.json",ROOT/"secrets.json")
+ stop_public();stop();replace(backup);shutil.copy2(backup/"secrets.json",ROOT/"secrets.json")
  if (backup/"release.json").exists():shutil.copy2(backup/"release.json",ROOT/"release.json")
  else:(ROOT/"release.json").unlink(missing_ok=True)
- start();print("Rolled back to previous release",flush=True);raise
+ start()
+ if was_public_running:start_public(ROOT)
+ print("Rolled back to previous release",flush=True);raise

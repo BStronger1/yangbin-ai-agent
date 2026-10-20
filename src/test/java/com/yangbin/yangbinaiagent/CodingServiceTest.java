@@ -18,6 +18,7 @@ class CodingServiceTest {
     interface Action{void run(CodingRuntime.Request r,Consumer<Map<String,Object>> e,BlockingQueue<Map<String,Object>> q)throws Exception;}
     static class Fake implements CodingRuntime {
         final AtomicInteger calls=new AtomicInteger();volatile Request request;volatile Action action=(r,e,q)->e.accept(Map.of("type","text_delta","text","完成"));
+        public Map<String,Object> shellAvailability(){return Map.of("available",true);}
         public Availability availability(){return new Availability(true,"","offline-test");}
         public void run(Request r,Consumer<Map<String,Object>> e,BlockingQueue<Map<String,Object>> q)throws Exception{calls.incrementAndGet();request=r;action.run(r,e,q);}
     }
@@ -95,5 +96,24 @@ class CodingServiceTest {
             assertThat(service.capabilities()).containsEntry("shellEnabled",true);var s=fresh();service.submit(s.id,input(0));waitDone(s.id);assertThat(runtime.request.allowShell()).isTrue();
             try(var disabled=new AutoService(new CodingService(json,runtime,root.resolve("disabled").toString(),false))){assertThat(disabled.value.capabilities()).containsEntry("shellEnabled",false);}
         }
+    }
+
+    @Test void globalCapacityAndRequestTraceSurviveBackgroundDispatch()throws Exception{
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"globalConcurrency",1);
+        var started=new CountDownLatch(1);var release=new CountDownLatch(1);var trace=new java.util.concurrent.atomic.AtomicReference<String>();
+        runtime.action=(r,e,q)->{trace.set(org.slf4j.MDC.get("requestId"));started.countDown();release.await(5,TimeUnit.SECONDS);};
+        try{var s=fresh();try(var mdc=org.slf4j.MDC.putCloseable("requestId","a".repeat(32))){service.submit(s.id,input(0));}
+            assertThat(started.await(5,TimeUnit.SECONDS)).isTrue();assertThat(trace.get()).isEqualTo("a".repeat(32));
+            try(var other=UserContext.open(TaskWorkflowTest.B)){var second=fresh();assertThatThrownBy(()->service.submit(second.id,input(0))).isInstanceOf(IllegalStateException.class).hasMessageContaining("容量");assertThat(service.session(second.id).turns).isEmpty();}
+            release.countDown();waitDone(s.id);
+        }finally{release.countDown();}
+    }
+
+    @Test void cancellationDeniesLaterModelPermission()throws Exception{
+        var started=new CountDownLatch(1);var requestSent=new CountDownLatch(1);var release=new CountDownLatch(1);
+        var ledger=new com.yangbin.yangbinaiagent.governance.ModelGovernance(new ObjectMapper(),root.resolve("ledger").toString(),2,8,100,200000,4096);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"governance",ledger);
+        runtime.action=(r,e,q)->{started.countDown();assertThat(q.poll(3,TimeUnit.SECONDS)).containsEntry("type","cancel");e.accept(Map.of("type","model_request","requestId",id(),"reservedTokens",100));assertThat(q.poll(3,TimeUnit.SECONDS)).containsEntry("approved",false);requestSent.countDown();release.await(3,TimeUnit.SECONDS);};
+        try{var s=fresh();service.submit(s.id,input(0));assertThat(started.await(3,TimeUnit.SECONDS)).isTrue();service.cancel(s.id);assertThat(requestSent.await(3,TimeUnit.SECONDS)).isTrue();assertThat(ledger.summary().requests()).isZero();}finally{release.countDown();}
     }
 }

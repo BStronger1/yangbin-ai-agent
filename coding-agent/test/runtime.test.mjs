@@ -50,7 +50,7 @@ test('shell is disabled by default and unavailable isolation never falls back to
   const disabled = await fixture(t); await assert.rejects(disabled.tools.execute('bash', { command: 'echo nope' }), /disabled/);
   const { tools, workspace } = await fixture(t, { allowShell: true, approvalMode: 'allow' });
   if (!tools.sandbox.available) {
-    await assert.rejects(tools.execute('bash', { command: 'echo unsafe > marker.txt' }), /isolation is required/);
+    await assert.rejects(tools.execute('bash', { command: 'echo unsafe > marker.txt' }), { message: tools.sandbox.reason });
     await assert.rejects(fs.stat(path.join(workspace, 'marker.txt')));
   } else {
     const result = await tools.execute('bash', { command: 'echo sandbox-ok; test ! -e /home; test ! -e /etc' });
@@ -96,7 +96,7 @@ test('actual pi SDK + loopback model completes write/read/edit tool loop and res
 
 test('cancelling an active command terminates its process tree', { timeout: 10000 }, async t => {
   const { tools, abort } = await fixture(t, { allowShell: true });
-  if (!tools.sandbox.available) { await assert.rejects(tools.execute('bash', { command: 'sleep 20' }), /isolation is required/); return; }
+  if (!tools.sandbox.available) { await assert.rejects(tools.execute('bash', { command: 'sleep 20' }), { message: tools.sandbox.reason }); return; }
   const command = 'sleep 20';
   const running = tools.execute('bash', { command, timeoutSeconds: 30 });
   const timer = setTimeout(() => abort.abort(), 200); t.after(() => clearTimeout(timer));

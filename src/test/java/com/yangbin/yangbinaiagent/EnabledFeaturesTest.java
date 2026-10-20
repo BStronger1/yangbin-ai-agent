@@ -118,9 +118,9 @@ class EnabledFeaturesTest {
         assertThat(stream).contains("feature-ok","[DONE]");
         assertThat(lastChat.get()).contains("currentTime","listKnowledgeDocuments");
     }
-    @Test void terminalRegisteredButFailsClosedWithoutVerifiedIsolation(){
-        String result=tool("executeTerminalCommand").call("{\"command\":\"echo terminal-feature-ok\"}");
-        assertThat(result).satisfiesAnyOf(value->assertThat(value).contains("terminal-feature-ok","Exit code: 0"),value->assertThat(value).contains("Error: terminal unavailable;"));
+    @Test void terminalRegisteredButFailsClosedWithoutVerifiedIsolation()throws Exception{
+        String result=json.readTree(tool("executeTerminalCommand").call("{\"command\":\"echo terminal-feature-ok\"}")).asText();
+        assertThat(result).satisfiesAnyOf(value->assertThat(value).contains("terminal-feature-ok","Exit code: 0"),value->assertThat(value).startsWith("Error:").containsIgnoringCase("unavailable").doesNotContain("terminal-feature-ok","Exit code: 0"));
         assertThat(http.getForObject("/ai/capabilities",String.class)).contains("\"rag\":true","currentTime");
     }
 

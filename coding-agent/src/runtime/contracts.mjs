@@ -40,7 +40,7 @@ export class BudgetLedger {
     if(this.limits.maxCostMicros!==null && maxCostMicros===null) throw new Error('Cost estimate required for monetary budget');
     if(this.requests+1>this.limits.maxRequests||this.tokens+reservedTokens>this.limits.maxTokens||this.limits.maxCostMicros!==null&&this.cost+maxCostMicros>this.limits.maxCostMicros) throw new Error('Global budget exhausted');
     const id=randomUUID(),entry={id,identity:{...identity},kind,requestId,reservedTokens,maxCostMicros,status:'STARTED',usage:null};
-    this.record(entry); this.entries.set(id,entry); this.ids.add(requestId); this.requests++; this.tokens+=reservedTokens; this.cost+=maxCostMicros??0; if(maxCostMicros===null)this.unknownCosts++;
+    this.record(entry); this.entries.set(id,entry); this.ids.add(requestId); this.requests++; this.tokens+=reservedTokens; this.cost+=maxCostMicros??0; this.unknownCosts++;
     return id;
   }
   settle({reservationId,usage=null,status='UNKNOWN'}) {
@@ -54,7 +54,7 @@ export class BudgetLedger {
     const settled={...entry,status,usage:known?{...usage}:null}; this.record(settled); this.entries.set(reservationId,settled);
     // Actual usage can exceed the estimate: record it and prevent further calls.
     this.tokens+=actual-entry.reservedTokens;
-    if(usage?.costMicros!=null){this.cost+=usage.costMicros-(entry.maxCostMicros??0);if(entry.maxCostMicros===null)this.unknownCosts--;}
+    if(usage?.costMicros!=null){this.cost+=usage.costMicros-(entry.maxCostMicros??0);this.unknownCosts--;}
     return this.snapshot();
   }
   snapshot(){return Object.freeze({requests:this.requests,tokens:this.tokens,costMicros:this.unknownCosts?'UNKNOWN':this.cost,reservedCostMicros:this.cost,unknownCosts:this.unknownCosts,...this.limits});}

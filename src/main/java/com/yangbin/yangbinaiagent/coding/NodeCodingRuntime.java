@@ -22,6 +22,8 @@ public class NodeCodingRuntime implements CodingRuntime {
     @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
     @Value("${app.governance.output-tokens:4096}") private int outputTokens=4096;
     @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.governance.ModelGovernance governance;
+    @Value("${app.coding.mcp-config:${CODING_MCP_CONFIG:}}") private String mcpConfig="";
+    @Value("${app.coding.a2a-config:${CODING_A2A_CONFIG:}}") private String a2aConfig="";
     private final Path entry;
     private final boolean enabled;
     private final long timeoutSeconds;
@@ -69,6 +71,8 @@ public class NodeCodingRuntime implements CodingRuntime {
         builder.environment().put("CODING_LONG_TERM_MEMORY",longTermMemory);
         builder.environment().put("CODING_CONTEXT_WINDOW",Integer.toString(Math.max(4096,Math.min(contextWindow,200000))));
         builder.environment().put("CODING_OUTPUT_TOKENS",Integer.toString(Math.max(1,Math.min(governance==null?outputTokens:governance.accountLimits().outputTokens(),65536))));
+        if(!a2aConfig.isBlank())builder.environment().put("CODING_A2A_CONFIG",a2aConfig);
+        if(!mcpConfig.isBlank())builder.environment().put("CODING_MCP_CONFIG",mcpConfig);
         builder.environment().put("CODING_MODEL_API_KEY",activeKey);builder.environment().put("CODING_MODEL_BASE_URL",activeBase);
         builder.environment().put("CODING_MODEL_NAME",activeModel);builder.environment().put("CODING_MODEL_MODEL",activeModel);builder.environment().put("CODING_MODEL_PROVIDER",activeProvider);
         builder.environment().put("CODING_MODEL_REASONING_EFFORT",selected==null?"":java.util.Objects.toString(selected.snapshot().reasoningEffort(),""));
@@ -91,7 +95,7 @@ public class NodeCodingRuntime implements CodingRuntime {
                 while((line=readBoundedLine(reader,2_000_000))!=null){
                     Map<String,Object> item=json.readValue(line,new TypeReference<>(){});
                     if("ready".equals(item.get("type"))&&!started){
-                        var start=new LinkedHashMap<String,Object>();start.put("id",request.sessionId());start.put("type","start");start.put("sessionId",request.sessionId());start.put("workspace",request.workspace().toString());start.put("sessionDir",request.sessionDir().toString());start.put("prompt",request.prompt());start.put("approvalMode",request.approvalMode());start.put("allowShell",request.allowShell());if(request.memoryFile()!=null)start.put("memoryFile",request.memoryFile().toString());
+                        var start=new LinkedHashMap<String,Object>();start.put("id",request.sessionId());start.put("type","start");start.put("sessionId",request.sessionId());start.put("workspace",request.workspace().toString());start.put("sessionDir",request.sessionDir().toString());start.put("prompt",request.prompt());start.put("approvalMode",request.approvalMode());start.put("allowShell",request.allowShell());if(request.execution()!=null)start.put("execution",request.execution());if(request.memoryFile()!=null)start.put("memoryFile",request.memoryFile().toString());
                         synchronized(writer){writer.write(json.writeValueAsString(start));writer.newLine();writer.flush();}started=true;
                     }else if("event".equals(item.get("type"))&&item.get("event") instanceof Map<?,?> raw){
                         @SuppressWarnings("unchecked") Map<String,Object> event=(Map<String,Object>)raw;

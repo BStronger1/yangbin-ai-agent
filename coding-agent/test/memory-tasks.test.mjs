@@ -251,13 +251,13 @@ test('M15: failed real SDK summarization preserves raw history/archive and does 
   await run.turn('CREATE_ONCE: write the synthetic marker file.');
   await run.turn('Preserve this original requirement and evidence. ' + 'Additional detail for a compaction candidate. '.repeat(25));
   let attempted = false;
-  await run.turn('Continue without repeating the original write.', { onSession: session => {
+  await assert.rejects(run.turn('Continue without repeating the original write.', { onSession: session => {
     const originalPrompt = session.prompt.bind(session);
     session.prompt = async (...args) => {
       await originalPrompt(...args); attempted = true;
       await assert.rejects(session.compact(), /simulated summarizer unavailable|503|Failed to generate summary/i);
     };
-  } });
+  } }), /Summary failed; no automatic replay/);
   assert.equal(attempted, true);
   assert.equal(run.requests.filter(record => record.summary).length, 1, 'failed summary is not automatically retried');
   assert.ok(run.events.some(event => event.type === 'context' && event.status === 'FAILED'));

@@ -37,11 +37,11 @@ export class ToolRuntime {
   }
   cancel() { for (const waiter of this.pending.values()) waiter(false, 'cancelled'); this.pending.clear(); }
   approve(id, approved) { const waiter = this.pending.get(id); if (!waiter) throw new Error('Approval expired or unknown'); waiter(approved === true, approved === true ? 'approved' : 'rejected'); }
-  async authorize(name, args, callId) {
+  async authorize(name, args, callId, {force=false}={}) {
     this.signal?.throwIfAborted();
     if (++this.count > 80) { const error = new Error('Tool limit reached (80 per turn)'); this.onLimit(error); throw error; }
     if (name === 'bash' && !this.allowShell) throw new Error(this.shellRequested ? this.sandbox.reason : 'Shell execution is disabled');
-    if (this.approvalMode === 'allow' || (this.approvalMode === 'on-risk' && !['write', 'edit', 'bash'].includes(name))) return;
+    if (!force && (this.approvalMode === 'allow' || (this.approvalMode === 'on-risk' && !['write', 'edit', 'bash'].includes(name)))) return;
     const approvalId = randomUUID();
     const reason = name === 'bash' ? '在禁网隔离环境的只读工作区快照中运行验证命令；更改不会写回工作区。' : '当前模式要求确认本次工具操作。';
     const resolution = await new Promise(resolve => {

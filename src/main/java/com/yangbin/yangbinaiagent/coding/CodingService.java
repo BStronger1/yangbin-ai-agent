@@ -22,13 +22,13 @@ public class CodingService {
     public record Project(String id,String name,String createdAt) {}
     public record ProjectInput(String name) {}
     public record SessionInput(String projectId,String title,String approvalMode) {}
-    public record TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort) { public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId){this(requestId,prompt,revision,approvalMode,modelProfileId,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode){this(requestId,prompt,revision,approvalMode,null);} }
+    public record TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort,String executionMode) { public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort){this(requestId,prompt,revision,approvalMode,modelProfileId,reasoningEffort,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId){this(requestId,prompt,revision,approvalMode,modelProfileId,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode){this(requestId,prompt,revision,approvalMode,null);} }
     public record FileInput(String path,String content) {}
     public record FileInfo(String path,long size) {}
     public record FileContent(String path,String content) {}
     public record Change(String path,String before,String after,String kind) {}
     public static class Turn {
-        public String id,prompt,status,createdAt,approvalMode,modelProfileId,requestedModelProfileId,requestedReasoningEffort;
+        public String id,prompt,status,createdAt,approvalMode,modelProfileId,requestedModelProfileId,requestedReasoningEffort,executionMode;
         public ModelProfileService.Snapshot modelSnapshot;
         public Turn(){}
         Turn(String id,String prompt,String mode){this.id=id;this.prompt=prompt;this.status="RUNNING";this.createdAt=now();this.approvalMode=mode;}
@@ -41,7 +41,7 @@ public class CodingService {
     }
     private static final int FILE_LIMIT=262144,MAX_FILES=1000,MAX_SNAPSHOT=8*1024*1024;
     private static final Set<String> ACTIVE=Set.of("RUNNING","WAITING_APPROVAL");
-    private static final Set<String> EVENT_TYPES=Set.of("text_delta","tool_start","tool_end","approval_required","approval_resolved","status","error","usage","sandbox","context");
+    private static final Set<String> EVENT_TYPES=Set.of("text_delta","tool_start","tool_end","approval_required","approval_resolved","status","error","usage","sandbox","context","strategy","task","team","mcp","a2a");
     private static final Set<String> DENIED_SEGMENTS=Set.of(".git",".env","node_modules",".ssh",".aws",".codex",".pi");
     private final ObjectMapper json;private final Path root;private final CodingRuntime runtime;private final boolean shellEnabled;private final ModelProfileService modelProfiles;
     private final ExecutorService executor=Executors.newVirtualThreadPerTaskExecutor();
@@ -50,7 +50,7 @@ public class CodingService {
     @Autowired(required=false) private com.yangbin.yangbinaiagent.memory.MemoryService memory;
     @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
     private final Map<String,ActiveRun> active=new HashMap<>();
-    private static class ActiveRun {final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();final Map<String,com.yangbin.yangbinaiagent.governance.ModelGovernance.Lease> leases=new HashMap<>();}
+    private static class ActiveRun {String finalStatus;final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();final Map<String,com.yangbin.yangbinaiagent.governance.ModelGovernance.Lease> leases=new HashMap<>();}
     public CodingService(ObjectMapper json,CodingRuntime runtime,String dir,boolean shellEnabled)throws IOException {this(json,runtime,dir,shellEnabled,null);}
     @Autowired
     public CodingService(ObjectMapper json,CodingRuntime runtime,@Value("${app.coding.dir:tmp/coding}") String dir,@Value("${app.coding.shell-enabled:${CODING_SHELL_ENABLED:false}}") boolean shellEnabled,ModelProfileService modelProfiles)throws IOException {
@@ -107,9 +107,9 @@ public class CodingService {
         return runtime.availability(selected);
     }
     public synchronized Session submit(String id,TurnInput input)throws IOException {
-        if(input==null||input.prompt()==null||input.prompt().isBlank()||input.prompt().length()>24000)throw new IllegalArgumentException("请输入1–24000字的任务");uuid(input.requestId());String mode=mode(input.approvalMode());Session s=session(id);
+        if(input==null||input.prompt()==null||input.prompt().isBlank()||input.prompt().length()>24000)throw new IllegalArgumentException("请输入1–24000字的任务");uuid(input.requestId());String mode=mode(input.approvalMode());String executionMode=executionMode(input.executionMode());Session s=session(id);
         var previous=s.turns.stream().filter(t->t.id.equals(input.requestId())).findFirst();
-        if(previous.isPresent()){if(!previous.get().prompt.equals(input.prompt())||!previous.get().approvalMode.equals(mode)||!Objects.equals(Objects.toString(previous.get().requestedModelProfileId,""),Objects.toString(input.modelProfileId(),""))||!Objects.equals(effort(previous.get().requestedReasoningEffort),effort(input.reasoningEffort())))throw new IllegalStateException("请求ID已用于其他内容");return s;}
+        if(previous.isPresent()){if(!previous.get().prompt.equals(input.prompt())||!previous.get().approvalMode.equals(mode)||!executionMode(previous.get().executionMode).equals(executionMode)||!Objects.equals(Objects.toString(previous.get().requestedModelProfileId,""),Objects.toString(input.modelProfileId(),""))||!Objects.equals(effort(previous.get().requestedReasoningEffort),effort(input.reasoningEffort())))throw new IllegalStateException("请求ID已用于其他内容");return s;}
         if(s.revision!=input.revision())throw new IllegalStateException("会话已更新，请刷新后发送");
         if(s.turns.size()>=100)throw new IllegalStateException("会话达到100轮上限，请新建任务");
         if(s.events.size()>19000)throw new IllegalStateException("会话事件达到上限，请新建任务");
@@ -119,16 +119,18 @@ public class CodingService {
         var availability=codingAvailability(selected);if(!availability.available())throw new IllegalStateException(availability.reason());
         Path workspace=workspace(s.projectId);var baseline=snapshot(workspace);Path state=ownerRoot().resolve("runtime").resolve(s.id);Files.createDirectories(state);write(state.resolve("baseline.json"),baseline);
         Path memoryFile=memory!=null&&!"off".equals(longTermMemory)?memory.runtimeFile(s.projectId):null;
-        s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.requestedModelProfileId=input.modelProfileId();turn.requestedReasoningEffort=effort(input.reasoningEffort());turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
+        s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.executionMode=executionMode;turn.requestedModelProfileId=input.modelProfileId();turn.requestedReasoningEffort=effort(input.reasoningEffort());turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
         var user=UserContext.current();var run=new ActiveRun();String key=key(id);active.put(key,run);
-        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile);
+        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile,Map.of("identity",Map.of("accountId",user.id(),"projectId",s.projectId,"sessionId",s.id,"taskId",turn.id,"agentId",UUID.randomUUID().toString()),"mode",executionMode,"limits",Map.of("maxRequests",60,"maxTokens",1000000)));
         String requestTrace=org.slf4j.MDC.get("requestId");
         executor.submit(()->{try(var ignored=UserContext.open(user);var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){execute(id,request,run);} });return s;
     }
+    private static String executionMode(String value){String result=value==null||value.isBlank()?"auto":value;if(!Set.of("auto","direct","react","plan","check","team").contains(result))throw new IllegalArgumentException("未知执行模式");return result;}
     private void execute(String id,CodingRuntime.Request request,ActiveRun run){
         String result="SUCCEEDED",message=null;
-        try{runtime.run(request,e->{try{if(handleModelEvent(request,run,e))return;acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
+        try{runtime.run(request,e->{try{if(handleModelEvent(request,run,e))return;if("status".equals(e.get("type"))&&Set.of("SUCCEEDED","FAILED","CANCELLED","PARTIAL").contains(Objects.toString(e.get("status"),"")))run.finalStatus=e.get("status").toString();acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
         catch(Exception e){result="FAILED";message="Coding Agent 执行未完成，请检查已产生的文件与事件。不会自动重试。";}
+        if("SUCCEEDED".equals(result)&&run.finalStatus!=null)result=run.finalStatus;
         for(var lease:run.leases.values())if(governance!=null)try{governance.finish(lease,null,null,"UNKNOWN");}catch(Exception settlementFailure){result="FAILED";message="模型账本结算暂不可用，新的模型调用已暂停；不会自动重试模型。";}
         synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){if("SUCCEEDED".equals(result)&&memory!=null&&!"off".equals(longTermMemory)){try{int count=memory.extract(s.projectId,s.id,s.turns.getLast().id,request.prompt());if(count>0)acceptEvent(id,Map.of("type","context","status","MEMORY_SAVED","count",count));s=session(id);}catch(Exception extractionFailure){acceptEvent(id,Map.of("type","context","status","MEMORY_SKIPPED","reason","STORE_UNAVAILABLE"));s=session(id);}}finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
     }
@@ -156,10 +158,28 @@ public class CodingService {
             boolean requested=s.events.stream().anyMatch(e->"approval_required".equals(e.get("type"))&&Objects.equals(approvalId,e.get("approvalId"))&&turnId.equals(e.get("turnId")));
             boolean resolved=s.events.stream().anyMatch(e->"approval_resolved".equals(e.get("type"))&&Objects.equals(approvalId,e.get("approvalId"))&&turnId.equals(e.get("turnId")));
             if(!requested||resolved||!(event.get("approved") instanceof Boolean))return;
-            if("WAITING_APPROVAL".equals(s.status)){s.status="RUNNING";s.turns.getLast().status="RUNNING";}
+            if("WAITING_APPROVAL".equals(s.status)){
+                boolean otherPending=s.events.stream().filter(e->"approval_required".equals(e.get("type"))&&turnId.equals(e.get("turnId"))&&!Objects.equals(approvalId,e.get("approvalId"))).anyMatch(required->s.events.stream().noneMatch(e->"approval_resolved".equals(e.get("type"))&&turnId.equals(e.get("turnId"))&&Objects.equals(required.get("approvalId"),e.get("approvalId"))));
+                s.status=otherPending?"WAITING_APPROVAL":"RUNNING";s.turns.getLast().status=s.status;
+            }
         }
         if("error".equals(type)){event.clear();event.put("seq",s.events.size()+1);event.put("turnId",s.turns.getLast().id);event.put("type","error");event.put("message","运行时报告错误，请检查工具执行状态。");}
         s.events.add(event);s.updatedAt=now();save(s);
+    }
+    public synchronized Session cancelChild(String id,String taskId)throws IOException {
+        uuid(taskId);Session s=session(id);var run=active.get(key(id));if(run==null||!ACTIVE.contains(s.status))throw new IllegalStateException("团队已结束");
+        boolean owned=s.events.stream().anyMatch(e->"task".equals(e.get("type"))&&e.get("identity") instanceof Map<?,?> child&&taskId.equals(child.get("taskId"))&&child.get("parentTaskId")!=null);
+        if(!owned)throw new IllegalArgumentException("子任务不存在");run.commands.add(Map.of("type","cancel_task","id",UUID.randomUUID().toString(),"taskId",taskId));return s;
+    }
+    public synchronized Map<String,Object> teamArtifact(String sessionId,String turnId,String artifactId)throws Exception {
+        uuid(turnId);uuid(artifactId);Session s=session(sessionId);if(s.turns.stream().noneMatch(t->turnId.equals(t.id)))throw new IllegalArgumentException("任务不存在");
+        Path state=ownerRoot().resolve("runtime").resolve(s.id).toRealPath();Path manifest=state.resolve("team-results-"+turnId+".json");
+        if(Files.isSymbolicLink(manifest)||!Files.isRegularFile(manifest)||Files.size(manifest)>2000000)throw new IllegalArgumentException("产物不可用");
+        var data=json.readTree(manifest.toFile());for(var a:data.path("artifacts")){if(!artifactId.equals(a.path("id").asText()))continue;Path file=Path.of(a.path("internalPath").asText()).toAbsolutePath().normalize();
+            if(!file.startsWith(state.resolve("teams"))||Files.isSymbolicLink(file)||!file.toRealPath().equals(file)||!Files.isRegularFile(file)||Files.size(file)>65536)throw new IllegalArgumentException("产物路径无效");
+            byte[] bytes=Files.readAllBytes(file);String hash=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));if(!hash.equals(a.path("sha256").asText())||bytes.length!=a.path("size").asLong())throw new IllegalStateException("产物已变化");
+            return Map.of("name",a.path("name").asText(),"content",new String(bytes,StandardCharsets.UTF_8),"sha256",hash);
+        }throw new IllegalArgumentException("产物不存在");
     }
     public synchronized Session approve(String id,String approvalId,boolean approved)throws IOException {
         Session s=session(id);var run=active.get(key(id));if(!ACTIVE.contains(s.status)||run==null)throw new IllegalStateException("任务已结束或中断，不能继续旧审批");

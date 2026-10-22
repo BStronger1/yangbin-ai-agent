@@ -66,11 +66,11 @@ export function createRemoteAgent({identity,remoteId,url,cardUrl,expectedCardHas
     const signal=AbortSignal.any([request.signal,abort.signal,AbortSignal.timeout(timeoutMs)].filter(Boolean));
     let lease,remoteTaskId,terminal,sent=false,settled=false;const outputArtifacts=new Map();
     try{
-      signal.throwIfAborted();await discover();
-      const grant=await authorize({identity:request.identity,toolName:'a2a__'+remoteId,definitionHash:expectedCardHash,argumentsHash:createHash('sha256').update(request.prompt).digest('hex'),callId:request.identity.taskId,signal});
+      signal.throwIfAborted();await discover();signal.throwIfAborted();
+      const grant=await authorize({identity:request.identity,toolName:'a2a__'+remoteId,definitionHash:expectedCardHash,argumentsHash:createHash('sha256').update(request.prompt).digest('hex'),arguments:request.prompt,callId:request.identity.taskId,signal});
       if(grant?.approved!==true)throw new Error('A2A_APPROVAL_DENIED');
-      signal.throwIfAborted();await discover(); // invalidate card drift during approval
-      lease=budget.reserve({identity:request.identity,kind:'a2a',requestId:'remote:'+request.identity.taskId,reservedTokens,maxCostMicros});sent=true;
+      signal.throwIfAborted();await discover();signal.throwIfAborted(); // invalidate card drift during approval
+      lease=await budget.reserve({identity:request.identity,kind:'a2a',requestId:'remote:'+request.identity.taskId,reservedTokens,maxCostMicros});signal.throwIfAborted();sent=true;
       const message={messageId:randomUUID(),role:Role.ROLE_USER,parts:[{content:{$case:'text',value:request.prompt},mediaType:'text/plain',filename:''}],contextId:'',taskId:'',extensions:[],referenceTaskIds:[]};
       let events=0;
       for await(const event of client.sendMessageStream({message,configuration:{acceptedOutputModes:['text/plain','application/json'],returnImmediately:false}},{signal})){
@@ -94,11 +94,11 @@ export function createRemoteAgent({identity,remoteId,url,cardUrl,expectedCardHas
         artifacts.push(stored);
       }
       const status=terminal===TaskState.TASK_STATE_COMPLETED?'SUCCEEDED':terminal===TaskState.TASK_STATE_CANCELED?'CANCELLED':'FAILED';
-      settled=true;budget.settle({reservationId:lease,usage:null,status});
+      settled=true;await budget.settle({reservationId:lease,usage:null,status});
       return {status,artifacts,error:status==='FAILED'?'Remote task failed':null,evidence:{remoteId,remoteTaskId,protocolVersion:'1.0',trust:'untrusted-external',events}};
     }catch(error){
       if(sent&&remoteTaskId&&!terminal)await cancel(remoteTaskId).catch(()=>{});
-      if(lease&&!settled)budget.settle({reservationId:lease,usage:null,status:'UNKNOWN'});
+      if(lease&&!settled)await budget.settle({reservationId:lease,usage:sent?null:{inputTokens:0,outputTokens:0,costMicros:0},status:'UNKNOWN'});
       const code=/^A2A_[A-Z_]+$/.test(error.message)?error.message:signal.aborted?'A2A_CANCELLED':'A2A_REMOTE_FAILED';
       return {status:signal.aborted?'CANCELLED':'FAILED',artifacts:[],error:code,evidence:{remoteId,remoteTaskId:remoteTaskId||null,outcome:sent?'UNKNOWN':'NOT_SENT'}};
     }finally{controllers.delete(abort);}

@@ -23,6 +23,8 @@ public class CodingController {
     @PostMapping("/sessions/{id}/turns") public ResponseEntity<?> submit(@PathVariable String id,@RequestBody CodingService.TurnInput input)throws Exception{return ResponseEntity.accepted().body(service.submit(id,input));}
     @PostMapping("/sessions/{id}/approvals/{approvalId}") public Object approve(@PathVariable String id,@PathVariable String approvalId,@RequestBody Approval input)throws Exception{return service.approve(id,approvalId,input.approved());}
     @PostMapping("/sessions/{id}/cancel") public Object cancel(@PathVariable String id)throws Exception{return service.cancel(id);}
+    @PostMapping("/sessions/{id}/children/{taskId}/cancel") public Object cancelChild(@PathVariable String id,@PathVariable String taskId)throws Exception{return service.cancelChild(id,taskId);}
+    @GetMapping("/sessions/{id}/turns/{turnId}/artifacts/{artifactId}") public Object artifact(@PathVariable String id,@PathVariable String turnId,@PathVariable String artifactId)throws Exception{return service.teamArtifact(id,turnId,artifactId);}
     @GetMapping("/sessions/{id}/diff") public Object diff(@PathVariable String id)throws Exception{return service.diff(id);}
     @ExceptionHandler(IllegalArgumentException.class) public ResponseEntity<?> invalid(IllegalArgumentException e){return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()));}
     @ExceptionHandler(IllegalStateException.class) public ResponseEntity<?> conflict(IllegalStateException e){return ResponseEntity.status(409).body(Map.of("message",e.getMessage()));}

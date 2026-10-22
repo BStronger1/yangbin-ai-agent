@@ -63,6 +63,7 @@ class MemoryHttpEndToEndTest {
   }ok(HttpMethod.POST,"/ai/coding/sessions/"+session+"/cancel",null);throw new AssertionError("Memory subprocess timeout");
  }
  @Test void freshRuntimeProcessesUseCurrentVersionAndForgetWithoutLeakingAcrossScopes()throws Exception {
+  int initialRequests=REQUESTS.size();
   String profile=ok(HttpMethod.POST,"/ai/models/profiles",Map.of("name","memory local fixture","provider","openai-compatible","baseUrl","http://127.0.0.1:"+PROVIDER.getAddress().getPort()+"/v1","model","memory-fixture","apiKey","offline-fixture-credential")).path("id").asText();
   String p=project(),otherProject=project(),base="/ai/coding/projects/"+p+"/memory";
   assertThat(ok(HttpMethod.GET,base,null).path("items")).isEmpty();
@@ -82,8 +83,23 @@ class MemoryHttpEndToEndTest {
   assertThat(prompt(p,profile,"Use the invoice policy and describe currency without tools.")).doesNotContain("GBP_M029_LATEST","EUR_M029_WITNESS");
   assertThat(ok(HttpMethod.GET,base+"/search?q=invoice",null).path("items")).isEmpty();
   assertThat(call(HttpMethod.POST,base,Map.of("requestId",UUID.randomUUID().toString(),"key","api-key","content","sk-FAKEonly012345678901234567890","kind","FACT"),"admin").getStatusCode().value()).isEqualTo(400);
-  assertThat(REQUESTS).hasSize(4);
+  assertThat(REQUESTS).hasSize(initialRequests+4);
   assertThat(Files.readString(ROOT.resolve("coding/admin/projects/"+p+"/memory.json"))).doesNotContain("EUR_M029_WITNESS","GBP_M029_LATEST");
   JSON.writerWithDefaultPrettyPrinter().writeValue(ROOT.resolve("verification.json").toFile(),Map.of("realHttp",true,"freshNodeProcesses",4,"loopbackRequests",4,"paidRequests",0,"modelQualityEvaluated",false));
  }
+ @Test void naturalCandidateRequiresVersionedExplicitHttpDecision()throws Exception {
+  String p=project(),base="/ai/coding/projects/"+p+"/memory";
+  ok(HttpMethod.PUT,base+"/settings",Map.of("enabled",true,"autoExtract",true));
+  String profile=ok(HttpMethod.POST,"/ai/models/profiles",Map.of("name","candidate local fixture","provider","openai-compatible","baseUrl","http://127.0.0.1:"+PROVIDER.getAddress().getPort()+"/v1","model","memory-fixture","apiKey","offline-fixture-credential")).path("id").asText();
+  prompt(p,profile,"我们项目的开发语言是Java。");
+  var list=ok(HttpMethod.GET,base+"/candidates",null);assertThat(list.path("candidates").size()).isGreaterThan(0);
+  var c=list.path("candidates").get(0);String route=base+"/candidates/"+c.path("id").asText()+"/decision";
+  var decision=Map.of("revision",list.path("revision").asInt(),"version",c.path("version").asInt(),"targetVersion",c.path("targetVersion").asInt(),"accept",true);
+  assertThat(call(HttpMethod.POST,route,decision,OTHER).getStatusCode().is2xxSuccessful()).isFalse();
+  assertThat(ok(HttpMethod.GET,base,null).path("items").size()).isZero();
+  ok(HttpMethod.POST,route,decision);
+  assertThat(ok(HttpMethod.GET,base,null).path("items").size()).isEqualTo(1);
+  assertThat(call(HttpMethod.POST,route,decision,"admin").getStatusCode().value()).isEqualTo(409);
+ }
+
 }

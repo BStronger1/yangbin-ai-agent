@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -20,7 +22,7 @@ jobs:
           cache: maven
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.19.0'
+          node-version: '24.19.0'
           cache: npm
           cache-dependency-path: coding-agent/package-lock.json
       - name: Install and verify pi coding runtime without external models
@@ -29,7 +31,7 @@ jobs:
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
       - name: Install Chinese font for presentation export
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-      - run: mvn -B -ntp "-Dtest.presentation.font=Noto Sans CJK SC" -Dtest=MemoryServiceM029Test,MemoryHttpEndToEndTest,MemoryProcessRecoveryTest,AssistantHttpEndToEndTest,AssistantWorkspaceTest,ManusDisconnectTest,NodeCodingRuntimeBoundaryTest,ChatModelGovernanceConfigTest,AiControllerLifecycleTest,ManusConversationsTest,ModelGovernanceTest,ContentFreeLoggingTest,DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest,ExecutionProvenanceTest,FrozenDatasetEvaluationTest,SourceClaimReviewTest,PlanRouteServiceTest,WorkServiceTest,WorkPresentationTest,PartnerChatServiceTest,PartnerWorkspaceTest,PartnerCapabilitiesTest,McpWorkbenchTest,CodingServiceTest,CodingAgentEndToEndTest,ModelProfileServiceTest,PrivateModelProtocolTest,CodingModelSelectionTest,ModelSettingsTest,ModelProfilesHttpEndToEndTest,KeylessStartupTest,MissingDashScopeKeyEnvironmentPostProcessorTest package
+      - run: mvn -B -ntp "-Dtest.presentation.font=Noto Sans CJK SC" -Dtest=CodingTeamsHttpEndToEndTest,MemoryCandidatesM031Test,CodingTeamBoundaryTest,MemoryServiceM029Test,MemoryHttpEndToEndTest,MemoryProcessRecoveryTest,AssistantHttpEndToEndTest,AssistantWorkspaceTest,ManusDisconnectTest,NodeCodingRuntimeBoundaryTest,ChatModelGovernanceConfigTest,AiControllerLifecycleTest,ManusConversationsTest,ModelGovernanceTest,ContentFreeLoggingTest,DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest,ExecutionProvenanceTest,FrozenDatasetEvaluationTest,SourceClaimReviewTest,PlanRouteServiceTest,WorkServiceTest,WorkPresentationTest,PartnerChatServiceTest,PartnerWorkspaceTest,PartnerCapabilitiesTest,McpWorkbenchTest,CodingServiceTest,CodingAgentEndToEndTest,ModelProfileServiceTest,PrivateModelProtocolTest,CodingModelSelectionTest,ModelSettingsTest,ModelProfilesHttpEndToEndTest,KeylessStartupTest,MissingDashScopeKeyEnvironmentPostProcessorTest package
       - name: Preserve source-rule evaluation report
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,7 +88,7 @@ jobs:
         run: python -m unittest discover -s tools/evaluation -p "test_*.py" -v
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.19.0'
+          node-version: '24.19.0'
           cache: npm
           cache-dependency-path: yangbin-ai-agent-frontend/package-lock.json
       - run: npm ci && npm run build
@@ -154,5 +156,22 @@ jobs:
       - name: Verify project memory UI without models
         run: node tests/memory.browser.mjs
         working-directory: yangbin-ai-agent-frontend
-      - name: Verify frozen memory evaluation contracts without models
-        run: node --test evaluation/memory-m029/*.test.mjs evaluation/memory-m030/*.test.mjs evaluation/memory-m030-unrun/*.test.mjs
+      - name: Verify historical frozen contracts on their common baseline without models
+        shell: bash
+        run: |
+          historical="$RUNNER_TEMP/m031-historical-baseline"
+          # The source freeze records original Windows CRLF bytes. Restore the
+          # unchanged baseline using its original checkout mode; do not refreeze.
+          git -c core.autocrlf=true worktree add --detach "$historical" 2f7a8d306638face8970a97152c709ff5f0c7193
+          npm ci --ignore-scripts --prefix "$historical/coding-agent"
+          cd "$historical"
+          node --test evaluation/memory-m029/*.test.mjs evaluation/memory-m030/*.test.mjs evaluation/memory-m030-unrun/*.test.mjs
+
+      - name: Verify overlay focus, memory candidates and team UI
+        run: |
+          node tests/overlays.browser.mjs
+          node tests/memory-candidates.browser.mjs
+          node tests/coding-team.browser.mjs
+        working-directory: yangbin-ai-agent-frontend
+      - name: Verify M031 offline diagnostic contracts
+        run: node --test evaluation/memory-m031-offline/*.test.mjs evaluation/m031-quality/*.test.mjs

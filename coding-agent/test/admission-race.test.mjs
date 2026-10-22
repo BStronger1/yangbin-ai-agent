@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {ModelGate} from '../src/model-gate.mjs';import {BudgetLedger} from '../src/runtime/contracts.mjs';
+test('approved then cancelled before dispatch settles both ledgers as known zero without HTTP',async()=>{const abort=new AbortController(),events=[],budget=new BudgetLedger({maxRequests:2,maxTokens:1000});let network=0,gate;gate=new ModelGate({required:true,signal:abort.signal,budget,identity:{accountId:'a',projectId:'p',sessionId:'s',taskId:'t',agentId:'g'},emit:e=>{events.push(e);if(e.type==='model_request'){gate.permission({requestId:e.requestId,approved:true});abort.abort(new Error('fixture cancellation'));}}});await assert.rejects(gate.wrap(async()=>{network++;return new Response('');})('https://unused.invalid',{body:JSON.stringify({max_tokens:10})}),/cancellation/);assert.equal(network,0);assert.equal(budget.snapshot().tokens,0);assert.equal(budget.snapshot().costMicros,0);assert.equal([...budget.entries.values()][0].status,'CANCELLED');assert.equal(events.filter(e=>e.type==='model_usage'&&e.inputTokens===0).length,1);});
+
+test('truncated Anthropic start usage is not final billing evidence and retains reservation',async()=>{
+ const budget=new BudgetLedger({maxRequests:2,maxTokens:10000}),events=[];
+ const gate=new ModelGate({budget,identity:{accountId:'a',projectId:'p',sessionId:'s',taskId:'t',agentId:'g'},emit:e=>events.push(e)});
+ const response=await gate.wrap(async()=>new Response('data: '+JSON.stringify({type:'message_start',message:{usage:{input_tokens:10,output_tokens:1}}})+'\n\n'))('https://unused.invalid',{body:JSON.stringify({max_tokens:100})});
+ await response.text();const entry=[...budget.entries.values()][0];assert.equal(entry.status,'UNKNOWN');assert.equal(entry.usage,null);assert.equal(budget.snapshot().tokens,entry.reservedTokens);assert.equal(events.at(-1).inputTokens,null);assert.equal(events.at(-1).outputTokens,null);
+});

@@ -22,7 +22,8 @@ console.error = (...args) => diagnostic(...args.map(value => secretRedactor.text
 console.log = (...args) => console.error(...args);
 const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
 const abort = new AbortController();
-let active = false, finished = false, tools, session, gate;
+let active = false, finished = false, tools, session, gate, team;
+const allTools=new Set(), allSessions=new Set(), allGates=new Set();
 const redact = text => String(text).replaceAll(process.env.CODING_MODEL_API_KEY || '\0never', '[redacted]').slice(0, 12000);
 const emit = event => send({ type: 'event', event });
 input.on('line', line => {
@@ -30,17 +31,19 @@ input.on('line', line => {
   try { if (line.length > 256000) throw new Error('Command too large'); command = JSON.parse(line); }
   catch { send({ type: 'response', ok: false, error: 'Invalid JSON command' }); return; }
   if (command.type === 'model_permission') {
-    gate?.permission(command);
+    for(const g of allGates)g.permission(command);
   } else if (command.type === 'approve') {
-    try { if (typeof command.approved !== 'boolean') throw new Error('approved must be boolean'); tools?.approve(command.approvalId, command.approved); if (!tools) throw new Error('No active approval'); send({ type: 'response', id: command.id, ok: true }); }
+    try { if (typeof command.approved !== 'boolean') throw new Error('approved must be boolean'); const target=[...allTools].find(t=>t.pending.has(command.approvalId));target?.approve(command.approvalId, command.approved); if (!target) throw new Error('No active approval'); send({ type: 'response', id: command.id, ok: true }); }
     catch (e) { send({ type: 'response', id: command.id, ok: false, error: redact(e.message) }); }
+  } else if (command.type === 'cancel_task') {
+    try {if(!team)throw new Error('No active team');team.cancel(command.taskId);send({type:'response',id:command.id,ok:true});}catch(e){send({type:'response',id:command.id,ok:false,error:redact(e.message)});}
   } else if (command.type === 'cancel') {
-    abort.abort(new Error('User cancelled')); tools?.cancel(); void session?.abort();
+    abort.abort(new Error('User cancelled')); for(const t of allTools)t.cancel();for(const s of allSessions)void s.abort();
     send({ type: 'response', id: command.id, ok: true });
   } else if (command.type === 'start' && !active) {
     active = true;
     const timeout = setTimeout(() => abort.abort(new Error('Turn exceeded 10 minute limit')), 600000);
-    runAgent(command, { emit, signal: abort.signal, onTools: value => { tools = value; }, onSession: value => { session = value; }, onGate: value => { gate = value; } })
+    runAgent(command, { emit, signal: abort.signal, onTools: value => { tools = value;allTools.add(value); }, onSession: value => { session = value;allSessions.add(value); }, onGate: value => { gate = value;allGates.add(value); },onTeam:value=>{team=value;} })
       .then(() => send({ type: 'response', id: command.id, ok: true }))
       .catch(error => { const status = abort.signal.aborted ? 'CANCELLED' : 'FAILED'; emit({ type: 'status', status }); emit({ type: 'error', message: redact(error.message) }); send({ type: 'response', id: command.id, ok: false, error: redact(error.message) }); })
       .finally(() => { finished = true; clearTimeout(timeout); input.close(); process.stdin.pause(); });

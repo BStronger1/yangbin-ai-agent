@@ -38,7 +38,7 @@ async function fixture(t, overrides = {}) {
 }
 function runtime(t,url,overrides={}) {
   const records={approvals:[],reserves:[],settles:[],events:[]};
-  const runtime=createMcpRuntime({identity,servers:[{id:'ref',accountId:'a',projectId:'p',url,timeoutMs:500}],testLoopback:true,
+  const runtime=createMcpRuntime({identity,servers:[{id:'ref',accountId:'a',projectId:'p',url,timeoutMs:5000}],testLoopback:true,
     authorize:async request=>{records.approvals.push(request);return {approved:true,approvalId:'approve'};},
     reserve:async request=>{records.reserves.push(request);return 'lease';},
     settle:async request=>{records.settles.push(request);},emit:e=>records.events.push(e),...overrides});
@@ -90,7 +90,7 @@ test('disconnect is UNKNOWN and never replayed',async t=>{
   assert.equal(records.settles[0].status,'UNKNOWN');assert.equal(records.settles[0].usage,null);
 });
 test('timeout is bounded, retains unknown usage, never retry',async t=>{
-  const {url,state}=await fixture(t,{delay:700});const {runtime:r,records}=runtime(t,url);const [tool]=await r.discover();
+  const {url,state}=await fixture(t,{delay:700});const {runtime:r,records}=runtime(t,url,{servers:[{id:'ref',accountId:'a',projectId:'p',url,timeoutMs:500}]});const [tool]=await r.discover();
   await assert.rejects(r.execute(tool.name,{text:'x'},'timeout'));assert.equal(state.calls,1);assert.equal(records.settles[0].status,'UNKNOWN');
 });
 test('cancellation closes active response and reserves remain UNKNOWN',async t=>{
@@ -112,7 +112,3 @@ test('DNS rebinding/mixed private addresses denied at connect',async t=>{
   const net=createMcpTransport('https://mcp.example/mcp',{resolveHost:async()=>[{address:'127.0.0.1',family:4}],timeoutMs:100});t.after(()=>net.close());
   await assert.rejects(net.fetch('https://mcp.example/mcp',{method:'POST',body:'{}'}));
 });
-
-
-
-

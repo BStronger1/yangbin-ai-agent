@@ -111,3 +111,30 @@ test('failed and partial statuses remain explicit and cleanup failure cannot mas
   const r=router(async()=>({binding:{identity:f.request.identity,ledger:f.ledger,artifactRoot:f.artifactRoot},execute:async()=>({status,artifacts:[]}),close:async()=>{throw Error('cleanup failure');}}));assert.equal((await r.execute(f.request)).status,status);
  }
 });
+
+import {loadRemoteRegistry} from '../src/a2a/registry.mjs';
+async function configuredRegistry(f,service,{deny=false,holdApproval=false,holdAdmission=false,timeoutMs=5000}={}){
+ const configPath=path.join(f.root,'trusted-registry.json'),gates=[],approvals=[],events=[];
+ await fs.writeFile(configPath,JSON.stringify({bindings:[{accountId:parent.accountId,projectId:parent.projectId,remoteId:'registered',timeoutMs,url:service.base+'/rpc',cardUrl:service.base+'/.well-known/agent-card.json',expectedCardHash:cardDigest(service.card),reservedTokens:5000,maxCostMicros:1000,permissions:['read','write'],credential:{accountId:parent.accountId,projectId:parent.projectId,remoteId:'registered',endpoint:service.base+'/rpc',expiresAt:Date.now()+60000,accessToken:'fixture-credential',permissions:['read','write']}}]}));
+ const r=await loadRemoteRegistry({file:configPath,workspace:f.request.workspace,identity:parent,testLoopback:true,onGate:g=>gates.push(g),onTools:t=>approvals.push(t),emit:event=>{events.push(event);if(event.type==='model_request'&&!holdAdmission)gates.forEach(g=>g.permission({requestId:event.requestId,approved:!deny}));if(event.type==='approval_required'&&!holdApproval)approvals.find(t=>t.pending.has(event.approvalId))?.approve(event.approvalId,true);}});
+ return {r,events,configPath,gates,approvals};
+}
+test('server-owned registry routes real official SDK worker through parent admission and explicit approval',async t=>{
+ const f=await fixture(t),service=await ref(t),{r,events}=await configuredRegistry(f,service);
+ const result=await router(r.resolveRemote).execute(f.request);assert.equal(result.status,'SUCCEEDED',JSON.stringify(result));assert.equal(r.workerId,'registered');assert.equal(service.calls,1);
+ assert.equal(events.filter(e=>e.type==='model_request').length,1);assert.equal(events.filter(e=>e.type==='model_usage').length,1);assert.ok(events.find(e=>e.type==='approval_required'));assert.equal(JSON.stringify(events).includes('fixture-credential'),false);assert.equal(f.ledger.snapshot().requests,1);assert.equal(f.ledger.snapshot().reservedCostMicros,1000);assert.equal(f.ledger.snapshot().costMicros,'UNKNOWN');
+});
+test('registry denial and cross-account binding dispatch zero remote executions',async t=>{
+ const f=await fixture(t),service=await ref(t),{r,configPath}=await configuredRegistry(f,service,{deny:true});
+ assert.equal((await router(r.resolveRemote).execute(f.request)).status,'FAILED');assert.equal(service.calls,0);assert.equal(f.ledger.snapshot().tokens,0);
+ const other=await loadRemoteRegistry({file:configPath,workspace:f.request.workspace,identity:{...parent,accountId:'other'},testLoopback:true});assert.equal(other.workerId,'local');await assert.rejects(other.resolveRemote(f.request),/SCOPE/);
+ await assert.rejects(r.resolveRemote({...f.request,identity:{...f.request.identity,sessionId:'foreign'}}),/SCOPE/);
+ const inWorkspace=path.join(f.request.workspace,'config.json');await fs.copyFile(configPath,inWorkspace);await assert.rejects(loadRemoteRegistry({file:inWorkspace,workspace:f.request.workspace,identity:parent}),/PATH/);
+});
+
+test('remote deadline cancels both pending user approval and Java admission without dispatch',async t=>{
+ for(const options of [{holdApproval:true},{holdAdmission:true}]){
+  const f=await fixture(t),service=await ref(t),{r,gates,approvals}=await configuredRegistry(f,service,{...options,timeoutMs:1000});const start=Date.now();
+  const result=await router(r.resolveRemote).execute(f.request);assert.equal(result.status,'CANCELLED');assert.ok(Date.now()-start<4000);assert.equal(service.calls,0);assert.ok(gates.every(g=>g.pending.size===0));assert.ok(approvals.every(a=>a.pending.size===0));assert.equal(f.ledger.snapshot().tokens,0);
+ }
+});

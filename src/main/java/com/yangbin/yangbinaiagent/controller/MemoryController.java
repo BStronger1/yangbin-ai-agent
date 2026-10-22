@@ -9,6 +9,8 @@ public class MemoryController {
  private final MemoryService service;
  public MemoryController(MemoryService service){this.service=service;}
  @GetMapping public Object list(@PathVariable String projectId)throws Exception{return service.list(projectId);}
+ @GetMapping("/candidates") public Object candidates(@PathVariable String projectId)throws Exception{return service.candidates(projectId);}
+ @PostMapping("/candidates/{id}/decision") public Object decide(@PathVariable String projectId,@PathVariable String id,@RequestBody MemoryService.CandidateDecision input)throws Exception{return service.decideCandidate(projectId,id,input);}
  @GetMapping("/search") public Object search(@PathVariable String projectId,@RequestParam String q)throws Exception{return service.search(projectId,q);}
  @PostMapping public Object create(@PathVariable String projectId,@RequestBody MemoryService.Create input)throws Exception{return MemoryService.publicItem(service.create(projectId,input));}
  @PutMapping("/{id}") public Object update(@PathVariable String projectId,@PathVariable String id,@RequestBody MemoryService.Update input)throws Exception{return MemoryService.publicItem(service.update(projectId,id,input));}

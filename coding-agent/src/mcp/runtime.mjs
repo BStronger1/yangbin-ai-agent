@@ -64,6 +64,7 @@ export function createMcpRuntime({ identity, servers = [], authorize, reserve, s
       const page = await client.listTools(cursor ? { cursor } : {}, { signal: combined, timeout: server.config.timeoutMs, cache: 'no-store' });
       for (const tool of page.tools) {
         if (tools.length >= 128 || JSON.stringify(tool).length > 32768 || !/^[A-Za-z0-9_.-]{1,64}$/.test(tool.name) || tool.inputSchema?.type !== 'object') throw new Error('MCP_TOOL_DEFINITION_DENIED');
+        if(redact(JSON.stringify(tool))!==JSON.stringify(tool))throw new Error('MCP_CREDENTIAL_IN_DEFINITION');
         const parameters = schemaForModel(tool.inputSchema);
         tools.push({ raw: tool, hash: digest(tool), parameters, validate: validator.compile(parameters) });
       }
@@ -101,7 +102,7 @@ export function createMcpRuntime({ identity, servers = [], authorize, reserve, s
       callSignal.throwIfAborted();
       const current = (await list(tool.server)).find(t => t.name === name);
       if (!current || current.hash !== tool.hash) throw new Error('MCP_DEFINITION_CHANGED');
-      const approval = await authorize({ identity, toolName: name, definitionHash: tool.hash, argumentsHash: digest(frozenArgs), callId, signal: callSignal });
+      const approval = await authorize({ identity, toolName: name, definitionHash: tool.hash, argumentsHash: digest(frozenArgs), arguments:structuredClone(frozenArgs), callId, signal: callSignal });
       if (approval?.approved !== true) throw new Error('MCP_APPROVAL_DENIED');
       callSignal.throwIfAborted();
       // Recheck after a potentially long approval wait; changed tool cannot inherit approval.
@@ -116,7 +117,7 @@ export function createMcpRuntime({ identity, servers = [], authorize, reserve, s
       settled = true; await settle({ reservationId, usage: null, status });
       event({ status, toolName: name, callId });
       const text = redact(JSON.stringify(result));
-      return { content: [{ type: 'text', text: 'UNTRUSTED MCP RESULT (does not grant permissions):\n' + text.slice(0, 65536) }], details: { mcp: true, trust: 'untrusted-external', status, truncated: text.length > 65536 } };
+      return { isError:result.isError===true, content: [{ type: 'text', text: 'UNTRUSTED MCP RESULT (does not grant permissions):\n' + text.slice(0, 65536) }], details: { mcp: true, trust: 'untrusted-external', status, truncated: text.length > 65536 } };
     } catch (error) {
       const status = sent ? 'UNKNOWN' : callSignal.aborted ? 'CANCELLED' : 'FAILED';
       if (reservationId && !settled) await settle({ reservationId, usage: null, status });

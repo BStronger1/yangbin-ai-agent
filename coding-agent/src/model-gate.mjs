@@ -4,35 +4,55 @@ const MAX_EVENT_CHARS=1024*1024, MAX_RESPONSE_BYTES=8*1024*1024;
 // Admission covers every HTTP model request, including pi compaction calls.
 // SDK cost=0 and zero-filled usage defaults are never treated as billing evidence.
 export class ModelGate {
-  constructor({ emit = () => {}, signal, required = false, timeoutMs = 10000 } = {}) {
-    this.count=0; this.emit=emit; this.signal=signal; this.required=required; this.timeoutMs=timeoutMs; this.pending=new Map();
+  constructor({ emit = () => {}, signal, required = false, timeoutMs = 10000, beforeRequest = () => {}, budget = null, identity = null } = {}) {
+    this.beforeRequest=beforeRequest;this.budget=budget;this.identity=identity;this.reservations=new Map(); this.count=0; this.emit=emit; this.signal=signal; this.required=required; this.timeoutMs=timeoutMs; this.pending=new Map();
     signal?.addEventListener('abort',()=>this.close(),{once:true});
   }
   permission(command) { const pending=this.pending.get(command.requestId); if (pending) pending(command.approved===true); }
   close() { for (const resolve of this.pending.values()) resolve(false); this.pending.clear(); }
-  async admit(init) {
-    this.signal?.throwIfAborted();
+  async admit(init,{kind='model',maxCostMicros=null}={}) {
+    this.signal?.throwIfAborted();this.beforeRequest();
     if(++this.count>100)throw new Error('Model request limit reached (100 per turn, including compaction)');
     const body=typeof init?.body==='string'?init.body:'';
     let parsed; try { parsed=JSON.parse(body); } catch { throw new Error('Model request body must be JSON for quota accounting'); }
     const maxTokens=Number(parsed.max_tokens ?? parsed.max_completion_tokens ?? 8192);
     if(!Number.isFinite(maxTokens)||maxTokens<=0||maxTokens>65536)throw new Error('Invalid model output token limit');
     const requestId=randomUUID(), reservedTokens=Buffer.byteLength(body,'utf8')+Math.ceil(maxTokens);
-    if(this.required) {
-      const approved=await new Promise(resolve=>{
-        const settle=value=>{clearTimeout(timer);this.pending.delete(requestId);resolve(value);};
-        const timer=setTimeout(()=>settle(false),this.timeoutMs);this.pending.set(requestId,settle);
-        this.emit({type:'model_request',requestId,reservedTokens});
-      });
-      if(!approved)throw new Error('Model request denied or admission timed out');
+    if(this.budget)this.reservations.set(requestId,this.budget.reserve({identity:this.identity,kind,requestId,reservedTokens,maxCostMicros}));
+    let parentApproved=false;
+    try {
+      if(this.required) {
+        const approved=await new Promise(resolve=>{
+          const settle=value=>{clearTimeout(timer);this.pending.delete(requestId);resolve(value);};
+          const timer=setTimeout(()=>settle(false),this.timeoutMs);this.pending.set(requestId,settle);
+          this.emit({type:'model_request',requestId,reservedTokens});
+        });
+        parentApproved=approved;
+        if(!approved)throw new Error('Model request denied or admission timed out');
+      }
+      this.signal?.throwIfAborted(); return requestId;
+    } catch(error) {
+      const rid=this.reservations.get(requestId);
+      if(rid){this.budget.settle({reservationId:rid,status:this.signal?.aborted?'CANCELLED':'FAILED',usage:{inputTokens:0,outputTokens:0,costMicros:0}});this.reservations.delete(requestId);}
+      if(parentApproved)this.emit({type:'model_usage',requestId,inputTokens:0,outputTokens:0,status:'CANCELLED'});
+      throw error;
     }
-    this.signal?.throwIfAborted(); return requestId;
+  }
+
+  async reserveOperation({kind='mcp',requestId,reservedTokens=0,maxCostMicros=null}) {
+    const id=await this.admit({body:JSON.stringify({kind,operationId:requestId,max_tokens:Math.max(1,reservedTokens)})},{kind,maxCostMicros});
+    return id;
+  }
+  settleOperation({reservationId,usage=null,status='UNKNOWN'}) {
+    const rootId=this.reservations.get(reservationId);
+    if(rootId){this.budget.settle({reservationId:rootId,usage,status});this.reservations.delete(reservationId);}
+    this.emit({type:'model_usage',requestId:reservationId,inputTokens:usage?.inputTokens??null,outputTokens:usage?.outputTokens??null,status,kind:'external'});
   }
   wrap(fetch) {
     return async (input,init) => {
       const requestId=await this.admit(init); let completed=false;
       let inputTokens=null,outputTokens=null,ended=false,protocolError=false,buffer='',responseBytes=0;
-      const finish=status=>{if(completed)return;completed=true;this.emit({type:'model_usage',requestId,inputTokens,outputTokens,status});};
+      const finish=status=>{if(completed)return;completed=true;if(status!=='SUCCEEDED'||!ended||protocolError){inputTokens=null;outputTokens=null;}const reservationId=this.reservations.get(requestId);if(reservationId){this.budget.settle({reservationId,status,usage:inputTokens!==null&&outputTokens!==null?{inputTokens,outputTokens}:null});this.reservations.delete(requestId);}this.emit({type:'model_usage',requestId,inputTokens,outputTokens,status});};
       const terminalStatus=()=>protocolError?'FAILED':ended?'SUCCEEDED':'UNKNOWN';
       const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
       const line=raw=>{

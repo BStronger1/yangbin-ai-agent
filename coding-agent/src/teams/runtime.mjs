@@ -84,7 +84,7 @@ export function createTeamRuntime({store,ledger,executor,rootDirectory,emit=()=>
       }
       event('member_started',{memberId:member.id,role:member.role,identity:child});
         executionOpen=true;
-        const output=await awaitExecutor(()=>{executionStarted=true;return executor.execute({identity:child,permissions:member.permissions,writePaths:member.writePaths,role:member.role,prompt:member.prompt,feedback,inputs,workspace,sessionDir,signal:childSignal,ledger,emit:(type,data)=>{if(executionOpen&&!childSignal.aborted)event(type,data);}});},childSignal);executionOpen=false;childSignal.throwIfAborted();
+        const output=await awaitExecutor(()=>{executionStarted=true;return executor.execute({executorId:member.executorId || 'local',identity:child,permissions:member.permissions,writePaths:member.writePaths,role:member.role,prompt:member.prompt,feedback,inputs,workspace,sessionDir,signal:childSignal,ledger,emit:(type,data)=>{if(executionOpen&&!childSignal.aborted)event(type,data);}});},childSignal);executionOpen=false;childSignal.throwIfAborted();
         if(output?.status!==undefined&&output.status!=='SUCCEEDED'){
           const error=new Error(typeof output.error==='string'?output.error:'Executor did not succeed');
           error.taskStatus=['FAILED','CANCELLED','PARTIAL'].includes(output.status)?output.status:'FAILED';throw error;

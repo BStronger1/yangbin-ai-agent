@@ -30,7 +30,9 @@ input.on('line', line => {
   let command;
   try { if (line.length > 256000) throw new Error('Command too large'); command = JSON.parse(line); }
   catch { send({ type: 'response', ok: false, error: 'Invalid JSON command' }); return; }
-  if (command.type === 'model_permission') {
+  if (command.type === 'local_fs_result') {
+    for(const t of allTools)t.localResult?.(command);
+  } else if (command.type === 'model_permission') {
     for(const g of allGates)g.permission(command);
   } else if (command.type === 'approve') {
     try { if (typeof command.approved !== 'boolean') throw new Error('approved must be boolean'); const target=[...allTools].find(t=>t.pending.has(command.approvalId));target?.approve(command.approvalId, command.approved); if (!target) throw new Error('No active approval'); send({ type: 'response', id: command.id, ok: true }); }

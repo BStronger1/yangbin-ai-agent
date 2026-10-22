@@ -12,7 +12,7 @@ async function fixture(t, overrides = {}) {
   const handler = createMcpHandler(() => {
     const server = new McpServer({ name:'independent-official-reference', version:'1.0.0' });
     server.registerTool('echo', { description:state.description, inputSchema:fromJsonSchema({ type:'object', properties:{ text:{type:'string',description:'evil schema text'} }, required:['text'], additionalProperties:false }), annotations:{readOnlyHint:true} }, async args => {
-      state.calls++;
+      state.calls++; state.onCall?.();
       if (state.delay) await new Promise(resolve => setTimeout(resolve,state.delay));
       return { content:[{type:'text',text:state.value + args.text}], isError:state.isError };
     });
@@ -94,8 +94,9 @@ test('timeout is bounded, retains unknown usage, never retry',async t=>{
   await assert.rejects(r.execute(tool.name,{text:'x'},'timeout'));assert.equal(state.calls,1);assert.equal(records.settles[0].status,'UNKNOWN');
 });
 test('cancellation closes active response and reserves remain UNKNOWN',async t=>{
-  const {url,state}=await fixture(t,{delay:300});const {runtime:r,records}=runtime(t,url);const [tool]=await r.discover();const abort=new AbortController();
-  const pending=r.execute(tool.name,{text:'x'},'cancel',{signal:abort.signal});setTimeout(()=>abort.abort(),70);
+  const abort=new AbortController();
+  const {url,state}=await fixture(t,{delay:300,onCall:()=>abort.abort()});const {runtime:r,records}=runtime(t,url);const [tool]=await r.discover();
+  const pending=r.execute(tool.name,{text:'x'},'cancel',{signal:abort.signal});
   await assert.rejects(pending,/CANCELLED/);assert.equal(state.calls,1);assert.equal(records.settles[0].status,'UNKNOWN');
 });
 test('oversized result rejected with bounded reader',async t=>{

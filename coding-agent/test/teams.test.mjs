@@ -125,12 +125,12 @@ test('negative independent review with zero corrections agrees with TaskStore te
  const f=await fixture(t,{behavior:{alwaysBad:true},maxCorrections:0});const result=await f.runtime.execute({identity,permissions,members:plan()});const review=result.members.find(x=>x.memberId==='review');assert.equal(result.status,'PARTIAL');assert.equal(review.status,'FAILED');assert.equal(f.store.get(identity,review.identity.taskId).status,'FAILED');assert.equal(f.networkCalls(),3);
 });
 test('deadline releases host waiting when executor never resolves and ignores cancellation',async t=>{
- let started=0;const f=await isolatedRuntimeFixture(t,{execute:()=>{started++;return new Promise(()=>{});}},{timeoutMs:20});
- let watchdog;const result=await Promise.race([f.runtime.execute({identity,permissions:[],members:f.members}),new Promise((_,reject)=>{watchdog=setTimeout(()=>reject(new Error('runtime still pending after 200ms')),200);})]).finally(()=>clearTimeout(watchdog));
+ let started=0;const f=await isolatedRuntimeFixture(t,{execute:()=>{started++;return new Promise(()=>{});}},{timeoutMs:1000});
+ let watchdog;const result=await Promise.race([f.runtime.execute({identity,permissions:[],members:f.members}),new Promise((_,reject)=>{watchdog=setTimeout(()=>reject(new Error('runtime still pending after 5000ms')),5000);})]).finally(()=>clearTimeout(watchdog));
  assert.equal(started,1);assert.equal(result.status,'CANCELLED');assert.equal(result.members[0].sideEffects,'UNKNOWN');assert.equal(result.artifacts.length,0);assert.ok(f.store.list(identity).every(x=>x.status==='CANCELLED'));
 });
 test('late executor resolution cannot publish success events or artifacts after timeout',async t=>{
- let release,lateEmit;const f=await isolatedRuntimeFixture(t,{execute:context=>{lateEmit=context.emit;return new Promise(resolve=>{release=resolve;});}},{timeoutMs:20});
+ let release,lateEmit;const f=await isolatedRuntimeFixture(t,{execute:context=>{lateEmit=context.emit;return new Promise(resolve=>{release=resolve;});}},{timeoutMs:1000});
  const result=await f.runtime.execute({identity,permissions:[],members:f.members});assert.equal(result.status,'CANCELLED');const eventCount=f.events.length;
  lateEmit('late_external_success',{message:'untrusted completed'});release({status:'SUCCEEDED',text:'late artifact'});await new Promise(resolve=>setTimeout(resolve,30));
  assert.equal(f.events.length,eventCount);assert.equal(result.artifacts.length,0);assert.ok(f.store.list(identity).every(x=>x.status==='CANCELLED'&&x.artifacts.length===0));

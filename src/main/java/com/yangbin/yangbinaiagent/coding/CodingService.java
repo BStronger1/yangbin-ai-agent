@@ -19,10 +19,11 @@ import java.util.stream.Stream;
 /** Single-instance owner-scoped store. Projects are private managed directories, never arbitrary host paths. */
 @Service
 public class CodingService {
-    public record Project(String id,String name,String createdAt) {}
-    public record ProjectInput(String name) {}
+    public record Project(String id,String name,String createdAt,String source) { public Project(String id,String name,String createdAt){this(id,name,createdAt,"server");} }
+    public record ProjectInput(String name,String source) { public ProjectInput(String name){this(name,"server");} }
+    public record LocalResult(String clientId,String requestId,boolean ok,String output) {}
     public record SessionInput(String projectId,String title,String approvalMode) {}
-    public record TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort,String executionMode) { public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort){this(requestId,prompt,revision,approvalMode,modelProfileId,reasoningEffort,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId){this(requestId,prompt,revision,approvalMode,modelProfileId,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode){this(requestId,prompt,revision,approvalMode,null);} }
+    public record TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort,String executionMode,String localClientId) { public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort,String executionMode){this(requestId,prompt,revision,approvalMode,modelProfileId,reasoningEffort,executionMode,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort){this(requestId,prompt,revision,approvalMode,modelProfileId,reasoningEffort,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId){this(requestId,prompt,revision,approvalMode,modelProfileId,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode){this(requestId,prompt,revision,approvalMode,null);} }
     public record FileInput(String path,String content) {}
     public record FileInfo(String path,long size) {}
     public record FileContent(String path,String content) {}
@@ -50,7 +51,7 @@ public class CodingService {
     @Autowired(required=false) private com.yangbin.yangbinaiagent.memory.MemoryService memory;
     @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
     private final Map<String,ActiveRun> active=new HashMap<>();
-    private static class ActiveRun {String finalStatus;final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();final Map<String,com.yangbin.yangbinaiagent.governance.ModelGovernance.Lease> leases=new HashMap<>();}
+    private static class ActiveRun {String finalStatus,localClientId;final Map<String,Map<String,Object>> localRequests=new LinkedHashMap<>();final Set<String> localClaimed=new HashSet<>(),localCompleted=new HashSet<>();final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();final Map<String,com.yangbin.yangbinaiagent.governance.ModelGovernance.Lease> leases=new HashMap<>();}
     public CodingService(ObjectMapper json,CodingRuntime runtime,String dir,boolean shellEnabled)throws IOException {this(json,runtime,dir,shellEnabled,null);}
     @Autowired
     public CodingService(ObjectMapper json,CodingRuntime runtime,@Value("${app.coding.dir:tmp/coding}") String dir,@Value("${app.coding.shell-enabled:${CODING_SHELL_ENABLED:false}}") boolean shellEnabled,ModelProfileService modelProfiles)throws IOException {
@@ -73,20 +74,21 @@ public class CodingService {
     public synchronized Project createProject(ProjectInput input)throws IOException {
         if(input==null||input.name()==null||input.name().isBlank()||input.name().length()>80)throw new IllegalArgumentException("项目名称需为1–80字");
         if(projects().size()>=30)throw new IllegalStateException("最多保存30个项目");
-        var project=new Project(UUID.randomUUID().toString(),input.name().strip(),now());Path folder=ownerRoot().resolve("projects").resolve(project.id());Files.createDirectories(folder.resolve("workspace"));write(folder.resolve("project.json"),project);return project;
+        String source=input.source()==null?"server":input.source();if(!Set.of("server","local").contains(source))throw new IllegalArgumentException("未知项目来源");
+        var project=new Project(UUID.randomUUID().toString(),input.name().strip(),now(),source);Path folder=ownerRoot().resolve("projects").resolve(project.id());Files.createDirectories(folder.resolve("workspace"));write(folder.resolve("project.json"),project);return project;
     }
     public synchronized List<FileInfo> files(String projectId)throws IOException {
-        Path workspace=workspace(projectId);var result=new ArrayList<FileInfo>();
+        requireServerProject(projectId);Path workspace=workspace(projectId);var result=new ArrayList<FileInfo>();
         for(Path p:projectFiles(workspace)){
             String relative=relative(workspace,p);if(!allowedPath(relative))continue;safeFile(workspace,relative);result.add(new FileInfo(relative,Files.size(p)));if(result.size()>MAX_FILES)throw new IllegalStateException("项目文件过多，请缩小工作区");
         }result.sort(Comparator.comparing(FileInfo::path));return result;
     }
     public synchronized FileContent file(String projectId,String name)throws IOException {
-        Path file=safeFile(workspace(projectId),name);if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("文件不存在");return new FileContent(name,readText(file));
+        requireServerProject(projectId);Path file=safeFile(workspace(projectId),name);if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("文件不存在");return new FileContent(name,readText(file));
     }
     public synchronized FileContent putFile(String projectId,FileInput input)throws IOException {
         if(input==null||input.content()==null||input.content().getBytes(StandardCharsets.UTF_8).length>FILE_LIMIT||input.content().indexOf('\0')>=0)throw new IllegalArgumentException("仅支持不超过256KiB的文本文件");
-        assertProjectIdle(projectId);Path workspace=workspace(projectId),file=safeFile(workspace,input.path());
+        requireServerProject(projectId);assertProjectIdle(projectId);Path workspace=workspace(projectId),file=safeFile(workspace,input.path());
         if(!Files.exists(file)&&files(projectId).size()>=MAX_FILES)throw new IllegalStateException("项目文件过多");
         Files.createDirectories(file.getParent());safeFile(workspace,input.path());Files.writeString(file,input.content(),StandardCharsets.UTF_8,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING);return new FileContent(input.path(),input.content());
     }
@@ -108,6 +110,7 @@ public class CodingService {
     }
     public synchronized Session submit(String id,TurnInput input)throws IOException {
         if(input==null||input.prompt()==null||input.prompt().isBlank()||input.prompt().length()>24000)throw new IllegalArgumentException("请输入1–24000字的任务");uuid(input.requestId());String mode=mode(input.approvalMode());String executionMode=executionMode(input.executionMode());Session s=session(id);
+        boolean local=isLocalProject(s.projectId);if(local){uuid(input.localClientId());if("team".equals(executionMode))throw new IllegalArgumentException("本机目录暂不支持团队执行");if("allow".equals(mode))throw new IllegalArgumentException("本机目录修改需要确认，请选择按需确认或始终询问");}
         var previous=s.turns.stream().filter(t->t.id.equals(input.requestId())).findFirst();
         if(previous.isPresent()){if(!previous.get().prompt.equals(input.prompt())||!previous.get().approvalMode.equals(mode)||!executionMode(previous.get().executionMode).equals(executionMode)||!Objects.equals(Objects.toString(previous.get().requestedModelProfileId,""),Objects.toString(input.modelProfileId(),""))||!Objects.equals(effort(previous.get().requestedReasoningEffort),effort(input.reasoningEffort())))throw new IllegalStateException("请求ID已用于其他内容");return s;}
         if(s.revision!=input.revision())throw new IllegalStateException("会话已更新，请刷新后发送");
@@ -120,19 +123,53 @@ public class CodingService {
         Path workspace=workspace(s.projectId);var baseline=snapshot(workspace);Path state=ownerRoot().resolve("runtime").resolve(s.id);Files.createDirectories(state);write(state.resolve("baseline.json"),baseline);
         Path memoryFile=memory!=null&&!"off".equals(longTermMemory)?memory.runtimeFile(s.projectId):null;
         s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.executionMode=executionMode;turn.requestedModelProfileId=input.modelProfileId();turn.requestedReasoningEffort=effort(input.reasoningEffort());turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
-        var user=UserContext.current();var run=new ActiveRun();String key=key(id);active.put(key,run);
-        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile,Map.of("identity",Map.of("accountId",user.id(),"projectId",s.projectId,"sessionId",s.id,"taskId",turn.id,"agentId",UUID.randomUUID().toString()),"mode",executionMode,"limits",Map.of("maxRequests",60,"maxTokens",1000000)));
+        var user=UserContext.current();var run=new ActiveRun();run.localClientId=local?input.localClientId():null;String key=key(id);active.put(key,run);
+        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,!local&&shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile,Map.of("identity",Map.of("accountId",user.id(),"projectId",s.projectId,"sessionId",s.id,"taskId",turn.id,"agentId",UUID.randomUUID().toString()),"mode",executionMode,"localFiles",local,"limits",Map.of("maxRequests",60,"maxTokens",1000000)));
         String requestTrace=org.slf4j.MDC.get("requestId");
         executor.submit(()->{try(var ignored=UserContext.open(user);var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){execute(id,request,run);} });return s;
     }
     private static String executionMode(String value){String result=value==null||value.isBlank()?"auto":value;if(!Set.of("auto","direct","react","plan","check","team").contains(result))throw new IllegalArgumentException("未知执行模式");return result;}
     private void execute(String id,CodingRuntime.Request request,ActiveRun run){
         String result="SUCCEEDED",message=null;
-        try{runtime.run(request,e->{try{if(handleModelEvent(request,run,e))return;if("status".equals(e.get("type"))&&Set.of("SUCCEEDED","FAILED","CANCELLED","PARTIAL").contains(Objects.toString(e.get("status"),"")))run.finalStatus=e.get("status").toString();acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
+        try{runtime.run(request,e->{try{if(handleLocalEvent(request,run,e)||handleModelEvent(request,run,e))return;if("status".equals(e.get("type"))&&Set.of("SUCCEEDED","FAILED","CANCELLED","PARTIAL").contains(Objects.toString(e.get("status"),"")))run.finalStatus=e.get("status").toString();acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
         catch(Exception e){result="FAILED";message="Coding Agent 执行未完成，请检查已产生的文件与事件。不会自动重试。";}
         if("SUCCEEDED".equals(result)&&run.finalStatus!=null)result=run.finalStatus;
         for(var lease:run.leases.values())if(governance!=null)try{governance.finish(lease,null,null,"UNKNOWN");}catch(Exception settlementFailure){result="FAILED";message="模型账本结算暂不可用，新的模型调用已暂停；不会自动重试模型。";}
         synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){if("SUCCEEDED".equals(result)&&memory!=null&&!"off".equals(longTermMemory)){try{int count=memory.extract(s.projectId,s.id,s.turns.getLast().id,request.prompt());if(count>0)acceptEvent(id,Map.of("type","context","status","MEMORY_SAVED","count",count));s=session(id);}catch(Exception extractionFailure){acceptEvent(id,Map.of("type","context","status","MEMORY_SKIPPED","reason","STORE_UNAVAILABLE"));s=session(id);}}finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
+    }
+    private boolean isLocalProject(String id)throws IOException {
+        workspace(id);return "local".equals(json.readValue(ownerRoot().resolve("projects").resolve(id).resolve("project.json").toFile(),Project.class).source());
+    }
+    private void requireServerProject(String id)throws IOException {if(isLocalProject(id))throw new IllegalStateException("本机目录须由已授权的浏览器访问，不能使用服务端文件接口");}
+    private synchronized boolean handleLocalEvent(CodingRuntime.Request request,ActiveRun run,Map<String,Object> event)throws IOException {
+        if(!"local_fs".equals(event.get("type")))return false;
+        if(run.localClientId==null||!ACTIVE.contains(session(request.sessionId()).status))throw new IOException("Local file channel unavailable");
+        String rid=Objects.toString(event.get("requestId"),"");uuid(rid);
+        if(!Set.of("ping","list","read","write","edit").contains(event.get("operation"))||!(event.get("arguments") instanceof Map<?,?>)||run.localRequests.size()>=80||run.localRequests.containsKey(rid)||run.localCompleted.contains(rid))throw new IOException("Invalid local file request");
+        var safe=new LinkedHashMap<String,Object>();safe.put("requestId",rid);safe.put("operation",event.get("operation"));safe.put("arguments",event.get("arguments"));safe.put("turnId",session(request.sessionId()).turns.getLast().id);safe.put("expiresAt",System.currentTimeMillis()+30000);
+        if(json.writeValueAsBytes(safe).length>200000)throw new IOException("Local request too large");
+        run.localRequests.put(rid,safe);return true;
+    }
+    private ActiveRun localRun(String id,String clientId)throws IOException {
+        Session s=session(id);var run=active.get(key(id));
+        if(run==null||run.localClientId==null||!Objects.equals(run.localClientId,clientId)||!ACTIVE.contains(s.status))throw new IllegalStateException("本机目录连接已失效；请停止旧任务后重新开始，不会重放文件修改");
+        return run;
+    }
+    public synchronized List<Map<String,Object>> localRequests(String id,String clientId)throws IOException {
+        var run=localRun(id,clientId);return run.localRequests.values().stream().filter(e->((Number)e.get("expiresAt")).longValue()>System.currentTimeMillis()).map(e->{var copy=new LinkedHashMap<String,Object>(e);copy.put("claimed",run.localClaimed.contains(e.get("requestId")));return (Map<String,Object>)copy;}).toList();
+    }
+    public synchronized Map<String,Object> claimLocal(String id,String clientId,String requestId)throws IOException {
+        var run=localRun(id,clientId);var request=run.localRequests.get(requestId);
+        if(request==null||((Number)request.get("expiresAt")).longValue()<=System.currentTimeMillis()||!run.localClaimed.add(requestId))throw new IllegalStateException("本机文件操作已领取或过期；不会重复执行");
+        return request;
+    }
+    public synchronized void completeLocal(String id,LocalResult result)throws IOException {
+        if(result==null)throw new IllegalArgumentException("缺少文件结果");var run=localRun(id,result.clientId());
+        if(run.localCompleted.contains(result.requestId()))return;
+        if(!run.localRequests.containsKey(result.requestId())||!run.localClaimed.contains(result.requestId()))throw new IllegalStateException("本机文件请求不存在或尚未领取");
+        if(result.output()==null||result.output().getBytes(StandardCharsets.UTF_8).length>65536)throw new IllegalArgumentException("文件结果超过64KiB");
+        run.localRequests.remove(result.requestId());run.localCompleted.add(result.requestId());
+        run.commands.add(Map.of("type","local_fs_result","requestId",result.requestId(),"ok",result.ok(),"output",result.output()));
     }
     private synchronized boolean handleModelEvent(CodingRuntime.Request request,ActiveRun run,Map<String,Object> event)throws IOException {
         String type=Objects.toString(event.get("type"),"");if(!Set.of("model_request","model_usage").contains(type))return false;
@@ -191,7 +228,7 @@ public class CodingService {
     }
     public synchronized Session cancel(String id)throws IOException {Session s=session(id);if(ACTIVE.contains(s.status)){finish(s,"CANCELLED","任务已停止；已经执行的文件修改保留，请审查差异。");save(s);var run=active.get(key(id));if(run!=null)run.commands.add(Map.of("id",UUID.randomUUID().toString(),"type","cancel"));}return s;}
     public synchronized List<Change> diff(String id)throws IOException {
-        Session s=session(id);Path baseline=ownerRoot().resolve("runtime").resolve(s.id).resolve("baseline.json");if(!Files.isRegularFile(baseline))return List.of();
+        Session s=session(id);requireServerProject(s.projectId);Path baseline=ownerRoot().resolve("runtime").resolve(s.id).resolve("baseline.json");if(!Files.isRegularFile(baseline))return List.of();
         Map<String,String> before=json.readValue(baseline.toFile(),new TypeReference<>(){}),after=snapshot(workspace(s.projectId));var names=new TreeSet<>(before.keySet());names.addAll(after.keySet());var result=new ArrayList<Change>();
         for(String name:names)if(!Objects.equals(before.get(name),after.get(name)))result.add(new Change(name,before.get(name),after.get(name),!before.containsKey(name)?"added":!after.containsKey(name)?"deleted":"modified"));return result;
     }

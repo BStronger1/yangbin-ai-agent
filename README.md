@@ -14,7 +14,7 @@ Bring your own model, keep projects private, and review tool actions before they
 
 - **通用 Chat**：直接问答、讨论与修改内容，使用文字及已解析材料，不为简单问题强制创建工作计划。
 - **通用 Work**：确认本轮目标、材料和交付物，查看实际处理进度与 Word、Markdown、数据成果；切换或刷新后恢复服务端状态。
-- **Coding Agent**：创建服务端私有项目，让 pi Coding Agent 读取、编写、编辑文件；查看实际工具事件、审批、取消、历史任务和最近一轮文本差异。
+- **Coding Agent**：创建服务端私有项目，或在桌面 Chrome/Edge 的 HTTPS 页面选择[本机目录](docs/LOCAL-PROJECTS.md)，让 pi 按授权读取、编写、编辑原文件；查看工具事件、审批和取消。本机目录需保持页面打开，暂不支持终端及团队执行。
 - **总设置中的模型管理**：在 `/settings` 保存服务连接和加密 API Key，获取模型列表并勾选常用模型（建议 6 个，不限 6 个）。Chat、Work、Coding 只显示所选模型，输入区可选已核实的原生推理强度；未知能力保留服务默认。[用法与边界](docs/MODEL-SETTINGS.md)。
 - **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员授权及可用的 Linux 隔离环境，不回退宿主 shell。
 - **运行治理**：账号/全局模型并发、每日请求与保守 Token 配额、持久用量账本、失败熔断、请求关联及网关指标；未知用量和费用明确区分，详见[运行治理与安全边界](docs/PRODUCTION-GOVERNANCE.md)。

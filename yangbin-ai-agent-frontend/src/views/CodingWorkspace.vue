@@ -1,5 +1,7 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { LocalDirectory, localSupported, saveLocalHandle, restoreLocalHandle } from '../local-directory'
+
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { useOverlay, isComposing } from '../composables/useOverlay'
 import { useUnsavedChanges } from '../composables/useUnsavedChanges'
@@ -44,6 +46,84 @@ const policies = [
 ]
 const policyLabel = computed(() => policies.find(item => item.id === policy.value)?.label || '按需确认')
 const selectedProject = computed(() => projects.value.find(item => item.id === (session.value?.projectId || projectId.value)))
+const isLocal = computed(() => selectedProject.value?.source === 'local')
+const localDirectory = shallowRef(null), savedLocalHandle = shallowRef(null), localConnected = ref(false), localConnecting = ref(false)
+const localError = e => e.response?.data?.message || e.message || '本机目录操作未完成'
+const supportsLocal = localSupported()
+const localClientId = globalThis.crypto?.randomUUID?.() || '', localReceipts = new Map()
+let localPumping = false, localRestoreGeneration = 0
+const ownerId = () => auth.user?.id || auth.user?.username
+const workspaceLabel = computed(() => isLocal.value ? '本机目录' : '服务端工作区')
+function disconnectLocal() { localDirectory.value?.disconnect(); localDirectory.value = null; localConnected.value = false; savedLocalHandle.value = null; localReceipts.clear(); localRestoreGeneration++ }
+async function restoreDirectory() {
+  disconnectLocal(); const token = localRestoreGeneration, owner = ownerId(), project = selectedProject.value?.id
+  if (!isLocal.value || !project) return
+  if (policy.value === 'allow') policy.value = 'on-risk'
+  if (executionMode.value === 'team') executionMode.value = 'auto'
+  try {
+    const handle = await restoreLocalHandle(owner, project)
+    if (token !== localRestoreGeneration || disposed || owner !== ownerId()) return
+    savedLocalHandle.value = handle || null
+    if (handle && await handle.queryPermission({mode:'readwrite'}) === 'granted' && token === localRestoreGeneration && !disposed) { localDirectory.value = new LocalDirectory(handle); localConnected.value = true }
+  } catch { error.value = '本机目录授权未能恢复，请重新选择目录。' }
+}
+async function addLocalProject() {
+  if (projectBusy.value || running.value || !supportsLocal) return
+  projectBusy.value = true; error.value = ''; const owner = ownerId()
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'yangbin-coding-project' })
+    if (disposed || owner !== ownerId()) return
+    const validated = new LocalDirectory(handle); await validated.ready()
+    const value = await codingApi.createProject(projectName.value.trim() || handle.name.slice(0,80), 'local')
+    if (disposed || owner !== ownerId()) return
+    await saveLocalHandle(owner, value.id, handle)
+    projects.value.push(value); projectId.value = value.id; projectName.value = ''; projectOpen.value = false
+  } catch (e) { if (e.name !== 'AbortError') error.value = localError(e) }
+  finally { projectBusy.value = false }
+}
+async function connectLocal() {
+  if (localConnecting.value || running.value || !isLocal.value || !supportsLocal || !savedLocalHandle.value) return
+  localConnecting.value = true; error.value = ''; const owner = ownerId(), project = selectedProject.value.id, saved = savedLocalHandle.value
+  try {
+    // Invoke the permission request in the click handler, before unrelated awaits.
+    const handle = saved ? (await saved.requestPermission({mode:'readwrite'}) === 'granted' ? saved : null) : await window.showDirectoryPicker({mode:'readwrite', id:'yangbin-coding-project'})
+    if (!handle) throw new Error('未获得目录读写授权')
+    if (disposed || owner !== ownerId() || project !== selectedProject.value?.id) return
+    // A missing device binding cannot establish identity by matching a directory name.
+    if (!saved) throw new Error('此浏览器没有该项目的目录绑定，请创建新的本机项目。')
+    await saveLocalHandle(owner, project, handle)
+    if (disposed || owner !== ownerId() || project !== selectedProject.value?.id) return
+    localDirectory.value = new LocalDirectory(handle); savedLocalHandle.value = handle; localConnected.value = true
+  } catch (e) { if (e.name !== 'AbortError') error.value = localError(e) }
+  finally { localConnecting.value = false }
+}
+async function pumpLocalFiles() {
+  if (!isLocal.value || !workRunning.value || localPumping || !localDirectory.value) return
+  const current = session.value.id, turn = session.value.turns.at(-1)?.id, owner = ownerId(), directory = localDirectory.value
+  // A restored page has a new client ID; old operations will never be executed again.
+  localPumping = true
+  const valid = () => !disposed && owner === ownerId() && localDirectory.value === directory && session.value?.id === current && session.value?.turns.at(-1)?.id === turn && workRunning.value
+  try {
+    const requests = await codingApi.localRequests(current, localClientId)
+    for (const request of requests) {
+      if (!valid() || request.turnId !== turn) return
+      let result = localReceipts.get(request.requestId)
+      if (!result) {
+        if (request.claimed) throw new Error('文件操作结果未知，请停止任务并检查本机文件；不会重复执行。')
+        const claimed = await codingApi.claimLocal(current, localClientId, request.requestId)
+        if (!valid() || claimed.turnId !== turn || claimed.expiresAt <= Date.now()) return
+        try { const output = await directory.execute(claimed.operation, claimed.arguments, valid); result = { clientId:localClientId, requestId:request.requestId, ok:true, output } }
+        catch (e) { result = { clientId:localClientId, requestId:request.requestId, ok:false, output:String(e.message || '本机文件操作失败').slice(0,500) } }
+        localReceipts.set(request.requestId, result)
+      }
+      if (!valid()) return
+      await codingApi.completeLocal(current, result)
+    }
+  } catch (e) { if (valid()) error.value = localError(e) }
+  finally { localPumping = false }
+}
+watch(() => [ownerId(), selectedProject.value?.id], restoreDirectory)
+
 const workRunning = computed(() => ['RUNNING', 'QUEUED', 'WAITING_APPROVAL', 'AWAITING_APPROVAL', 'CANCELLING'].includes(String(session.value?.status || '').toUpperCase()))
 const running = computed(() => mode.value === 'chat' ? chatRunning.value : workRunning.value)
 const effectiveModelId = computed(() => {
@@ -54,7 +134,7 @@ const selectedProfile = computed(() => modelCatalog.value.profiles.find(profile 
 const selectedModelValid = computed(() => effectiveModelId.value === 'system' ? modelCatalog.value.systemEnabled !== false : Boolean(selectedProfile.value))
 const effortLevels = computed(() => selectedProfile.value?.reasoningEfforts || [])
 const modelLabel = computed(() => effectiveModelId.value === 'system' ? '系统默认' : selectedProfile.value?.name || session.value?.turns?.at(-1)?.modelSnapshot?.name || '模型不可用')
-const workAvailable = computed(() => selectedModelValid.value && selectedProfile.value?.codingSupported !== false && !modelsLoading.value && !capabilitiesLoading.value && capabilitiesModelId.value === effectiveModelId.value && capabilities.value?.available)
+const workAvailable = computed(() => (!isLocal.value || localConnected.value) && selectedModelValid.value && selectedProfile.value?.codingSupported !== false && !modelsLoading.value && !capabilitiesLoading.value && capabilitiesModelId.value === effectiveModelId.value && capabilities.value?.available)
 const hasContent = computed(() => mode.value === 'chat' ? chatMessages.value.length > 0 : Boolean(session.value))
 const pendingApprovals = computed(() => {
   if (!workRunning.value) return []
@@ -68,7 +148,7 @@ const approvalsHidden = ref(false), fileBaseline = ref('')
 const fileDirty = computed(() => fileEditing.value && JSON.stringify([filePath.value, fileContent.value]) !== fileBaseline.value)
 const { allowDiscard: allowFileDiscard } = useUnsavedChanges(fileDirty, fileSaving, () => auth.user?.id || auth.user?.username)
 const { allowDiscard: allowProjectDiscard } = useUnsavedChanges(computed(() => !!projectName.value), projectBusy, () => auth.user?.id || auth.user?.username)
-const allowNavigation = async () => await allowFileDiscard() && await allowProjectDiscard()
+const allowNavigation = async () => { if (isLocal.value && workRunning.value) { error.value = '本机目录任务需要保持此页面打开，请先停止任务再离开。'; return false } return await allowFileDiscard() && await allowProjectDiscard() }
 onBeforeRouteLeave(allowNavigation)
 onBeforeRouteUpdate((to, from) => to.query.session !== from.query.session ? allowNavigation() : true)
 async function closeProject() { if (await allowProjectDiscard()) { projectName.value = ''; projectOpen.value = false } }
@@ -147,7 +227,7 @@ function schedulePoll() { stopPoll(); if (!disposed && session.value && workRunn
 async function refreshSession() {
   const current = session.value?.id, token = generation
   if (!current) return
-  try { const value = await codingApi.session(current); if (disposed || token !== generation || session.value?.id !== current) return; applySession(value); error.value = ''; if (!workRunning.value) { await loadHistory(); if (filePanel.value) await loadFiles() } }
+  try { const value = await codingApi.session(current); if (disposed || token !== generation || session.value?.id !== current) return; applySession(value); error.value = ''; await pumpLocalFiles(); if (!workRunning.value) { await loadHistory(); if (filePanel.value) await loadFiles() } }
   catch (e) { if (token === generation) error.value = '状态更新暂时中断，正在重连；不会自动重复提交任务。' }
   finally { if (token === generation) schedulePoll() }
 }
@@ -162,7 +242,7 @@ async function loadSession(sessionId) {
     try { pending.value = JSON.parse(sessionStorage.getItem(pendingKey(sessionId)) || 'null') } catch { pending.value = null }
     applySession(value); if (pending.value) { pending.value = { revision: value.revision, approvalMode: value.approvalMode, modelProfileId: 'system', ...pending.value }; draft.value = pending.value.prompt; rememberPending() }
     scrollBottom(true); schedulePoll()
-  } catch (e) { if (token === generation) error.value = errorMessage(e) }
+  } catch (e) { if (token === generation) error.value = isLocal.value ? localError(e) : errorMessage(e) }
   finally { if (token === generation) { loading.value = false; restoreWorkspace(); if (filePanel.value) loadFiles() } }
 }
 function closeChat() { source?.close(); source = null; clearTimeout(legacyPoll); legacyPoll = null; chatRunning.value = false }
@@ -178,13 +258,15 @@ async function createProject() {
   if (!projectName.value.trim() || projectBusy.value) return
   projectBusy.value = true; error.value = ''
   try { const value = await codingApi.createProject(projectName.value.trim()); projects.value.push(value); projectId.value = value.id; projectName.value = ''; projectOpen.value = false }
-  catch (e) { error.value = errorMessage(e) } finally { projectBusy.value = false }
+  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { projectBusy.value = false }
 }
 async function send() {
   if (!pending.value && (!selectedModelValid.value || modelsLoading.value || modelsError.value)) return
   if (!draft.value.trim() || busy.value || running.value) return
   if (mode.value === 'chat') { sendChat(); return }
   if (!workAvailable.value || !projectId.value) return
+  if (isLocal.value && (executionMode.value === 'team' || policy.value === 'allow')) { error.value = '本机目录请选择单 Agent 模式及按需确认或始终询问。'; return }
+  if (isLocal.value && !pending.value) { localDirectory.value.observed.clear(); localDirectory.value.changes.clear(); localReceipts.clear() }
   busy.value = true; error.value = ''; const token = generation
   try {
     if (!session.value) {
@@ -194,13 +276,13 @@ async function send() {
       await router.replace({ path: '/coding', query: { session: created.id } })
     }
     const currentId = session.value.id
-    if (!pending.value) pending.value = { requestId: id(), prompt: draft.value.trim(), executionMode: executionMode.value, revision: session.value.revision, approvalMode: policy.value, modelProfileId: effectiveModelId.value, reasoningEffort: selectedEfforts.value.work || null }
+    if (!pending.value) pending.value = { requestId: id(), prompt: draft.value.trim(), executionMode: executionMode.value, ...(isLocal.value ? {localClientId} : {}), revision: session.value.revision, approvalMode: policy.value, modelProfileId: effectiveModelId.value, reasoningEffort: selectedEfforts.value.work || null }
     rememberPending()
     const value = await codingApi.turn(currentId, { ...pending.value })
     if (disposed || session.value?.id !== currentId) return
     applySession(value); pending.value = null; rememberPending(); draft.value = ''; await loadHistory(); scrollBottom(true); schedulePoll()
   } catch (e) {
-    if (e.response?.status >= 400 && e.response?.status < 500) { pending.value = null; rememberPending(); error.value = errorMessage(e) }
+    if (e.response?.status >= 400 && e.response?.status < 500) { pending.value = null; rememberPending(); error.value = isLocal.value ? localError(e) : errorMessage(e) }
     else error.value = pending.value ? '提交结果尚未确认。请刷新状态；若未创建本轮，可重试原消息（沿用同一请求编号）。' : errorMessage(e)
     if (session.value) schedulePoll()
   }
@@ -243,38 +325,38 @@ async function decide(approvalId, approved) {
   if (busy.value) return
   busy.value = true; const currentId = session.value.id
   try { const value = await codingApi.approve(currentId, approvalId, approved); if (session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
-  catch (e) { error.value = errorMessage(e) } finally { busy.value = false }
+  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { busy.value = false }
 }
 async function cancel() {
   if (mode.value === 'chat') { const cid=chatId.value; closeChat(); try { if(cid) await api.post('/ai/manus/conversations/'+cid+'/cancel'); error.value = '已请求停止后续工具操作；已发出的供应商请求可能仍在运行。'; if(cid) recoverChat(cid) } catch(e) { error.value=errorMessage(e) } return }
   if (!session.value || busy.value) return
   busy.value = true; const currentId = session.value.id
   try { const value = await codingApi.cancel(currentId); if (session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
-  catch (e) { error.value = errorMessage(e) } finally { busy.value = false }
+  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { busy.value = false }
 }
 async function loadFiles() {
   const currentId = session.value?.id, project = session.value?.projectId || projectId.value
   if (!project) return
   try {
-    const results = await Promise.all([codingApi.files(project), currentId ? codingApi.diff(currentId) : Promise.resolve([])])
+    const results = isLocal.value ? [await localDirectory.value.files(), [...localDirectory.value.changes.values()]] : await Promise.all([codingApi.files(project), currentId ? codingApi.diff(currentId) : Promise.resolve([])])
     if ((session.value?.projectId || projectId.value) !== project || session.value?.id !== currentId) return
     files.value = results[0]; changes.value = results[1]
-  } catch (e) { error.value = errorMessage(e) }
+  } catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) }
 }
 async function showFiles() { if (filePanel.value) { await closeFiles(); return } filePanel.value = true; await loadFiles() }
 async function editFile(file = null) { if (!(await allowFileDiscard())) return; filePath.value = file?.path || ''; fileContent.value = file?.content || ''; fileBaseline.value = JSON.stringify([filePath.value, fileContent.value]); fileEditing.value = true }
 async function saveFile() {
   if (!filePath.value.trim() || fileSaving.value || workRunning.value) return
   const project = session.value?.projectId || projectId.value; fileSaving.value = true; error.value = ''
-  try { const value = await codingApi.putFile(project, filePath.value.trim(), fileContent.value); if ((session.value?.projectId || projectId.value) === project) { openedFile.value = value; fileEditing.value = false; await loadFiles() } }
-  catch (e) { error.value = errorMessage(e) } finally { fileSaving.value = false }
+  try { const value = isLocal.value ? (await localDirectory.value.write(filePath.value.trim(), fileContent.value), {path:filePath.value.trim(),content:fileContent.value}) : await codingApi.putFile(project, filePath.value.trim(), fileContent.value); if ((session.value?.projectId || projectId.value) === project) { openedFile.value = value; fileEditing.value = false; await loadFiles() } }
+  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { fileSaving.value = false }
 }
-async function openFile(path) { const project = session.value?.projectId || projectId.value; try { const value = await codingApi.file(project, path); if ((session.value?.projectId || projectId.value) === project) openedFile.value = value } catch (e) { error.value = errorMessage(e) } }
+async function openFile(path) { const project = session.value?.projectId || projectId.value; try { const value = isLocal.value ? {path,content:await localDirectory.value.read(path, {observe: !workRunning.value})} : await codingApi.file(project, path); if ((session.value?.projectId || projectId.value) === project) openedFile.value = value } catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } }
 watch(effectiveModelId, () => { modelPickerOpen.value = false; if (mode.value === 'work') refreshCapabilities() })
 watch(() => route.query.chat, value => { if (mode.value !== 'chat' || value === chatId.value) return; closeChat(); if (typeof value === 'string') openChat(value); else { generation++; chatId.value = ''; chatMessages.value = []; chatEvents.value = [] } })
 watch(() => route.query.session, value => { if (value !== session.value?.id) loadSession(typeof value === 'string' ? value : null) })
 watch(() => mode.value, () => { modelPickerOpen.value = false; generation++; closeChat(); chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; draft.value = ''; policyOpen.value = false; error.value = ''; filePanel.value = false; if (mode.value === 'chat') { stopPoll(); session.value = null; pending.value = null } else refreshCapabilities() })
-watch(() => auth.user?.id || auth.user?.username, (_, previousOwner) => { saveWorkspace(); restoringWorkspace = true; workspaceAccount = auth.user?.id || auth.user?.username; for (const currentMode of ['work','chat']) { try { sessionStorage.removeItem(modelPreferenceKey(previousOwner, currentMode)) } catch {} } modelGeneration++; capabilityGeneration++; modelPickerOpen.value = false; modelCatalog.value = { profiles: [], providers: [], defaultModelId: 'system' }; selectedModels.value = { work: 'system', chat: 'system' }; selectedEfforts.value={work:'',chat:''}; executionMode.value='auto'; chatModelSnapshot.value = null; capabilitiesModelId.value = ''; generation++; closeChat(); stopPoll(); session.value = null; sessions.value = []; projects.value = []; draft.value = ''; pending.value = null; chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; projectId.value = ''; projectName.value = ''; openedFile.value = null; files.value = []; changes.value = []; filePanel.value = false; fileEditing.value = false; fileContent.value = ''; projectOpen.value = false; historyOpen.value = false; policyOpen.value = false; capabilities.value = null; restoringWorkspace = false })
+watch(() => auth.user?.id || auth.user?.username, (_, previousOwner) => { disconnectLocal(); saveWorkspace(); restoringWorkspace = true; workspaceAccount = auth.user?.id || auth.user?.username; for (const currentMode of ['work','chat']) { try { sessionStorage.removeItem(modelPreferenceKey(previousOwner, currentMode)) } catch {} } modelGeneration++; capabilityGeneration++; modelPickerOpen.value = false; modelCatalog.value = { profiles: [], providers: [], defaultModelId: 'system' }; selectedModels.value = { work: 'system', chat: 'system' }; selectedEfforts.value={work:'',chat:''}; executionMode.value='auto'; chatModelSnapshot.value = null; capabilitiesModelId.value = ''; generation++; closeChat(); stopPoll(); session.value = null; sessions.value = []; projects.value = []; draft.value = ''; pending.value = null; chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; projectId.value = ''; projectName.value = ''; openedFile.value = null; files.value = []; changes.value = []; filePanel.value = false; fileEditing.value = false; fileContent.value = ''; projectOpen.value = false; historyOpen.value = false; policyOpen.value = false; capabilities.value = null; restoringWorkspace = false })
 onMounted(async () => {
   const owner = auth.user?.id || auth.user?.username
   const results = await Promise.allSettled([codingApi.capabilities(), codingApi.projects(), codingApi.sessions(), modelApi.list()])
@@ -293,7 +375,9 @@ onMounted(async () => {
   if(mode.value==='chat'&&typeof route.query.chat==='string')await openChat(route.query.chat)
 })
 watch([draft, filePanel, projectId], saveWorkspace, { flush: 'sync' })
-onBeforeUnmount(() => { saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
+function warnLocalClose(event) { if (isLocal.value && workRunning.value) { event.preventDefault(); event.returnValue = '' } }
+onMounted(() => window.addEventListener('beforeunload', warnLocalClose))
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClose); disconnectLocal(); saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
 </script>
 
 <template>
@@ -324,15 +408,16 @@ onBeforeUnmount(() => { saveWorkspace(); disposed = true; modelGeneration++; cap
           <template v-else><article v-for="message in chatMessages" :key="message.id" class="coding-turn"><div v-if="message.role === 'user'" class="coding-user-message">{{ message.text }}</div><template v-else><div class="coding-agent-label"><span class="agent-mini">✦</span> 历史智能体对话<span class="turn-model">{{ message.modelSnapshot?.model || message.modelSnapshot?.name }}</span></div><ReplyMarkdown v-if="message.text" :text="message.text" /><p v-else-if="chatRunning" class="coding-thinking"><span></span>正在思考…</p></template></article><details v-if="chatEvents.length" class="coding-tool-event"><summary>本轮工具执行记录 · {{ chatEvents.length }}</summary><pre>{{ pretty(chatEvents) }}</pre></details></template>
         </div>
       </section>
-      <aside v-if="filePanel" ref="filesPanel" aria-label="项目文件" class="coding-file-panel" data-testid="coding-file-panel"><div class="panel-heading"><h2>项目文件</h2><button class="icon-button" aria-label="关闭文件面板" @click="closeFiles"><StudioIcon name="close" :size="18" /></button></div><p class="muted">{{ selectedProject?.name }} · 服务端工作区</p><div class="file-panel-actions"><button class="quiet-button" @click="loadFiles"><StudioIcon name="clock" :size="15" />刷新文件</button><button class="quiet-button" :disabled="workRunning" @click="editFile()" data-testid="new-file"><StudioIcon name="plus" :size="15" />新建文件</button></div><div v-if="fileEditing" ref="editorPanel" role="dialog" aria-label="编辑项目文件" class="coding-file-editor"><label>项目相对路径<input v-model="filePath" placeholder="例如 src/index.js" aria-label="文件路径" :disabled="fileSaving" /></label><label>文件内容<textarea v-model="fileContent" rows="12" aria-label="文件内容" :disabled="fileSaving"></textarea></label><footer><button class="quiet-button" :disabled="fileSaving" @click="cancelFileEdit">取消</button><button class="coding-primary" :disabled="fileSaving || !filePath.trim() || workRunning" @click="saveFile" data-testid="save-file">保存文件</button></footer></div><p v-if="!files.length" class="muted file-empty">项目中暂无文件</p><button v-for="file in files" :key="file.path" class="coding-file-row" @click="openFile(file.path)"><StudioIcon name="document" :size="16" />{{ file.path }}</button><details v-if="openedFile" class="coding-file-preview" open><summary>{{ openedFile.path }}</summary><button class="quiet-button" :disabled="workRunning" @click="editFile(openedFile)">编辑文件</button><pre>{{ openedFile.content }}</pre></details><h3>最近一轮文件变更 <span>{{ changes.length }}</span></h3><p v-if="!changes.length" class="muted">暂无已记录的文件变更</p><details v-for="change in changes" :key="change.path" class="coding-diff"><summary>{{ change.kind }} · {{ change.path }}</summary><label>修改前</label><pre>{{ change.before ?? '（文件不存在）' }}</pre><label>修改后</label><pre>{{ change.after ?? '（文件已删除）' }}</pre></details></aside>
+      <aside v-if="filePanel" ref="filesPanel" aria-label="项目文件" class="coding-file-panel" data-testid="coding-file-panel"><div class="panel-heading"><h2>项目文件</h2><button class="icon-button" aria-label="关闭文件面板" @click="closeFiles"><StudioIcon name="close" :size="18" /></button></div><p class="muted">{{ selectedProject?.name }} · {{ workspaceLabel }}</p><div class="file-panel-actions"><button class="quiet-button" @click="loadFiles"><StudioIcon name="clock" :size="15" />刷新文件</button><button class="quiet-button" :disabled="workRunning" @click="editFile()" data-testid="new-file"><StudioIcon name="plus" :size="15" />新建文件</button></div><div v-if="fileEditing" ref="editorPanel" role="dialog" aria-label="编辑项目文件" class="coding-file-editor"><label>项目相对路径<input v-model="filePath" placeholder="例如 src/index.js" aria-label="文件路径" :disabled="fileSaving" /></label><label>文件内容<textarea v-model="fileContent" rows="12" aria-label="文件内容" :disabled="fileSaving"></textarea></label><footer><button class="quiet-button" :disabled="fileSaving" @click="cancelFileEdit">取消</button><button class="coding-primary" :disabled="fileSaving || !filePath.trim() || workRunning" @click="saveFile" data-testid="save-file">保存文件</button></footer></div><p v-if="!files.length" class="muted file-empty">项目中暂无文件</p><button v-for="file in files" :key="file.path" class="coding-file-row" @click="openFile(file.path)"><StudioIcon name="document" :size="16" />{{ file.path }}</button><details v-if="openedFile" class="coding-file-preview" open><summary>{{ openedFile.path }}</summary><button class="quiet-button" :disabled="workRunning" @click="editFile(openedFile)">编辑文件</button><pre>{{ openedFile.content }}</pre></details><h3>最近一轮文件变更 <span>{{ changes.length }}</span></h3><p v-if="!changes.length" class="muted">暂无已记录的文件变更</p><details v-for="change in changes" :key="change.path" class="coding-diff"><summary>{{ change.kind }} · {{ change.path }}</summary><label>修改前</label><pre>{{ change.before ?? '（文件不存在）' }}</pre><label>修改后</label><pre>{{ change.after ?? '（文件已删除）' }}</pre></details></aside>
     </div>
     <footer class="coding-composer-zone">
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>
       <p v-if="modelsError" class="coding-service-note" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>
+      <p v-if="mode === 'work' && isLocal" class="coding-service-note" data-testid="local-status">{{ localConnected ? '已连接本机目录；修改直接写回原文件。任务期间请保持页面打开，终端与团队模式暂不可用。' : '本机目录未连接；请在原浏览器重新授权。其他设备请新建本机项目。' }}<button v-if="!localConnected && savedLocalHandle" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">重新授权目录</button></p>
       <form class="coding-composer" @submit.prevent="send" data-testid="coding-composer">
         <textarea ref="promptInput" v-model="draft" rows="2" maxlength="16000" :disabled="busy || Boolean(pending)" :placeholder="mode === 'work' ? '描述你要完成的工作，或继续当前任务…' : '给 历史智能体对话发消息…'" aria-label="消息内容" data-testid="coding-prompt" @keydown="promptKeys"></textarea>
         <div class="coding-composer-toolbar"><div class="composer-controls">
-          <template v-if="mode === 'work'"><span class="composer-chip environment-chip" title="文件工具限定服务端项目目录；命令仅在隔离环境验证通过后启用"><StudioIcon name="layout" :size="17" />服务端工作区</span><div class="project-control"><button type="button" class="composer-chip project-chip" :disabled="Boolean(session) || busy" :aria-expanded="projectOpen" @click="projectOpen ? closeProject() : projectOpen = true" data-testid="project-picker"><StudioIcon name="folder" :size="17" /><span>{{ selectedProject?.name || '选择项目' }}</span><span>⌄</span></button><div v-if="projectOpen" ref="projectPanel" role="dialog" aria-label="选择项目" class="composer-popover project-popover"><h2>选择项目</h2><button type="button" aria-label="关闭项目选择" @click="closeProject">关闭</button><button v-for="project in projects" :key="project.id" type="button" @click="chooseProject(project.id)"><StudioIcon name="folder" :size="17" />{{ project.name }}<StudioIcon v-if="projectId === project.id" name="check" :size="16" /></button><p v-if="!projects.length" class="muted">创建项目后即可开始编码</p><div class="create-project"><input v-model="projectName" maxlength="80" placeholder="新项目名称" aria-label="新项目名称" @keydown="projectKeys" /><button type="button" :disabled="!projectName.trim() || projectBusy" @click="createProject" data-testid="create-project">创建</button></div><small>新建空白项目，文件保存在服务端。</small></div></div><div class="policy-control"><button type="button" class="composer-chip" :disabled="running || busy || Boolean(pending)" :aria-expanded="policyOpen" @click="policyOpen = !policyOpen" data-testid="approval-policy"><StudioIcon name="check" :size="17" />{{ policyLabel }}<span>⌄</span></button><div v-if="policyOpen" ref="policyPanel" role="dialog" aria-label="审批策略" class="composer-popover policy-popover"><label style="display:block;padding:12px">执行方式<select v-model="executionMode" :disabled="running || busy || Boolean(pending)" aria-label="执行方式" data-testid="execution-mode" style="display:block;width:100%;margin-top:8px"><option v-for="item in executionModes" :key="item.id" :value="item.id">{{ item.label }}</option></select><small>服务端按权限和剩余预算执行；团队需可用执行器。审批规则独立设置。</small></label><button type="button" aria-label="关闭审批策略" @click="policyOpen = false">关闭</button><button v-for="item in policies" :key="item.id" type="button" :disabled="running || busy || Boolean(pending)" :class="{ selected: item.id === policy }" @click="policy = item.id; policyOpen = false" :data-testid="`policy-${item.id}`"><StudioIcon :name="item.id === 'ask' ? 'person' : item.id === 'allow' ? 'spark' : 'check'" :size="19" /><span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span><StudioIcon v-if="item.id === policy" name="check" :size="18" /></button></div></div></template>
+          <template v-if="mode === 'work'"><span class="composer-chip environment-chip" title="文件操作限定所选项目；本机目录需要保持页面打开"><StudioIcon name="layout" :size="17" />{{ workspaceLabel }}</span><div class="project-control"><button type="button" class="composer-chip project-chip" :disabled="Boolean(session) || busy" :aria-expanded="projectOpen" @click="projectOpen ? closeProject() : projectOpen = true" data-testid="project-picker"><StudioIcon name="folder" :size="17" /><span>{{ selectedProject?.name || '选择项目' }}</span><span>⌄</span></button><div v-if="projectOpen" ref="projectPanel" role="dialog" aria-label="选择项目" class="composer-popover project-popover"><h2>选择项目</h2><button type="button" aria-label="关闭项目选择" @click="closeProject">关闭</button><button v-for="project in projects" :key="project.id" type="button" @click="chooseProject(project.id)"><StudioIcon name="folder" :size="17" />{{ project.name }}{{ project.source === 'local' ? ' · 本机' : '' }}<StudioIcon v-if="projectId === project.id" name="check" :size="16" /></button><p v-if="!projects.length" class="muted">创建项目后即可开始编码</p><div class="create-project"><input v-model="projectName" maxlength="80" placeholder="新项目名称" aria-label="新项目名称" @keydown="projectKeys" /><button type="button" :disabled="!projectName.trim() || projectBusy" @click="createProject" data-testid="create-project">创建</button></div><small>新建空白项目，文件保存在服务端。</small><button type="button" :disabled="projectBusy || !supportsLocal" @click="addLocalProject" data-testid="add-local-project"><StudioIcon name="folder" :size="17" />添加本机文件夹</button><small>直接读写电脑上的原目录；仅把任务读取的内容发送到服务端和模型。需要保持页面打开。</small><small v-if="!supportsLocal">当前浏览器不支持目录授权，请用桌面 Chrome/Edge 通过 HTTPS 打开。</small></div></div><div class="policy-control"><button type="button" class="composer-chip" :disabled="running || busy || Boolean(pending)" :aria-expanded="policyOpen" @click="policyOpen = !policyOpen" data-testid="approval-policy"><StudioIcon name="check" :size="17" />{{ policyLabel }}<span>⌄</span></button><div v-if="policyOpen" ref="policyPanel" role="dialog" aria-label="审批策略" class="composer-popover policy-popover"><label style="display:block;padding:12px">执行方式<select v-model="executionMode" :disabled="running || busy || Boolean(pending)" aria-label="执行方式" data-testid="execution-mode" style="display:block;width:100%;margin-top:8px"><option v-for="item in executionModes" :key="item.id" :value="item.id" :disabled="isLocal && item.id === 'team'">{{ item.label }}</option></select><small>服务端按权限和剩余预算执行；团队需可用执行器。审批规则独立设置。</small></label><button type="button" aria-label="关闭审批策略" @click="policyOpen = false">关闭</button><button v-for="item in policies" :key="item.id" type="button" :disabled="running || busy || Boolean(pending)" :class="{ selected: item.id === policy }" :aria-disabled="isLocal && item.id === 'allow'" @click="if (!(isLocal && item.id === 'allow')) { policy = item.id; policyOpen = false }" :data-testid="`policy-${item.id}`"><StudioIcon :name="item.id === 'ask' ? 'person' : item.id === 'allow' ? 'spark' : 'check'" :size="19" /><span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span><StudioIcon v-if="item.id === policy" name="check" :size="18" /></button></div></div></template>
           <span v-else class="composer-chip"><StudioIcon name="spark" :size="17" />历史智能体对话</span>
           <div class="model-picker-control"><button type="button" class="composer-chip model-picker-trigger" :disabled="running || busy || Boolean(pending) || modelsLoading" :aria-expanded="modelPickerOpen" @click="modelPickerOpen = !modelPickerOpen" data-testid="model-picker"><StudioIcon name="spark" :size="16" /><span>{{ modelsLoading ? '加载模型…' : modelLabel }}</span><span>⌄</span></button><div v-if="modelPickerOpen" ref="modelPanel" role="dialog" aria-label="选择模型" class="composer-popover model-picker-popover"><button type="button" aria-label="关闭模型选择" @click="modelPickerOpen = false">关闭</button><p>为{{ mode === 'work' ? 'Coding Agent' : '历史对话' }}选择模型</p><button v-if="modelCatalog.systemEnabled !== false" type="button" :class="{ selected: effectiveModelId === 'system' }" @click="chooseModel('system')" data-testid="model-option-system"><span><strong>系统默认</strong><small>使用当前部署的模型配置</small></span><StudioIcon v-if="effectiveModelId === 'system'" name="check" :size="16" /></button><button v-for="profile in modelCatalog.profiles" :key="profile.id" type="button" :disabled="mode === 'work' && profile.codingSupported === false" :class="{ selected: effectiveModelId === profile.id }" @click="chooseModel(profile.id)" :data-testid="`model-option-${profile.id}`"><span><strong>{{ profile.name }}</strong><small>{{ profile.model }}</small><small v-if="mode === 'work' && profile.codingSupported === false">{{profile.codingUnavailableReason || '此模型未支持编程工具调用'}}</small></span><StudioIcon v-if="effectiveModelId === profile.id" name="check" :size="16" /></button><button type="button" class="model-manage-link" @click="openModelManager" data-testid="model-manage"><StudioIcon name="plus" :size="16" />前往总设置</button></div></div><ReasoningEffort :model-value="selectedEfforts[mode]" :levels="effortLevels" :disabled="running || busy || Boolean(pending) || modelsLoading" @update:model-value="chooseEffort"/><RouterLink to="/skills?tab=skills" class="composer-link"><StudioIcon name="layers" :size="17" />技能</RouterLink><RouterLink to="/mcp" class="composer-link"><StudioIcon name="plug" :size="17" />插件</RouterLink>
         </div><button v-if="running" type="button" class="coding-stop" :disabled="busy" aria-label="停止任务" @click="cancel" data-testid="coding-cancel"><span></span></button><button v-else type="submit" class="coding-send" :disabled="busy || modelsLoading || Boolean(modelsError) || (!pending && !selectedModelValid) || !draft.trim() || (mode === 'work' && (!workAvailable || !projectId))" :aria-label="pending ? '重试原消息' : '发送消息'" data-testid="coding-send"><StudioIcon name="arrow" :size="21" /></button></div>

@@ -152,7 +152,7 @@ export class ToolRuntime {
   }
 }
 
-function readPage(text, args) {
+export function readPage(text, args) {
   const offset = args.offset ?? 0, limit = args.limit ?? 2000, charOffset = args.charOffset ?? 0;
   if (![offset, limit, charOffset].every(Number.isSafeInteger) || offset < 0 || limit < 1 || limit > 2000 || charOffset < 0) throw new Error('Invalid read pagination: offset/limit are lines; charOffset is within the first line');
   const lines = text.match(/[^\n]*\n|[^\n]+$/g) || [];

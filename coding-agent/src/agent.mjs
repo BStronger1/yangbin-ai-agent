@@ -5,6 +5,7 @@ import { createMcpRuntime } from './mcp/runtime.mjs';
 import { selectStrategy, LoopController } from './loop/controller.mjs';
 import path from 'node:path';
 import { ToolRuntime } from './tools.mjs';
+import { LocalToolRuntime } from './local-tools.mjs';
 import { MemoryContext, memoryExtension } from './long-term-memory.mjs';
 import { ContextStore } from './context-store.mjs';
 import { ContextPolicy, contextExtension, POLICY_VERSION } from './context-policy.mjs';
@@ -32,8 +33,8 @@ async function runSingleAgent(input, { emit, signal, onTools, onSession, onGate,
   const { createAgentSession, createExtensionRuntime, ModelRuntime, SessionManager, SettingsManager } = sdk;
   const limitAbort = new AbortController();
   signal = AbortSignal.any([signal, limitAbort.signal]);
-  const tools = new ToolRuntime({ ...input, emit, signal, onLimit: error => limitAbort.abort(error) });
-  await tools.init(); onTools(tools); emit({ type: 'sandbox', ...tools.sandbox, enabled: tools.allowShell });
+  const tools = new (input.execution?.localFiles ? LocalToolRuntime : ToolRuntime)({ ...input, emit, signal, onLimit: error => limitAbort.abort(error) });
+  onTools(tools); await tools.init(); emit({ type: 'sandbox', ...tools.sandbox, enabled: tools.allowShell });
   const sessionDir = path.resolve(input.sessionDir);
   if (sessionDir === tools.workspace || sessionDir.startsWith(tools.workspace + path.sep)) throw new Error('Session storage must be outside tool workspace');
   await fs.mkdir(sessionDir, { recursive: true });
@@ -146,7 +147,8 @@ async function runSingleAgent(input, { emit, signal, onTools, onSession, onGate,
 
 export async function runAgent(input,options,env=process.env){
  const requested=input.execution?.mode;
- const useTeam=!options.executionContext&&(requested==='team'||requested==='auto'&&/多智能体|多代理|多个.*[Aa]gent|agent\s*team|multi.?agent/i.test(input.prompt));
+ if(input.execution?.localFiles && requested==='team')throw new Error('Local directories do not support team execution yet');
+ const useTeam=!input.execution?.localFiles&&!options.executionContext&&(requested==='team'||requested==='auto'&&/多智能体|多代理|多个.*[Aa]gent|agent\s*team|multi.?agent/i.test(input.prompt));
  if(useTeam)return runTeamEntry(input,options,env,runSingleAgent);
  return runSingleAgent(input,options,env);
 }

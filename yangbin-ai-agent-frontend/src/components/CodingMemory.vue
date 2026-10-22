@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import MemoryCandidates from './MemoryCandidates.vue'
 import { auth } from '../auth'
 import { memoryApi } from '../api/memory'
 import { useOverlay } from '../composables/useOverlay'
@@ -10,13 +11,14 @@ const emit = defineEmits(['close'])
 const dialog = ref(null), snapshot = ref(null), loading = ref(false), busy = ref(false), error = ref(''), notice = ref('')
 const query = ref(''), results = ref(null), tab = ref('ACTIVE'), editing = ref(null), confirming = ref(null)
 const form = ref({ key: '', content: '', kind: 'FACT' })
+const candidateBusy = ref(false), effectiveBusy = computed(() => busy.value || candidateBusy.value)
 const baseline = ref(JSON.stringify(form.value)), conflictEditor = ref(false), confirmPanel = ref(null)
 const dirty = computed(() => JSON.stringify(form.value) !== baseline.value)
-const { allowDiscard } = useUnsavedChanges(dirty, busy, () => auth.user?.id || auth.user?.username)
+const { allowDiscard } = useUnsavedChanges(dirty, effectiveBusy, () => auth.user?.id || auth.user?.username)
 async function close() { if (await allowDiscard()) emit('close') }
 async function cancelEdit() { if (await allowDiscard()) resetEditor() }
 useOverlay(() => true, dialog, close)
-useOverlay(confirming, confirmPanel, () => { if (!busy.value) confirming.value = null })
+useOverlay(confirming, confirmPanel, () => { if (!effectiveBusy.value) confirming.value = null })
 let epoch = 0, loadSequence = 0, disposed = false, pendingCreate = null
 const makeRequestId = () => globalThis.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => { const value = Math.random() * 16 | 0; return (char === 'x' ? value : (value & 3 | 8)).toString(16) })
 const owner = () => auth.user?.id || auth.user?.username
@@ -40,7 +42,7 @@ async function reload() {
 }
 async function refresh() { results.value = null; query.value = ''; error.value = ''; await reload() }
 async function mutate(operation, message, clearEditor = false) {
-  if (busy.value || loading.value || !snapshot.value) return
+  if (effectiveBusy.value || loading.value || !snapshot.value) return
   const scope = currentScope(); busy.value = true; error.value = ''; notice.value = ''
   try {
     await operation(scope.projectId)
@@ -107,23 +109,24 @@ onBeforeUnmount(() => { disposed = true; epoch++ })
 
 <template>
   <dialog ref="dialog" class="memory-dialog" aria-labelledby="memory-title" data-testid="coding-memory">
-    <header><div><h2 id="memory-title">项目长期记忆</h2><p>{{ projectName || '当前项目' }} · 仅当前账号的 Coding 项目</p></div><button class="quiet-button" aria-label="关闭项目记忆" :disabled="busy" @click="close">关闭</button></header>
+    <header><div><h2 id="memory-title">项目长期记忆</h2><p>{{ projectName || '当前项目' }} · 仅当前账号的 Coding 项目</p></div><button class="quiet-button" aria-label="关闭项目记忆" :disabled="effectiveBusy" @click="close">关闭</button></header>
     <div class="memory-scroll">
       <p class="memory-note">保存值得跨会话使用的事实、偏好与项目约束。记忆按任务相关性取回，内容有长度上限；请勿保存 API Key、口令或令牌，记忆不能授予工具权限。</p>
       <p v-if="error" class="memory-error" role="alert">{{ error }}</p><p v-if="notice" class="memory-notice" role="status">{{ notice }}</p>
-      <button class="quiet-button" :disabled="loading || busy" data-testid="memory-refresh" @click="refresh">{{ loading ? '正在加载…' : '刷新记忆' }}</button>
+      <button class="quiet-button" :disabled="loading || effectiveBusy" data-testid="memory-refresh" @click="refresh">{{ loading ? '正在加载…' : '刷新记忆' }}</button>
       <template v-if="snapshot">
-        <fieldset class="memory-settings" :disabled="busy || loading">
+        <fieldset class="memory-settings" :disabled="effectiveBusy || loading">
           <label><input type="checkbox" :checked="snapshot.enabled" data-testid="memory-enabled" @change="setOption('enabled', $event.target.checked)" /> 在后续任务中使用项目记忆</label>
           <label><input type="checkbox" :checked="snapshot.autoExtract" :disabled="!snapshot.enabled" data-testid="memory-auto-extract" @change="setOption('autoExtract', $event.target.checked)" /> 自动保存用户消息中明确标注的记忆</label>
           <small>开启后，仅识别用户消息中的「偏好:名称=内容」「项目约束:名称=内容」「事实:名称=内容」。不会从工具输出或模型猜测中自动保存；关闭使用不删除条目。</small>
         </fieldset>
-        <form class="memory-search" @submit.prevent="search"><input v-model="query" maxlength="500" aria-label="检索项目记忆" placeholder="输入当前任务关键词" data-testid="memory-query" :disabled="busy || loading" /><button class="coding-primary" :disabled="busy || loading || !query.trim()" data-testid="memory-search">检索</button></form>
-        <div class="memory-tabs"><button class="quiet-button" :aria-pressed="!results && tab === 'ACTIVE'" :disabled="busy || loading" @click="tab = 'ACTIVE'; results = null">有效记忆</button><button class="quiet-button" :aria-pressed="!results && tab === 'ARCHIVED'" :disabled="busy || loading" @click="tab = 'ARCHIVED'; results = null" data-testid="memory-archived">已归档</button><small v-if="results">检索结果 · {{ results.characters }} / {{ results.budgetChars }} 字符</small></div>
+        <form class="memory-search" @submit.prevent="search"><input v-model="query" maxlength="500" aria-label="检索项目记忆" placeholder="输入当前任务关键词" data-testid="memory-query" :disabled="effectiveBusy || loading" /><button class="coding-primary" :disabled="effectiveBusy || loading || !query.trim()" data-testid="memory-search">检索</button></form>
+        <div class="memory-tabs"><button class="quiet-button" :aria-pressed="!results && tab === 'ACTIVE'" :disabled="effectiveBusy || loading" @click="tab = 'ACTIVE'; results = null">有效记忆</button><button class="quiet-button" :aria-pressed="!results && tab === 'ARCHIVED'" :disabled="effectiveBusy || loading" @click="tab = 'ARCHIVED'; results = null" data-testid="memory-archived">已归档</button><small v-if="results">检索结果 · {{ results.characters }} / {{ results.budgetChars }} 字符</small></div>
         <p v-if="!visibleItems.length" class="memory-note" data-testid="memory-empty">{{ results ? '未找到可召回的相关记忆。' : tab === 'ARCHIVED' ? '暂无归档条目。' : '暂无有效记忆，可在下方显式保存。' }}</p>
-        <ul class="memory-list"><li v-for="item in visibleItems" :key="item.id" :data-testid="`memory-item-${item.id}`"><div class="memory-item-heading"><strong>{{ item.key }}</strong><small>{{ kinds[item.kind] || '事实' }} · v{{ item.version }}</small></div><p class="memory-content">{{ item.content }}</p><small>更新于 {{ stamp(item.updatedAt) }}{{ item.sourceSessionId ? ' · 有来源会话' : ' · 手动保存' }}</small><div class="memory-actions"><button class="quiet-button" :disabled="busy || loading" @click="edit(item)" :data-testid="`memory-edit-${item.id}`">编辑</button><button class="quiet-button" :disabled="busy || loading" @click="changeStatus(item)" :data-testid="`memory-archive-${item.id}`">{{ item.status === 'ACTIVE' ? '归档' : '恢复' }}</button><button class="quiet-button memory-danger" :disabled="busy || loading" @click="confirming = { id: item.id, version: item.version, key: item.key }" :data-testid="`memory-forget-${item.id}`">忘记</button></div></li></ul>
-        <section v-if="confirming" ref="confirmPanel" class="memory-confirm" tabindex="-1" role="alertdialog" aria-label="确认忘记记忆"><p>忘记「{{ confirming.key }}」？正文会被移除，不再召回。如仅暂时停用，可选择归档。</p><button class="quiet-button" :disabled="busy" @click="confirming = null">取消</button><button class="coding-primary" :disabled="busy || loading" data-testid="memory-confirm-forget" @click="forget">确认忘记</button></section>
-        <form class="memory-editor" @submit.prevent="save"><h3>{{ editing ? '更正记忆 · v' + editing.version : '保存新记忆' }}</h3><fieldset :disabled="busy || loading"><label>记忆名称<input v-model="form.key" required maxlength="80" placeholder="例如：测试框架" data-testid="memory-key" /></label><label>类型<select v-model="form.kind" data-testid="memory-kind"><option v-for="(label, kind) in kinds" :key="kind" :value="kind">{{ label }}</option></select></label><label>内容<textarea v-model="form.content" required maxlength="1200" rows="3" placeholder="例如：项目使用 Vitest；新增测试应遵循已有目录结构。" data-testid="memory-content"></textarea></label><small>{{ form.content.length }} / 1200 字符 · 同名条目请编辑更正</small><div class="memory-actions"><button v-if="editing" type="button" class="quiet-button" @click="cancelEdit">取消编辑</button><button type="submit" class="coding-primary" :disabled="conflictEditor || !form.key.trim() || !form.content.trim()" data-testid="memory-save">{{ busy ? '正在保存…' : editing ? '保存更正' : '记住' }}</button></div></fieldset></form>
+        <ul class="memory-list"><li v-for="item in visibleItems" :key="item.id" :data-testid="`memory-item-${item.id}`"><div class="memory-item-heading"><strong>{{ item.key }}</strong><small>{{ kinds[item.kind] || '事实' }} · v{{ item.version }}</small></div><p class="memory-content">{{ item.content }}</p><small>更新于 {{ stamp(item.updatedAt) }}{{ item.sourceSessionId ? ' · 有来源会话' : ' · 手动保存' }}</small><div class="memory-actions"><button class="quiet-button" :disabled="effectiveBusy || loading" @click="edit(item)" :data-testid="`memory-edit-${item.id}`">编辑</button><button class="quiet-button" :disabled="effectiveBusy || loading" @click="changeStatus(item)" :data-testid="`memory-archive-${item.id}`">{{ item.status === 'ACTIVE' ? '归档' : '恢复' }}</button><button class="quiet-button memory-danger" :disabled="effectiveBusy || loading" @click="confirming = { id: item.id, version: item.version, key: item.key }" :data-testid="`memory-forget-${item.id}`">忘记</button></div></li></ul>
+        <section v-if="confirming" ref="confirmPanel" class="memory-confirm" tabindex="-1" role="alertdialog" aria-label="确认忘记记忆"><p>忘记「{{ confirming.key }}」？正文会被移除，不再召回。如仅暂时停用，可选择归档。</p><button class="quiet-button" :disabled="effectiveBusy" @click="confirming = null">取消</button><button class="coding-primary" :disabled="effectiveBusy || loading" data-testid="memory-confirm-forget" @click="forget">确认忘记</button></section>
+        <MemoryCandidates :project-id="projectId" :disabled="busy || loading" :enabled="snapshot.enabled" @busy="candidateBusy = $event" @changed="reload" />
+        <form class="memory-editor" @submit.prevent="save"><h3>{{ editing ? '更正记忆 · v' + editing.version : '保存新记忆' }}</h3><fieldset :disabled="effectiveBusy || loading"><label>记忆名称<input v-model="form.key" required maxlength="80" placeholder="例如：测试框架" data-testid="memory-key" /></label><label>类型<select v-model="form.kind" data-testid="memory-kind"><option v-for="(label, kind) in kinds" :key="kind" :value="kind">{{ label }}</option></select></label><label>内容<textarea v-model="form.content" required maxlength="1200" rows="3" placeholder="例如：项目使用 Vitest；新增测试应遵循已有目录结构。" data-testid="memory-content"></textarea></label><small>{{ form.content.length }} / 1200 字符 · 同名条目请编辑更正</small><div class="memory-actions"><button v-if="editing" type="button" class="quiet-button" @click="cancelEdit">取消编辑</button><button type="submit" class="coding-primary" :disabled="conflictEditor || !form.key.trim() || !form.content.trim()" data-testid="memory-save">{{ busy ? '正在保存…' : editing ? '保存更正' : '记住' }}</button></div></fieldset></form>
       </template>
     </div>
   </dialog>

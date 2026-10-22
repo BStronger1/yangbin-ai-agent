@@ -27,6 +27,7 @@ await page.route('**/*', async route => {
   else if (name === '/api/ai/coding/capabilities') data = {available:true,shellEnabled:false}
   else if (name === '/api/ai/coding/projects') data = projects
   else if (name === '/api/ai/coding/sessions') data = []
+  else if(name.endsWith('/memory/candidates')) data={revision:store(name.split('/')[5]).revision,candidates:[]}
   else if (/^\/api\/ai\/coding\/projects\/[^/]+\/memory/.test(name)) {
    const pieces = name.split('/'), project = pieces[5], operation = pieces[7], s = store(project), input = ['POST','PUT'].includes(method) ? req.postDataJSON() : null
    if (method !== 'GET') writes.push({method,project,operation,input,version:url.searchParams.get('version')})

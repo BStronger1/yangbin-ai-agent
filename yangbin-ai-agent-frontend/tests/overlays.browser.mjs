@@ -32,6 +32,7 @@ await page.route('**/*', async route => {
   else if(name==='/api/ai/coding/sessions/s1/events') return route.fulfill({contentType:'text/event-stream',body:': offline fixture\n\n'})
   else if(name.includes('/sessions/s1/approvals/')) {session.status='CANCELLED';session.events.push({seq:2,turnId:'t1',type:'approval_resolved',approvalId:'ap1'});data=session}
   else if(name.endsWith('/files')||name.endsWith('/diff')) data=[]
+  else if(name.endsWith('/memory/candidates')) data={revision:memory.revision,candidates:[]}
   else if(name.endsWith('/memory')&&method==='GET') data=memory
   else if(name.endsWith('/memory')&&method==='POST') {
    if(holdSave) await new Promise(resolve=>{releaseSave=resolve})

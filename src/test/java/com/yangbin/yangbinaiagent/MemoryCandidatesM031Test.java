@@ -35,6 +35,15 @@ class MemoryCandidatesM031Test {
   enable();var old=memory.create(project,new MemoryService.Create(UUID.randomUUID().toString(),"数据库","v1","FACT",session,turn));memory.proposeUser(project,session,turn,"请记住：数据库是v2");memory.forget(project,old.id,1);assertTrue(pending().isEmpty());
   String disk=Files.readString(memory.runtimeFile(project));assertFalse(disk.contains("数据库"));assertFalse(disk.contains("v2"));assertEquals(0,memory.proposeUser(project,session,turn,"请记住：数据库是v4"));
  }
+ @Test void forgettingAfterRenameScrubsUnboundCandidatesWithRetiredNamesAndValues()throws Exception{
+  enable();memory.proposeUser(project,session,turn,"请记住：数据库是候选旧值");var unbound=pending().getFirst();assertNull(unbound.targetId);
+  var item=memory.create(project,new MemoryService.Create(UUID.randomUUID().toString(),"数据库","手工现值","FACT",session,turn));
+  memory.proposeUser(project,session,turn,"请记住：另一个名称是手工现值");memory.proposeUser(project,session,turn,"请记住：无关偏好是保留内容");
+  memory.update(project,item.id,new MemoryService.Update(1,"存储配置","修改后值","FACT","ACTIVE"));memory.forget(project,item.id,2);
+  memory=new MemoryService(json,root.toString());assertEquals(1,pending().size());assertEquals("无关偏好",pending().getFirst().key);
+  String disk=Files.readString(memory.runtimeFile(project));for(String forgotten:List.of("数据库","候选旧值","手工现值","存储配置","修改后值","另一个名称"))assertFalse(disk.contains(forgotten),forgotten);
+  assertEquals(0,memory.proposeUser(project,session,turn,"请记住：数据库是候选旧值"));assertTrue(((List<?>)memory.search(project,"数据库").get("items")).isEmpty());
+ }
  @Test void toolAndReflectionAreNotUserFacts()throws Exception{
   enable();for(String source:List.of("TOOL_OBSERVATION","MODEL_REFLECTION")){var c=memory.proposeObservation(project,session,turn,source,"未经验证的经验",source);assertEquals("UNVERIFIED_NOT_USER_FACT",c.uncertainty);assertThrows(IllegalStateException.class,()->accept(c));}
   assertTrue(((List<?>)memory.search(project,"经验").get("items")).isEmpty());

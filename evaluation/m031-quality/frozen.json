@@ -1,0 +1,13 @@
+{
+  "schema": "m031-quality-freeze-v1",
+  "createdAt": "2026-10-22",
+  "status": "TASKS_LIMITS_SCORER_FROZEN_NOT_AUTHORIZED",
+  "hashNormalization": "UTF-8 without BOM, CRLF normalized to LF; final release/package binary hash remains a separate missing approval binding",
+  "files": {
+    "protocol.json": "5a1f96df5a71ee373b89a66c0a518e41c60db3eb42f4dbdf3f8f0b0b90a21025",
+    "protocol.test.mjs": "f25153b2f052b7f882907e913a76c655d0be0a66a907efb4dfd501c7e16d79e9",
+    "scoring.mjs": "ef2f326f4c5aa8e46ef10067a2e90bff950397233109624738cc55ca1d9183e5",
+    "tasks.json": "519657232ac2a6f4eb12df234db44f0c03d8a0691226d910738f50f1e5414d53",
+    "verify.mjs": "bcec9ca3a1a2c6196f5a2659c8ec0c6636886da92be0ec4a5ba5b8f8e5bb4003"
+  }
+}

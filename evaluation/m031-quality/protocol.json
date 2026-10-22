@@ -1,0 +1,293 @@
+{
+  "schema": "m031-quality-review-freeze-v1",
+  "date": "2026-10-22",
+  "status": "FROZEN_TASKS_AND_LIMITS_PENDING_APPROVAL",
+  "realExecutionEnabled": false,
+  "paidCallsMade": 0,
+  "purpose": "small synthetic feasibility and paired comparison, not population gain or standard benchmark",
+  "sourceMemoryProtocol": {
+    "path": "../memory-m031-offline/prospective-protocol.json",
+    "sha256": "543bd2daafdd9c528cae464b2b130952ae52632b263c927e97bafe79d1146fb6"
+  },
+  "model": {
+    "identifier": "deepseek-v4.1-flash-1017",
+    "api": "openai-completions",
+    "provider": "custom",
+    "reasoningEffort": "default",
+    "contextWindow": 32768,
+    "maxOutputTokens": 2048,
+    "liveProfileBinding": "MISSING_MUST_BE_FROZEN_BEFORE_APPROVAL",
+    "actualWeightIdentity": "UNVERIFIED"
+  },
+  "globalLimits": {
+    "maxRequests": 264,
+    "maxReservedTokens": 10560000,
+    "maxCostMicrosUSD": 5000000,
+    "maxElapsedSeconds": 5400,
+    "concurrentInstances": 1,
+    "maxRequestBodyBytes": 37952,
+    "maxOutputTokens": 2048,
+    "maxReservedTokensPerRequest": 40000
+  },
+  "suites": {
+    "memory": {
+      "tasks": 4,
+      "instances": 16,
+      "maxRequests": 128,
+      "maxReservedTokens": 5120000,
+      "maxCostMicrosUSD": 2500000,
+      "perInstance": {
+        "maxRequests": 8,
+        "maxReservedTokens": 320000,
+        "maxCostMicrosUSD": 156250,
+        "maxElapsedSeconds": 180
+      },
+      "arms": {
+        "A": {
+          "shortTerm": "baseline",
+          "longTerm": false
+        },
+        "B": {
+          "shortTerm": "layered-v1",
+          "longTerm": false
+        },
+        "C": {
+          "shortTerm": "baseline",
+          "longTerm": true
+        },
+        "D": {
+          "shortTerm": "layered-v1",
+          "longTerm": true
+        }
+      },
+      "groupOrders": [
+        [
+          "A",
+          "D",
+          "B",
+          "C"
+        ],
+        [
+          "B",
+          "A",
+          "C",
+          "D"
+        ],
+        [
+          "C",
+          "B",
+          "D",
+          "A"
+        ],
+        [
+          "D",
+          "C",
+          "A",
+          "B"
+        ]
+      ]
+    },
+    "loop": {
+      "tasks": 4,
+      "instances": 8,
+      "maxRequests": 64,
+      "maxReservedTokens": 2560000,
+      "maxCostMicrosUSD": 1200000,
+      "perInstance": {
+        "maxRequests": 8,
+        "maxReservedTokens": 320000,
+        "maxCostMicrosUSD": 150000,
+        "maxElapsedSeconds": 180
+      },
+      "arms": {
+        "FIXED_REACT": {
+          "mode": "react",
+          "shortTerm": "baseline",
+          "longTerm": false,
+          "teams": false
+        },
+        "DYNAMIC": {
+          "mode": "auto",
+          "shortTerm": "baseline",
+          "longTerm": false,
+          "teams": false
+        }
+      },
+      "groupOrders": [
+        [
+          "FIXED_REACT",
+          "DYNAMIC"
+        ],
+        [
+          "DYNAMIC",
+          "FIXED_REACT"
+        ],
+        [
+          "FIXED_REACT",
+          "DYNAMIC"
+        ],
+        [
+          "DYNAMIC",
+          "FIXED_REACT"
+        ]
+      ]
+    },
+    "teams": {
+      "tasks": 3,
+      "instances": 6,
+      "maxRequests": 72,
+      "maxReservedTokens": 2880000,
+      "maxCostMicrosUSD": 1300000,
+      "perInstance": {
+        "maxRequests": 12,
+        "maxReservedTokens": 480000,
+        "maxCostMicrosUSD": 216666,
+        "maxElapsedSeconds": 180
+      },
+      "arms": {
+        "SINGLE": {
+          "mode": "plan",
+          "shortTerm": "baseline",
+          "longTerm": false,
+          "contexts": 1
+        },
+        "TEAMS": {
+          "mode": "team",
+          "shortTerm": "baseline",
+          "longTerm": false,
+          "maxConcurrency": 2,
+          "maxCorrections": 1
+        }
+      },
+      "groupOrders": [
+        [
+          "SINGLE",
+          "TEAMS"
+        ],
+        [
+          "TEAMS",
+          "SINGLE"
+        ],
+        [
+          "SINGLE",
+          "TEAMS"
+        ]
+      ]
+    }
+  },
+  "memoryHistory": {
+    "sameHistoryAllArms": true,
+    "initialHistoryIsSeparateSession": true,
+    "seedByActualMemoryLifecycle": true,
+    "freezeInputAfterLifecycleNotAnswerInjection": true,
+    "twoCurrentSessionStages": true,
+    "messagesPerStage": 54,
+    "fillerGenerator": "m031-neutral-filler-v1: 27 user/assistant pairs per stage; user=\"Archive note {stage}-{index}: inspect synthetic record without changing constraints.\" assistant=\"Recorded neutral note {stage}-{index}.\"",
+    "shortFieldsPlacement": "replace first user message of each stage with its frozen shortTerm facts",
+    "summaryCalls": 2,
+    "summaryAPI": "actual pi compact() identically in all four arms",
+    "summaryInstruction": "Produce at most 200 words of factual task state. Preserve exact current numbers, unresolved actions and source boundaries. Do not invent facts or permissions.",
+    "lengthFailure": "STOP_ALL_PRESERVE_HISTORY_NO_RETRY",
+    "longTermSeeds": "apply create/correct/forget within each isolated project to all arms; only retrieval toggle differs; separate identical document copies for arms"
+  },
+  "sharedControls": {
+    "modelAndProviderSameAcrossArms": true,
+    "allowedToolsSameParentAuthorization": true,
+    "terminalEnabled": false,
+    "noHostFallback": true,
+    "externalNetworkTools": false,
+    "fixedInputsAndSeeds": true,
+    "seed": 31022,
+    "sameTotalBudgetPerPairedInstance": true,
+    "allManagerReviewerSummaryReflectionRequestsCount": true,
+    "automaticProviderRetries": 0,
+    "unknownUsage": "retain entire reservation; report usage UNKNOWN",
+    "unknownExternalSideEffect": "STOP_ALL; never replay",
+    "wallClockLatency": "from instance STARTED until terminal settlement including approval and summary; separately report active and approval waiting",
+    "rawThinkingStorage": false
+  },
+  "approvalBlockers": [
+    "live model profile and price binding absent",
+    "final integrated runtime source manifest absent",
+    "real runner missing; no live network entry supplied",
+    "equal-arm validate adapter for LQ31-03 absent",
+    "two-compaction actual rendered requests need strict offline body-envelope verification",
+    "human approval of final combined manifest and numeric budgets absent"
+  ],
+  "pricing": {
+    "currency": "USD",
+    "rateTable": null,
+    "requireConservativeRequestCostEstimateBeforeNetwork": true,
+    "unknownPriceAction": "DO_NOT_SEND",
+    "reportUnknownSettlementAs": "UNKNOWN",
+    "capIsHardCeilingNotPriceEstimate": true
+  },
+  "replayPolicy": {
+    "runDirectory": "new unique directory per explicitly approved manifest",
+    "runMarker": "exclusive RUN_STARTED fsync before work",
+    "instanceMarker": "exclusive STARTED-{taskId}-{arm}.json fsync before any instance request",
+    "requestJournal": "append REQUEST_STARTED + unique requestId and all reservations then fsync before transport",
+    "completedIsNotReplayPermission": true,
+    "startedMarkerNeverDeleted": true,
+    "unknownOutcomesNeverRefundOrReplay": true,
+    "oldM029M030Forbidden": true,
+    "approvalCannotBeInherited": true
+  },
+  "stopPolicy": {
+    "stopWholeRunOn": [
+      "budget denial",
+      "elapsed deadline",
+      "summary length/error",
+      "unknown tool/external outcome",
+      "cancellation",
+      "governance or journal failure",
+      "scope/credential violation",
+      "source/hash/profile change"
+    ],
+    "ordinaryCompletedWrongAnswer": "score false then continue frozen order",
+    "remainingRows": "NOT_RUN_PRIOR_STOP with request/token/cost known zero, not failed answers",
+    "noReplacementOrOutputIncrease": true
+  },
+  "report": {
+    "independentTaskDenominators": {
+      "memory": 4,
+      "loop": 4,
+      "teams": 3
+    },
+    "instanceDenominators": {
+      "memory": 16,
+      "loop": 8,
+      "teams": 6
+    },
+    "memoryComparisons": [
+      "B-A",
+      "C-A",
+      "D-B",
+      "D-C"
+    ],
+    "otherComparisons": [
+      "DYNAMIC-FIXED_REACT",
+      "TEAMS-SINGLE"
+    ],
+    "require": [
+      "paired complete-case coverage",
+      "ITT separate from assessed correctness",
+      "content and format separately",
+      "actual artifact equality and tool evidence",
+      "false memories omissions retrieval noise and context bytes",
+      "failed/unknown/cancelled/not-run counts",
+      "known input/output tokens and conservative reservation separately",
+      "requests summaries reflections and correction counts",
+      "latency including waiting",
+      "cost estimate actual known amount and UNKNOWN separately",
+      "attempted privilege escalation denied versus successful unauthorized operation",
+      "all per-instance raw status rows"
+    ],
+    "inferentialStatistics": "none; n=4/4/3 feasibility cases, no general improvement claim"
+  },
+  "historicalEvidenceReadOnly": [
+    "memory-m029",
+    "memory-m030",
+    "memory-m030-unrun"
+  ]
+}

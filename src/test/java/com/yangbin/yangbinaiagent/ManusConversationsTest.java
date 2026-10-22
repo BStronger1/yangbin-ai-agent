@@ -19,6 +19,13 @@ class ManusConversationsTest {
   assertThatThrownBy(()->service.reserve(cid,rid,"different","system")).isInstanceOf(IllegalStateException.class);
   service=new ManusConversations(new ObjectMapper(),root.toString());assertThat(service.get(cid).turns().getFirst().status()).isEqualTo("INTERRUPTED");assertThat(service.reserve(cid,rid,"task","system").existing()).isTrue();
  }
+ @Test void lookupForReplayDoesNotReserveNewWorkAndNormalizesDefaultEffort()throws Exception{
+  assertThat(service.replay(cid,rid,"task","profile",null)).isNull();assertThat(service.list()).isEmpty();
+  service.reserve(cid,rid,"task","profile",null);service.complete(cid,rid,"SUCCEEDED","done");
+  assertThat(service.replay(cid,rid,"task","profile","default").existing()).isTrue();
+  assertThat(service.reserve(cid,rid,"task","profile","").existing()).isTrue();
+  assertThatThrownBy(()->service.replay(cid,rid,"task","profile","high")).isInstanceOf(IllegalStateException.class);
+ }
  @Test void fiftyTurnContextPreservesEarlyAndRecentExcerptsBoundedly()throws Exception{
   for(int i=0;i<50;i++){String r=UUID.randomUUID().toString();service.reserve(cid,r,"goal-"+i+" "+"x".repeat(2000),"system");service.complete(cid,r,"SUCCEEDED","answer-"+i+" "+"y".repeat(3000));}
   var context=ManusConversations.context(service.get(cid));String text=context.stream().map(m->m.getText()).reduce("",String::concat);

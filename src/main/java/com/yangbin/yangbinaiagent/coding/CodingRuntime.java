@@ -11,7 +11,8 @@ import java.util.function.Consumer;
 public interface CodingRuntime {
     record Availability(boolean available, String reason, String model) {}
     record Request(String sessionId, Path workspace, Path sessionDir, String prompt, String approvalMode, boolean allowShell,
-                   @JsonIgnore ModelProfileService.Resolved model) {
+                   @JsonIgnore ModelProfileService.Resolved model, Path memoryFile) {
+        public Request(String sessionId,Path workspace,Path sessionDir,String prompt,String approvalMode,boolean allowShell,ModelProfileService.Resolved model){this(sessionId,workspace,sessionDir,prompt,approvalMode,allowShell,model,null);}
         public Request(String sessionId,Path workspace,Path sessionDir,String prompt,String approvalMode,boolean allowShell){this(sessionId,workspace,sessionDir,prompt,approvalMode,allowShell,null);}
     }
     Availability availability();

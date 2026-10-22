@@ -100,6 +100,6 @@ test('real pi context compaction and session restoration across 26 synthetic tur
   assert.equal(events.filter(e=>e.type==='model_request').length,requests.length,'every compaction and normal request needs admission');
   assert.equal(events.filter(e=>e.type==='model_usage').length,requests.length);
   assert.ok(events.filter(e=>e.type==='model_usage').every(e=>e.inputTokens>0&&e.outputTokens>0));
-  const files=await fs.readdir(sessionDir);let history='';for(const file of files)history+=await fs.readFile(path.join(sessionDir,file),'utf8');
+  const files=await fs.readdir(sessionDir);let history='';for(const file of files.filter(f=>f.endsWith('.jsonl')))history+=await fs.readFile(path.join(sessionDir,file),'utf8');
   assert.match(history,/"type":"compaction"/);assert.match(JSON.stringify(requests.at(-1).messages),/ALPHA-26/);
 });

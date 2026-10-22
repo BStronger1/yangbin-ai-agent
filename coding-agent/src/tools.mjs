@@ -3,14 +3,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { sandboxStatus, runIsolatedCommand } from './sandbox.mjs';
 import { randomUUID } from 'node:crypto';
+import { boundedText } from './context-store.mjs';
 
 const LIMIT = 64 * 1024;
 const protectedPart = part => /^(\.git|\.ssh|\.aws|\.codex|\.pi|node_modules)$/i.test(part) || /^\.env(?:\.|$)/i.test(part) || /^(credentials|auth|secrets)(?:\.|$)/i.test(part) || /\.(pem|key|p12|pfx)$/i.test(part);
 export class ToolRuntime {
-  constructor({ workspace, approvalMode = 'on-risk', allowShell = false, emit = () => {}, signal, onLimit = () => {}, approvalTimeoutMs = 300000 }) {
+  constructor({ workspace, approvalMode = 'on-risk', allowShell = false, emit = () => {}, signal, contextStore, onLimit = () => {}, approvalTimeoutMs = 300000 }) {
     if (!['ask', 'on-risk', 'allow'].includes(approvalMode)) throw new Error('Invalid approval mode');
     this.workspace = path.resolve(workspace); this.approvalMode = approvalMode;
-    this.allowShell = allowShell === true; this.emit = emit; this.signal = signal;
+    this.contextStore = contextStore; this.allowShell = allowShell === true; this.emit = emit; this.signal = signal;
     this.pending = new Map(); this.count = 0; this.onLimit = onLimit; this.approvalTimeoutMs = Math.max(1, Math.min(approvalTimeoutMs, 300000));
     signal?.addEventListener('abort', () => this.cancel(), { once: true });
   }
@@ -64,17 +65,34 @@ export class ToolRuntime {
     try {
       await this.authorize(name, args, callId);
       this.emit({ type: 'tool_start', toolCallId: callId, toolName: name, arguments: args });
-      let output;
+      let output; let fullOutput; let details = {};
+      this.signal?.throwIfAborted();
       if (name === 'list') {
         const location = await this.resolve(args.path || '.');
         const entries = await fs.readdir(location, { withFileTypes: true });
-        output = entries.filter(x => !protectedPart(x.name) && !x.isSymbolicLink()).slice(0, 1000).map(x => `${x.isDirectory() ? 'dir ' : 'file'} ${x.name}`).join('\n');
+        const visible = entries.filter(x => !protectedPart(x.name) && !x.isSymbolicLink());
+        output = visible.slice(0, 1000).map(x => `${x.isDirectory() ? 'dir ' : 'file'} ${x.name}`).join('\n');
+        if (visible.length > 1000) output += '\n[Directory listing limited to 1000 entries; narrow the path to inspect subdirectories.]';
       } else if (name === 'read') {
         const location = await this.resolve(args.path);
         const stat = await fs.stat(location);
         if (!stat.isFile() || stat.size > LIMIT) throw new Error('Read requires a text file of at most 64 KiB');
         output = await fs.readFile(location, 'utf8');
         if (output.includes('\0')) throw new Error('Binary files are not supported');
+        fullOutput = output;
+        const page = readPage(output, args); output = page.text; details.page = page.page;
+      } else if (name === 'recall') {
+        if (!this.contextStore) throw new Error('Context recall is unavailable for this session');
+        const result = args.id ? await this.contextStore.read(args) : await this.contextStore.list(args);
+        if (args.id) {
+          const text = boundedText(result.text, 7000);
+          result.nextOffset = result.offset + text.length < result.totalChars ? result.offset + text.length : null;
+          output = text + '\n[Archived snapshot id=' + result.id + ' offset=' + result.offset + ' nextOffset=' + result.nextOffset + ' totalChars=' + result.totalChars + ']';
+        } else {
+          while (result.entries.length > 1 && Buffer.byteLength(JSON.stringify(result)) > 7600) { result.entries.pop(); result.nextOffset = (args.offset || 0) + result.entries.length; }
+          output = JSON.stringify(result);
+        }
+        details.recall = { id: args.id ?? null, nextOffset: result.nextOffset };
       } else if (name === 'write' || name === 'edit') {
         const location = await this.resolve(args.path, name === 'write');
         if (location === this.workspace) throw new Error('Cannot replace workspace root');
@@ -96,9 +114,33 @@ export class ToolRuntime {
         output = `${name === 'edit' ? 'Edited' : 'Wrote'} ${args.path} (${Buffer.byteLength(content)} bytes)`;
       } else if (name === 'bash') output = await this.runCommand(args);
       else throw new Error('Unknown tool');
-      output = String(output).slice(0, LIMIT);
+      this.signal?.throwIfAborted();
+      if (['read', 'list', 'bash'].includes(name)) {
+        fullOutput ??= String(output);
+        // Preserve the pre-existing tool's bounded output; never claim unlimited capture.
+        const bounded = boundedText(fullOutput, LIMIT);
+        const sourceTruncated = bounded.length < fullOutput.length;
+        fullOutput = bounded;
+        if (Buffer.byteLength(fullOutput) > 2048 && this.contextStore) {
+          try {
+            details.contextRef = await this.contextStore.put(fullOutput, { kind: name, source: name === 'bash' ? 'isolated command output' : String(args.path || '.').slice(0, 256) });
+          } catch (error) {
+            this.signal?.throwIfAborted();
+            // Execution already happened. Do not turn a capture failure into an invitation to repeat it.
+            details.archiveError = 'Context archive unavailable';
+            output = boundedText(String(output)) + '\n[Archive failed: result was produced but is NOT recoverable from recall. Do not repeat commands merely to archive them.]';
+          }
+        }
+        const visible = boundedText(String(output));
+        if (visible.length < String(output).length && !details.archiveError) output = visible + '\n[Output page shortened to 8 KiB.]';
+        else if (!details.archiveError) output = String(output);
+        if (details.contextRef) output += '\n[Archived snapshot: recall id=' + details.contextRef.id + '; offsets are UTF-16 characters. Source may since have changed.]';
+        else if (Buffer.byteLength(fullOutput) > 8192 && name !== 'read' && !details.archiveError) output += '\n[No archive is available; omitted output cannot be recalled.]';
+        if (sourceTruncated) output += '\n[Original capture limited to 64 KiB; content beyond this was not archived.]';
+      }
+      this.signal?.throwIfAborted();
       this.emit({ type: 'tool_end', toolCallId: callId, toolName: name, ok: true, output: output.slice(0, 12000) });
-      return { content: [{ type: 'text', text: output }], details: {} };
+      return { content: [{ type: 'text', text: output }], details };
     } catch (error) {
       this.emit({ type: 'tool_end', toolCallId: callId, toolName: name, ok: false, error: error.message, ...(error.approvalId ? { approvalId: error.approvalId } : {}) });
       throw error;
@@ -108,4 +150,19 @@ export class ToolRuntime {
     if (!this.allowShell) throw new Error(this.sandbox?.reason || 'Shell execution is disabled');
     return runIsolatedCommand({ workspace: this.workspace, ...args, signal: this.signal });
   }
+}
+
+function readPage(text, args) {
+  const offset = args.offset ?? 0, limit = args.limit ?? 2000, charOffset = args.charOffset ?? 0;
+  if (![offset, limit, charOffset].every(Number.isSafeInteger) || offset < 0 || limit < 1 || limit > 2000 || charOffset < 0) throw new Error('Invalid read pagination: offset/limit are lines; charOffset is within the first line');
+  const lines = text.match(/[^\n]*\n|[^\n]+$/g) || [];
+  if (offset > lines.length || (offset === lines.length && charOffset) || (offset < lines.length && charOffset > lines[offset].length)) throw new Error('Read offset outside file');
+  const selected = lines.slice(offset, offset + limit).join('').slice(charOffset);
+  const value = boundedText(selected, 7800);
+  let nextLine = offset, nextChar = charOffset + value.length;
+  while (nextLine < lines.length && nextChar >= lines[nextLine].length) { nextChar -= lines[nextLine].length; nextLine++; }
+  const more = nextLine < lines.length;
+  const page = { offset, charOffset, totalLines: lines.length, nextOffset: more ? nextLine : null, nextCharOffset: more ? nextChar : null };
+  const footer = more ? '\n[More content: read offset=' + nextLine + ' charOffset=' + nextChar + '; offset is a zero-based line index.]' : '';
+  return { text: value + footer, page };
 }

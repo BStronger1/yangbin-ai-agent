@@ -39,6 +39,7 @@ public class PrivateChatModels {
     public ChatModel create(ModelProfileService.Resolved selected) {
         Map<String,String> reasoningByToolCall=new ConcurrentHashMap<>();
         boolean reasoningProvider=Set.of("deepseek","kimi").contains(selected.snapshot().provider());
+        boolean nativeOpenAiReasoning="openai".equals(selected.snapshot().provider())&&selected.snapshot().model().matches("(gpt-[56].*|o[134](-.*)?)");
         ChatModel model = new ChatModel(){
             @Override public ChatOptions getDefaultOptions(){return "anthropic-messages".equals(selected.snapshot().api())?AnthropicChatOptions.builder().model(selected.snapshot().model()).maxTokens(4096).build():OpenAiChatOptions.builder().model(selected.snapshot().model()).build();}
             @Override public ChatResponse call(Prompt prompt){
@@ -51,9 +52,11 @@ public class PrivateChatModels {
                     var rest=RestClient.builder().requestFactory(requestFactory).requestInterceptor((request,body,execution)->{
                         URI destination=request.getURI();if(!Objects.equals(endpoint.getScheme(),destination.getScheme())||!Objects.equals(endpoint.getHost(),destination.getHost())||endpoint.getPort()!=destination.getPort())throw new IOException("Model destination changed");
                         byte[] outgoing=body;
-                        if(reasoningProvider){
+                        if(reasoningProvider||nativeOpenAiReasoning||selected.snapshot().reasoningEffort()!=null){
                             JsonNode payload=JSON.readTree(body);
-                            for(JsonNode message:payload.path("messages"))if("assistant".equals(message.path("role").asText())&&message instanceof ObjectNode object){
+                            ModelReasoning.apply((ObjectNode)payload,selected.snapshot());
+                            if(nativeOpenAiReasoning&&payload.has("max_tokens")){var object=(ObjectNode)payload;JsonNode cap=object.remove("max_tokens");if(!object.has("max_completion_tokens")||object.path("max_completion_tokens").asLong()>cap.asLong())object.set("max_completion_tokens",cap);}
+                            for(JsonNode message:payload.path("messages"))if(reasoningProvider&&"assistant".equals(message.path("role").asText())&&message instanceof ObjectNode object){
                                 String reasoning="";for(JsonNode tool:message.path("tool_calls")){String saved=reasoningByToolCall.get(tool.path("id").asText());if(saved!=null){reasoning=saved;break;}}
                                 object.put("reasoning_content",reasoning);
                             }
@@ -85,7 +88,7 @@ public class PrivateChatModels {
                     };
                     ChatModel delegate;
                     if("anthropic-messages".equals(selected.snapshot().api())){
-                        var api=AnthropicApi.builder().baseUrl(origin).completionsPath(prefix+"/v1/messages").apiKey(selected.apiKey()).restClientBuilder(rest).responseErrorHandler(errors).build();
+                        var api=AnthropicApi.builder().baseUrl(origin).completionsPath(prefix+(prefix.endsWith("/v1")?"/messages":"/v1/messages")).apiKey(selected.apiKey()).restClientBuilder(rest).responseErrorHandler(errors).build();
                         delegate=AnthropicChatModel.builder().anthropicApi(api).defaultOptions((AnthropicChatOptions)getDefaultOptions()).retryTemplate(noRetry).build();
                     }else{
                         var api=OpenAiApi.builder().baseUrl(origin).completionsPath(prefix+"/chat/completions").apiKey(selected.apiKey()).restClientBuilder(rest).responseErrorHandler(errors).build();

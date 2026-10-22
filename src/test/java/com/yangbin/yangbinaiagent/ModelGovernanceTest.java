@@ -57,4 +57,52 @@ class ModelGovernanceTest {
 
  @Test void providerErrorBodiesCannotEscapeGovernedCallOrStream(){var g=create(2,2,10,10000);ChatModel delegate=new ChatModel(){public ChatResponse call(Prompt p){throw new IllegalStateException("private-provider-body",new RuntimeException("private-credential"));}public Flux<ChatResponse> stream(Prompt p){return Flux.error(new IllegalStateException("private-provider-body"));}};try(var scope=UserContext.open(a)){var model=g.govern(delegate,"openai","fixture");assertThatThrownBy(()->model.call(new Prompt("hello"))).isInstanceOf(IllegalStateException.class).hasNoCause().hasMessageNotContaining("private");assertThatThrownBy(()->model.stream(new Prompt("hello")).blockLast()).isInstanceOf(IllegalStateException.class).hasNoCause().hasMessageNotContaining("private");assertThat(g.summary().active()).isZero();}}
 
+
+ @Test void accountPolicyIsTighteningOnlyAndDoesNotAffectOtherAccounts()throws Exception{
+  Path file=dir.resolve(a.id()).resolve("limits.json");Files.createDirectories(file.getParent());
+  Files.writeString(file,"{\"accountConcurrency\":1,\"dailyRequests\":2,\"dailyTokens\":500,\"outputTokens\":32}");
+  var g=create(2,3,10,10000);
+  try(var scope=UserContext.open(a)){
+   assertThat(g.summary().limits()).isEqualTo(new ModelGovernance.Limits(1,3,2,500,32));
+   var lease=g.reserve("fixture","model",200);
+   assertThatThrownBy(()->g.reserve("fixture","model",200)).isInstanceOf(ModelGovernance.Denied.class);
+   g.finish(lease,1L,1L,"SUCCEEDED");g.finish(g.reserve("fixture","model",200),1L,1L,"SUCCEEDED");
+   assertThatThrownBy(()->g.reserve("fixture","model",1)).isInstanceOf(ModelGovernance.Denied.class).hasMessageContaining("次数");
+  }
+  try(var scope=UserContext.open(b)){assertThat(g.summary().limits().dailyRequests()).isEqualTo(10);assertThat(g.summary().requests()).isZero();}
+ }
+ @Test void corruptOrLooseningPolicyBlocksBeforeUpstreamAndCanBeRepaired()throws Exception{
+  Path file=dir.resolve(a.id()).resolve("limits.json");Files.createDirectories(file.getParent());var g=create(2,3,10,10000);AtomicInteger calls=new AtomicInteger();
+  var model=g.govern(p->{calls.incrementAndGet();return response(1,1);},"fixture","model");
+  try(var scope=UserContext.open(a)){
+   for(String raw:List.of("broken","[]","{} broken","{} {\"dailyRequests\":1}","{\"dailyRequests\":1,\"dailyRequests\":2}","{\"dailyRequests\":11}","{\"outputTokens\":0}","{\"dailyTokens\":1.5}","{\"unknown\":1}","{\"dailyRequests\":null}")){
+    Files.writeString(file,raw);assertThatThrownBy(()->model.call(new Prompt("hello"))).isInstanceOf(ModelGovernance.Denied.class);
+   }
+   assertThat(calls).hasValue(0);Files.writeString(file,"{\"outputTokens\":32}");model.call(new Prompt("hello"));assertThat(calls).hasValue(1);
+  }
+ }
+ @Test void policyOutputCapReachesActualDelegateAndPersistsAcrossRestart()throws Exception{
+  Path file=dir.resolve(a.id()).resolve("limits.json");Files.createDirectories(file.getParent());Files.writeString(file,"{\"dailyRequests\":1,\"outputTokens\":32}");
+  var g=create(2,3,10,10000);AtomicInteger output=new AtomicInteger();
+  try(var scope=UserContext.open(a)){
+   g.govern(p->{output.set(p.getOptions().getMaxTokens());return response(1,1);},"fixture","model").call(new Prompt("hello"));assertThat(output).hasValue(32);
+   var restarted=create(2,3,10,10000);assertThatThrownBy(()->restarted.reserve("fixture","model",100)).isInstanceOf(ModelGovernance.Denied.class);
+  }
+ }
+ @Test void tighteningDuringToolLoopStopsBeforeNextProviderRequest()throws Exception{
+  Path file=dir.resolve(a.id()).resolve("limits.json");Files.createDirectories(file.getParent());Files.writeString(file,"{\"dailyRequests\":1}");
+  var g=create(2,3,10,10000);AtomicInteger calls=new AtomicInteger(),tools=new AtomicInteger();
+  var options=org.springframework.ai.model.tool.ToolCallingChatOptions.builder().toolCallbacks(echo(tools,false)).build();
+  try(var scope=UserContext.open(a)){assertThatThrownBy(()->g.govern(p->{calls.incrementAndGet();return toolResponse();},"fixture","model").call(new Prompt("hello",options))).isInstanceOf(ModelGovernance.Denied.class);assertThat(calls).hasValue(1);assertThat(tools).hasValue(1);}
+ }
+
+ @Test void unavailablePolicyPathNeverFallsBackToBroaderDefaultsWithCachedLedger()throws Exception{
+  Path owner=dir.resolve(a.id());Files.createDirectories(owner);Files.writeString(owner.resolve("limits.json"),"{\"dailyRequests\":1}");
+  var g=create(2,3,10,10000);try(var scope=UserContext.open(a)){
+   var lease=g.reserve("fixture","model",100);g.finish(lease,1L,1L,"SUCCEEDED");
+   Files.move(owner,dir.resolve("saved"));Files.writeString(owner,"unavailable directory");
+   assertThatThrownBy(g::accountLimits).isInstanceOf(ModelGovernance.Denied.class);
+   assertThatThrownBy(()->g.reserve("fixture","model",100)).isInstanceOf(ModelGovernance.Denied.class);
+  }
+ }
 }

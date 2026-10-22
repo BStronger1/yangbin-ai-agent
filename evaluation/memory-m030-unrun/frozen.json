@@ -1,0 +1,30 @@
+{
+  "piVersion": "1.3.0",
+  "files": {
+    "run.mjs": "ea4811d04cad57ad51422d9ee2e1adfd209d3b32ea309926d0422beb7fa33ca2",
+    "guards.mjs": "701c98347a5f26b537bcbf626d30c595793b2582d14055db49de1322d9fa3e4e",
+    "scoring.mjs": "317e8a1a188913693aebf5802ca0d92d20db449c6ee615f1a7f852031acdee32",
+    "fixtures.mjs": "ce0fdccb2de6a20d768e40d4c34d26174b53cee9f7dba5b703c6260ee875d69e",
+    "offline.mjs": "995789f73ac83046a2ef7a392e40fa099de178dc2201e5f1e136d0adaa975e81",
+    "tasks.json": "b027a63cce9b5c311cee7a5b726bfd1cdc03df3d07d3662641a987a3899e3a14",
+    "protocol.json": "f866b35380fe2834fb400dc241630da7b236a1428ce8043231550d94a1017afc",
+    "subset.test.mjs": "96eb8cad667970b9b6cb6f696430983aceb921f3f863f9cd24b8091ad803d273",
+    "parent.mjs": "81adfa05c45da584a7719d978fff004de95d869a112a9621c87bfeaefe16217a",
+    "parent.test.mjs": "427e47c7a7852e5a052daff23d8838426a3a5a81b5cbd941b75803afa8abfe00"
+  },
+  "runtime": {
+    "src/agent.mjs": "3380740fed781800808bc080e38d909e96b9ecb197462107b3ec62e0b3879975",
+    "src/context-policy.mjs": "710015a211216f7dc4dbdf897ee5c767f40630e30c83d6d9dbbf5fe86e625aa4",
+    "src/context-store.mjs": "29643b552dc5783edba70c7a7c7b571d73136ea8c6b47bef6adbaae3bdbbff3a",
+    "src/long-term-memory.mjs": "6c75fa4d880ba612534c08504af0e76ff2adb523c9b5b5bbf13103165163f54b",
+    "src/main.mjs": "8ae0fee97dba97da8a5f3daca952d60a45c1256a6ec6fcbdb43e65a8930d2f00",
+    "src/model-gate.mjs": "38a31b44d17cc0e7ee9188ef2088cee51a6909dc2c79eef122127a17c66b67a4",
+    "src/model-transport.mjs": "81d584f57a14380213e66657fa6311f5e2f27fa2a5757c9693bb274ed4757646",
+    "src/reasoning-effort.mjs": "29dcd99fbac6c30118a2b1e78cbbf17306a7cea3d02e2fba30945627ab1926de",
+    "src/sandbox.mjs": "b59948cdd412dec648a3a65413cf30bd14726d42f187225b906d600deb1ee7fc",
+    "src/tools.mjs": "9311b077ca1d74cb5652f38c7052ea6c5c8a94e997919605f379c29709a1b5bc",
+    "package.json": "60be214d33f1b28554909a28f3b8399eb9f72b3a317e6b048cb144f154ff1007",
+    "package-lock.json": "3e72926b4150e7595bd15624be1cbb4fc36fd779c9989121203b9ea3b2c3ca92"
+  },
+  "legacyCoreSha256": "be4ac93e858cec7ec2704d3e4e753548e10496b6973eeaecd77ed59b26b289eb"
+}

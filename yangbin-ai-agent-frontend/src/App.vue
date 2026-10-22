@@ -4,7 +4,7 @@ import WorkspaceNav from './components/WorkspaceNav.vue'
 
 <template>
   <WorkspaceNav v-if="!$route.meta.public" />
-  <div :class="{ 'app-content': !$route.meta.public }"><router-view /></div>
+  <div :class="{ 'app-content': !$route.meta.public }"><router-view v-slot="{ Component }"><component :is="Component" :key="$route.path === '/super-agent' ? 'legacy-manus' : $route.path === '/coding' ? 'coding' : $route.matched[0]?.path" /></router-view></div>
 </template>
 
 <style>

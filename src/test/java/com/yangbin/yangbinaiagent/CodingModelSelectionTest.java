@@ -38,6 +38,14 @@ class CodingModelSelectionTest {
         var p=model("default-model","private-key");profiles.defaults(p.id());var s=fresh();var input=new CodingService.TurnInput(UUID.randomUUID().toString(),"task",0,"allow");coding.submit(s.id,input);assertThat(runtime.entered.await(5,TimeUnit.SECONDS)).isTrue();runtime.release.countDown();var done=completed(s.id);assertThat(done.turns.getFirst().modelProfileId).isEqualTo(p.id());
         profiles.delete(p.id());assertThat(coding.submit(s.id,input).turns.getFirst().modelProfileId).isEqualTo(p.id());assertThat(runtime.calls).hasValue(1);
     }
+    @Test void effortIsFrozenAndChangingItCannotReplaySameRequest()throws Exception{
+        var p=profiles.create(new ModelProfileService.Input("reasoning","openai","https://8.8.8.8/v1","gpt-5","test-key"));var s=fresh();
+        var input=new CodingService.TurnInput(UUID.randomUUID().toString(),"task",0,"allow",p.id(),"low");coding.submit(s.id,input);
+        assertThat(runtime.entered.await(5,TimeUnit.SECONDS)).isTrue();assertThat(runtime.request.model().snapshot().reasoningEffort()).isEqualTo("low");
+        assertThat(coding.session(s.id).turns.getFirst().modelSnapshot.reasoningEffort()).isEqualTo("low");
+        assertThatThrownBy(()->coding.submit(s.id,new CodingService.TurnInput(input.requestId(),"task",0,"allow",p.id(),"high"))).isInstanceOf(IllegalStateException.class);
+        assertThat(coding.submit(s.id,input).revision).isEqualTo(1);assertThat(runtime.calls).hasValue(1);runtime.release.countDown();completed(s.id);
+    }
     @Test void otherOwnersCannotSelectPrivateProfileEvenOnTheirOwnSession()throws Exception{
         var p=model("owner-a","key");try(var other=UserContext.open(TaskWorkflowTest.B)){var s=fresh();assertThatThrownBy(()->coding.capabilities(p.id())).isInstanceOf(IllegalArgumentException.class);assertThatThrownBy(()->coding.submit(s.id,new CodingService.TurnInput(UUID.randomUUID().toString(),"task",0,"allow",p.id()))).isInstanceOf(IllegalArgumentException.class);}assertThat(runtime.calls).hasValue(0);
     }

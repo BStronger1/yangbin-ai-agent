@@ -22,13 +22,13 @@ public class CodingService {
     public record Project(String id,String name,String createdAt) {}
     public record ProjectInput(String name) {}
     public record SessionInput(String projectId,String title,String approvalMode) {}
-    public record TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId) { public TurnInput(String requestId,String prompt,int revision,String approvalMode){this(requestId,prompt,revision,approvalMode,null);} }
+    public record TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId,String reasoningEffort) { public TurnInput(String requestId,String prompt,int revision,String approvalMode,String modelProfileId){this(requestId,prompt,revision,approvalMode,modelProfileId,null);} public TurnInput(String requestId,String prompt,int revision,String approvalMode){this(requestId,prompt,revision,approvalMode,null);} }
     public record FileInput(String path,String content) {}
     public record FileInfo(String path,long size) {}
     public record FileContent(String path,String content) {}
     public record Change(String path,String before,String after,String kind) {}
     public static class Turn {
-        public String id,prompt,status,createdAt,approvalMode,modelProfileId,requestedModelProfileId;
+        public String id,prompt,status,createdAt,approvalMode,modelProfileId,requestedModelProfileId,requestedReasoningEffort;
         public ModelProfileService.Snapshot modelSnapshot;
         public Turn(){}
         Turn(String id,String prompt,String mode){this.id=id;this.prompt=prompt;this.status="RUNNING";this.createdAt=now();this.approvalMode=mode;}
@@ -47,6 +47,8 @@ public class CodingService {
     private final ExecutorService executor=Executors.newVirtualThreadPerTaskExecutor();
     @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.governance.ModelGovernance governance;
     @Value("${app.coding.global-concurrency:8}") private int globalConcurrency=8;
+    @Autowired(required=false) private com.yangbin.yangbinaiagent.memory.MemoryService memory;
+    @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
     private final Map<String,ActiveRun> active=new HashMap<>();
     private static class ActiveRun {final BlockingQueue<Map<String,Object>> commands=new LinkedBlockingQueue<>();final Map<String,com.yangbin.yangbinaiagent.governance.ModelGovernance.Lease> leases=new HashMap<>();}
     public CodingService(ObjectMapper json,CodingRuntime runtime,String dir,boolean shellEnabled)throws IOException {this(json,runtime,dir,shellEnabled,null);}
@@ -62,7 +64,7 @@ public class CodingService {
         }}
     }
     public Map<String,Object> capabilities(){try{return capabilities(null);}catch(IOException e){throw new IllegalStateException("模型配置暂不可用");}}
-    public Map<String,Object> capabilities(String modelProfileId)throws IOException{var selected=modelProfiles==null?null:modelProfiles.resolve(modelProfileId);var a=runtime.availability(selected);var sandbox=runtime.shellAvailability();return Map.of("available",a.available(),"reason",a.reason(),"model",a.model(),"shellEnabled",shellEnabled&&UserContext.current().admin()&&Boolean.TRUE.equals(sandbox.get("available")),"sandbox",sandbox);}
+    public Map<String,Object> capabilities(String modelProfileId)throws IOException{var selected=modelProfiles==null?null:modelProfiles.resolve(modelProfileId);var a=codingAvailability(selected);var sandbox=runtime.shellAvailability();return Map.of("available",a.available(),"reason",a.reason(),"model",a.model(),"shellEnabled",shellEnabled&&UserContext.current().admin()&&Boolean.TRUE.equals(sandbox.get("available")),"sandbox",sandbox);}
     public synchronized List<Project> projects()throws IOException {
         Path projects=ownerRoot().resolve("projects");Files.createDirectories(projects);var result=new ArrayList<Project>();
         try(var paths=Files.list(projects)){for(Path p:paths.filter(p->Files.isDirectory(p,LinkOption.NOFOLLOW_LINKS)).toList()){Path f=p.resolve("project.json");if(Files.isRegularFile(f,LinkOption.NOFOLLOW_LINKS))result.add(json.readValue(f.toFile(),Project.class));}}
@@ -99,21 +101,27 @@ public class CodingService {
         var s=new Session();s.id=UUID.randomUUID().toString();s.projectId=input.projectId();s.title=input.title()==null||input.title().isBlank()?"新工作任务":input.title().strip();if(s.title.length()>100)throw new IllegalArgumentException("标题过长");s.approvalMode=mode;s.status="IDLE";s.createdAt=now();s.updatedAt=s.createdAt;save(s);return s;
     }
     public synchronized Session session(String id)throws IOException {Path file=sessionPath(id);if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("会话不存在");return json.readValue(file.toFile(),Session.class);}
+    private static String effort(String value){return value==null||value.isBlank()||value.equals("default")?"":value.strip();}
+    private CodingRuntime.Availability codingAvailability(ModelProfileService.Resolved selected){
+        if(selected!=null&&!com.yangbin.yangbinaiagent.models.ModelReasoning.codingSupported(selected.snapshot().provider(),selected.snapshot().model()))return new CodingRuntime.Availability(false,"此模型的当前接口不支持 Coding 工具调用，请在总设置选择其他模型",selected.snapshot().model());
+        return runtime.availability(selected);
+    }
     public synchronized Session submit(String id,TurnInput input)throws IOException {
         if(input==null||input.prompt()==null||input.prompt().isBlank()||input.prompt().length()>24000)throw new IllegalArgumentException("请输入1–24000字的任务");uuid(input.requestId());String mode=mode(input.approvalMode());Session s=session(id);
         var previous=s.turns.stream().filter(t->t.id.equals(input.requestId())).findFirst();
-        if(previous.isPresent()){if(!previous.get().prompt.equals(input.prompt())||!previous.get().approvalMode.equals(mode)||!Objects.equals(Objects.toString(previous.get().requestedModelProfileId,""),Objects.toString(input.modelProfileId(),"")))throw new IllegalStateException("请求ID已用于其他内容");return s;}
+        if(previous.isPresent()){if(!previous.get().prompt.equals(input.prompt())||!previous.get().approvalMode.equals(mode)||!Objects.equals(Objects.toString(previous.get().requestedModelProfileId,""),Objects.toString(input.modelProfileId(),""))||!Objects.equals(effort(previous.get().requestedReasoningEffort),effort(input.reasoningEffort())))throw new IllegalStateException("请求ID已用于其他内容");return s;}
         if(s.revision!=input.revision())throw new IllegalStateException("会话已更新，请刷新后发送");
         if(s.turns.size()>=100)throw new IllegalStateException("会话达到100轮上限，请新建任务");
         if(s.events.size()>19000)throw new IllegalStateException("会话事件达到上限，请新建任务");
         if(hasActiveWorker()||sessions().stream().anyMatch(x->ACTIVE.contains(x.status)))throw new IllegalStateException("请等待当前 Coding Agent 任务结束");
         if(active.size()>=Math.max(1,globalConcurrency))throw new IllegalStateException("Coding 执行容量已满，请稍后再试");
-        var selected=modelProfiles==null?null:modelProfiles.resolve(input.modelProfileId());
-        var availability=runtime.availability(selected);if(!availability.available())throw new IllegalStateException(availability.reason());
+        var selected=modelProfiles==null?null:modelProfiles.resolve(input.modelProfileId(),input.reasoningEffort());
+        var availability=codingAvailability(selected);if(!availability.available())throw new IllegalStateException(availability.reason());
         Path workspace=workspace(s.projectId);var baseline=snapshot(workspace);Path state=ownerRoot().resolve("runtime").resolve(s.id);Files.createDirectories(state);write(state.resolve("baseline.json"),baseline);
-        s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.requestedModelProfileId=input.modelProfileId();turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
+        Path memoryFile=memory!=null&&!"off".equals(longTermMemory)?memory.runtimeFile(s.projectId):null;
+        s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.requestedModelProfileId=input.modelProfileId();turn.requestedReasoningEffort=effort(input.reasoningEffort());turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
         var user=UserContext.current();var run=new ActiveRun();String key=key(id);active.put(key,run);
-        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected);
+        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile);
         String requestTrace=org.slf4j.MDC.get("requestId");
         executor.submit(()->{try(var ignored=UserContext.open(user);var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){execute(id,request,run);} });return s;
     }
@@ -122,7 +130,7 @@ public class CodingService {
         try{runtime.run(request,e->{try{if(handleModelEvent(request,run,e))return;acceptEvent(id,e);}catch(IOException ex){throw new UncheckedIOException(ex);}},run.commands);}
         catch(Exception e){result="FAILED";message="Coding Agent 执行未完成，请检查已产生的文件与事件。不会自动重试。";}
         for(var lease:run.leases.values())if(governance!=null)try{governance.finish(lease,null,null,"UNKNOWN");}catch(Exception settlementFailure){result="FAILED";message="模型账本结算暂不可用，新的模型调用已暂停；不会自动重试模型。";}
-        synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
+        synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){if("SUCCEEDED".equals(result)&&memory!=null&&!"off".equals(longTermMemory)){try{int count=memory.extract(s.projectId,s.id,s.turns.getLast().id,request.prompt());if(count>0)acceptEvent(id,Map.of("type","context","status","MEMORY_SAVED","count",count));s=session(id);}catch(Exception extractionFailure){acceptEvent(id,Map.of("type","context","status","MEMORY_SKIPPED","reason","STORE_UNAVAILABLE"));s=session(id);}}finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
     }
     private synchronized boolean handleModelEvent(CodingRuntime.Request request,ActiveRun run,Map<String,Object> event)throws IOException {
         String type=Objects.toString(event.get("type"),"");if(!Set.of("model_request","model_usage").contains(type))return false;

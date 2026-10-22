@@ -48,7 +48,7 @@ def positive(name, default):
 def route_group(path):
     # Fixed-cardinality categories; never log user-supplied routes or query strings.
     for prefix, group in (('/api/auth/', 'auth'), ('/api/ops/', 'operations'),
-            ('/api/ai/coding', 'coding'), ('/api/ai/work', 'partners'),
+            ('/api/ai/coding', 'coding'), ('/api/ai/assistant', 'assistant'), ('/api/ai/work', 'partners'),
             ('/api/ai/mcp', 'mcp'), ('/api/ai/models', 'models'),
             ('/api/ai/love_app', 'chat'), ('/api/ai/manus', 'chat'),
             ('/ppt/', 'presentation'), ('/api/', 'api')):
@@ -66,7 +66,7 @@ def expensive(request):
     if path.startswith('/ppt/api/'):
         return True  # Conservative for externally managed generation endpoints.
     return (path in ('/api/ai/work/runs', '/api/ai/plans', '/api/ai/mcp/call') or
-            bool(re.fullmatch(r'/api/ai/(coding/sessions/[^/]+/turns|work/partners/[^/]+/(messages|jobs)|tasks/[^/]+/(start|retry)|plans/[^/]+/(revise|repair))', path)))
+            bool(re.fullmatch(r'/api/ai/(coding/sessions/[^/]+/turns|(?:work|assistant)/partners/[^/]+/(messages|jobs)|tasks/[^/]+/(start|retry)|plans/[^/]+/(revise|repair))', path)))
 
 
 class Admission:

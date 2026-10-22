@@ -1,0 +1,107 @@
+{
+  "id": "memory-m030-unrun-v1",
+  "status": "frozen",
+  "date": "2026-10-22",
+  "baselineManifestSha256": "0dadd0d480495ec0f53af7713099c0d384c8a38d59c91c3cf73e79935a1a31db",
+  "productRelease": "m029-20261022-8895b9ab7622",
+  "piVersion": "1.3.0",
+  "groups": {
+    "A": {
+      "shortTerm": "baseline",
+      "longTerm": false
+    },
+    "B": {
+      "shortTerm": "layered-v1",
+      "longTerm": false
+    },
+    "C": {
+      "shortTerm": "baseline",
+      "longTerm": true
+    },
+    "D": {
+      "shortTerm": "layered-v1",
+      "longTerm": true
+    }
+  },
+  "taskOrder": [
+    "N02",
+    "N03",
+    "N04"
+  ],
+  "executionOrders": {
+    "N02": [
+      "B",
+      "A",
+      "C",
+      "D"
+    ],
+    "N03": [
+      "C",
+      "B",
+      "D",
+      "A"
+    ],
+    "N04": [
+      "D",
+      "C",
+      "A",
+      "B"
+    ]
+  },
+  "contextWindow": 32768,
+  "model": {
+    "model": "deepseek-v4.1-flash-1017",
+    "provider": "custom",
+    "api": "openai-completions",
+    "reasoningEffort": "default"
+  },
+  "budget": {
+    "maxRequests": 96,
+    "maxReservedTokens": 2304000,
+    "perInstanceRequests": 8,
+    "perInstanceReservedTokens": 192000,
+    "maxOutputTokens": 2048,
+    "maxTaskSeconds": 360,
+    "retries": 0,
+    "paidJudgeCalls": 0
+  },
+  "memoryBudgetBytes": 1024,
+  "memoryLimit": 4,
+  "stages": 2,
+  "compactionsPerInstance": 2,
+  "scoring": "Content, format, runtime and safety independent. N01 task success uses actual artifact and successful write/edit tool, never prose claims. All planned instances stay in ITT. See SCORING.md.",
+  "safety": "Synthetic isolated projects only; shell always false; no generated code execution; writes approved only to N01 artifact in stage 2. Any runtime failure halts remaining instances.",
+  "claims": "Continuation of three wholly unstarted synthetic tasks (N02-N04), 12 factorial instances under the existing parent authorization. All N01 groups excluded and never replayed. Two forced SDK compactions with imported history; not 12 independent tasks or general coding success. Parent failure remains separately reported; no population improvement claim.",
+  "artifactTaskIds": [],
+  "parent": {
+    "id": "memory-m030-v1",
+    "sourceDirectory": "evaluation/memory-m030",
+    "frozenSha256": "60756149c8e09eac75e21c0ca6590da1d34de9947eed38373f92bcac6ebc5566",
+    "sourceHashes": {
+      "protocol.json": "4a0d2d9f01b480bd90d0e1f3470fc2a7142bfe5c00780b9173bb87aeb721205f",
+      "tasks.json": "10fac6980d8d4675b768518afff75da1e4854d66d7545467961056ab8cd67949",
+      "run.mjs": "dc07beea716fb584a974c823b2b891399e91a6d673d9e742d2b16b8cc000572c",
+      "guards.mjs": "701c98347a5f26b537bcbf626d30c595793b2582d14055db49de1322d9fa3e4e",
+      "scoring.mjs": "317e8a1a188913693aebf5802ca0d92d20db449c6ee615f1a7f852031acdee32",
+      "fixtures.mjs": "ce0fdccb2de6a20d768e40d4c34d26174b53cee9f7dba5b703c6260ee875d69e",
+      "offline.mjs": "995789f73ac83046a2ef7a392e40fa099de178dc2201e5f1e136d0adaa975e81"
+    },
+    "consumedRequests": 7,
+    "consumedReservedTokens": 176892,
+    "authorizedMaxRequests": 128,
+    "authorizedMaxReservedTokens": 3072000,
+    "combinedMaxRequests": 103,
+    "combinedMaxReservedTokens": 2480892,
+    "requireCompletedMarker": true,
+    "requireNoStartedRequestsFor": [
+      "N02",
+      "N03",
+      "N04"
+    ],
+    "excludedTaskIds": [
+      "N01"
+    ],
+    "verificationOwner": "Frozen real entry executes verifyParent before child authorization claim, then atomic parent subset claim. Source freeze is read under approved parentDirectory/evaluation/memory-m030; actual COMPLETED and complete pinned journal must prove all child tasks unstarted. Launcher checks alone are insufficient.",
+    "authorizationInheritance": "Use only remaining scope of already approved parent batch; no additional budget, no retry of started or unknown provider requests."
+  }
+}

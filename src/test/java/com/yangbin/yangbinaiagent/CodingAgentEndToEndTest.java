@@ -29,14 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CodingAgentEndToEndTest {
     static final ObjectMapper JSON=new ObjectMapper();
     static final Path ROOT=Path.of("target","coding-e2e-"+UUID.randomUUID()).toAbsolutePath();
-    static final AtomicInteger CALLS=new AtomicInteger();
+    static final AtomicInteger CALLS=new AtomicInteger(),OUTPUT_CAP=new AtomicInteger();
     static final HttpServer PROVIDER;
     static {
         try {
             PROVIDER=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
             PROVIDER.createContext("/v1/chat/completions",exchange->{
                 try {
-                    JsonNode request=JSON.readTree(exchange.getRequestBody());CALLS.incrementAndGet();
+                    JsonNode request=JSON.readTree(exchange.getRequestBody());CALLS.incrementAndGet();OUTPUT_CAP.accumulateAndGet(request.path("max_tokens").asInt(request.path("max_completion_tokens").asInt()),Math::max);
                     var messages=request.path("messages");int lastUser=-1;String prompt="";
                     for(int i=0;i<messages.size();i++)if("user".equals(messages.get(i).path("role").asText())){lastUser=i;prompt=messages.get(i).path("content").toString();}
                     boolean toolDone=false;for(int i=lastUser+1;i<messages.size();i++)if("tool".equals(messages.get(i).path("role").asText()))toolDone=true;
@@ -70,6 +70,7 @@ class CodingAgentEndToEndTest {
         throw new AssertionError("Timed out: "+state);
     }
     @Test void actualSdkApprovalFilesContinuationDiffAndOwnerIsolation()throws Exception{
+        Path policy=ROOT.resolve("governance/admin/limits.json");Files.createDirectories(policy.getParent());Files.writeString(policy,"{\"dailyRequests\":4,\"outputTokens\":32}");
         var capability=ok(HttpMethod.GET,"/capabilities",null);assertThat(capability.path("available").asBoolean()).as(capability.toPrettyString()).isTrue();assertThat(capability.path("shellEnabled").asBoolean()).isFalse();
         String project=ok(HttpMethod.POST,"/projects",Map.of("name","真实链路离线验收")).path("id").asText();
         String session=ok(HttpMethod.POST,"/sessions",Map.of("projectId",project,"title","离线 pi 工具验收","approvalMode","ask")).path("id").asText();
@@ -88,7 +89,7 @@ class CodingAgentEndToEndTest {
         JsonNode resumed=waitFor(session,s->s.path("status").asText().equals("SUCCEEDED"));assertThat(resumed.path("turns").size()).isEqualTo(2);assertThat(resumed.toString()).contains("hello coding");
         assertThat(call(HttpMethod.GET,"/sessions/"+session,null,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").getStatusCode().is4xxClientError()).isTrue();
         assertThat(call(HttpMethod.GET,"/projects/"+project+"/file?path=hello.txt",null,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").getStatusCode().is4xxClientError()).isTrue();
-        assertThat(CALLS.get()).isEqualTo(4);
+        assertThat(CALLS.get()).isEqualTo(4);assertThat(OUTPUT_CAP.get()).isEqualTo(32);
         Files.createDirectories(ROOT);JSON.writerWithDefaultPrettyPrinter().writeValue(ROOT.resolve("verification.json").toFile(),Map.of("actualSdk",true,"httpModelCalls",CALLS.get(),"paidModelCalls",0,"project",project,"session",session,"status","PASSED","checks",List.of("HTTP identity","real JSONL child","pi SDK","approval prevents early write","actual file write","diff","idempotent replay","second-process history/read","cross-owner denied")));
     }
 }

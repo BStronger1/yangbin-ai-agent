@@ -7,7 +7,7 @@ const frontend=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),d
 const catalog=JSON.parse(await fs.readFile(path.join(frontend,'../src/main/resources/work/catalog.json'),'utf8'));
 const out=process.env.EVIDENCE_DIR||path.join(frontend,'tmp/partners-ui');await fs.mkdir(out,{recursive:true});
 const checks={},errors=[],unknown=[],requests=[],conversations=new Map(),files=[];
-const profiles=[{id:'11111111-1111-4111-8111-111111111111',name:'我的 Claude',provider:'anthropic',model:'fixture-claude',baseUrl:'https://api.anthropic.com',hasKey:true},{id:'22222222-2222-4222-8222-222222222222',name:'我的 DeepSeek',provider:'deepseek',model:'fixture-deepseek',baseUrl:'https://api.deepseek.com',hasKey:true}];
+const profiles=[{id:'11111111-1111-4111-8111-111111111111',name:'我的 Claude',provider:'anthropic',model:'fixture-claude',baseUrl:'https://api.anthropic.com',hasKey:true,reasoningEfforts:['low','high']},{id:'22222222-2222-4222-8222-222222222222',name:'我的 DeepSeek',provider:'deepseek',model:'fixture-deepseek',baseUrl:'https://api.deepseek.com',hasKey:true,reasoningEfforts:['low','high']}];
 const stamp='2026-10-18T14:00:00Z';let failModels=false;
 const browser=await chromium.launch({headless:true,args:['--disable-gpu'],...(process.env.CHROME_EXECUTABLE_PATH?{executablePath:process.env.CHROME_EXECUTABLE_PATH}:{})});
 const page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('pageerror',e=>errors.push(String(e)));
@@ -51,11 +51,11 @@ try {
   assert.equal(await page.locator('.partner-quick-actions>button').count(),partner.skillIds.length);
   assert.equal(await page.getByTestId('partner-model-select').inputValue(),profiles[0].id);
   assert.match(await page.locator('.skill-chip').innerText(),/自由对话/);
-  await page.getByTestId('partner-model-select').selectOption(profiles[1].id);
+  await page.getByTestId('partner-model-select').selectOption(profiles[1].id);await page.getByTestId('reasoning-effort').selectOption('high');
   await page.locator('.partner-quick-actions>button').first().click();
   await page.getByLabel('发给伙伴的消息').fill('请按本轮格式整理资料，只给一段结论。');
   await page.getByRole('button',{name:'发送消息',exact:true}).click();await page.locator('.artifact-file').waitFor();
-  const request=requests.at(-1);assert.equal(request.partner,partner.id);assert.equal(request.modelProfileId,profiles[1].id);assert.equal(request.skillId,partner.skillIds[0]);
+  const request=requests.at(-1);assert.equal(request.partner,partner.id);assert.equal(request.modelProfileId,profiles[1].id);assert.equal(request.skillId,partner.skillIds[0]);assert.equal(request.reasoningEffort,'high');
   assert.match(await page.locator('.partner-turn-model').innerText(),/fixture-deepseek/);
   const box=await page.locator('.task-composer').boundingBox();assert.ok(box.y+box.height<=1000&&box.y>600);
   checks[partner.id+'-toolkit-model-delivery']=true;
@@ -63,7 +63,7 @@ try {
  await page.goto('http://partners-fixture.test/partners/office');await page.getByTestId('partner-model-select').waitFor();
  await page.waitForFunction(()=>!document.querySelector('[data-testid="partner-model-select"]').disabled);
  assert.equal(await page.getByTestId('partner-model-select').inputValue(),profiles[1].id);checks.modelChoiceRestored=true;
- await page.getByTestId('partner-model-settings').click();await page.getByTestId('model-manager').waitFor();assert.equal(await page.locator('.model-manager input[type=password]').inputValue(),'');await page.getByRole('button',{name:'关闭模型设置',exact:true}).click();checks.modelManagerAccessible=true;
+ await page.getByTestId('partner-model-settings').click();await page.getByTestId('model-settings').waitFor();assert.equal(await page.getByTestId('connection-api-key').inputValue(),'');assert.ok(page.url().endsWith('/settings'));await page.goto('http://partners-fixture.test/partners/office');await page.getByTestId('partner-model-select').waitFor();checks.globalModelSettingsAccessible=true;
  await shot('office-home.png');
  const office=[...conversations.values()].find(c=>c.partnerId==='office');await page.goto('http://partners-fixture.test/partners/office?conversation='+office.id);await page.locator('.artifact-file').waitFor();
  await page.getByLabel('添加附件或技能').click();await page.getByRole('button',{name:'引用任务资源',exact:true}).click();await page.getByRole('button',{name:'交付文稿.docx',exact:true}).click();assert.match(await page.locator('.composer-attachments').innerText(),/交付文稿/);checks.reuseGeneratedResource=true;

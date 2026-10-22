@@ -85,14 +85,15 @@ def ready():
      if gateway_ready(env,timeout=2):
       if manifest.get("codingRuntime"):
        headers={"X-Internal-Token":env["INTERNAL_API_TOKEN"],"X-User-Id":"admin","X-User-Role":"admin"}
-       coding=urllib.request.Request("http://127.0.0.1:18126/api/ai/coding/capabilities?modelProfileId=system",headers=headers)
-       with urllib.request.urlopen(coding,timeout=10) as result:
-        capability=json.load(result)
+       # Selection is account-owned: readiness must not require a hidden system model.
+       models=urllib.request.Request("http://127.0.0.1:18126/api/ai/models",headers=headers)
+       with urllib.request.urlopen(models,timeout=10) as result:catalog=json.load(result)
+       if not isinstance(catalog.get("profiles"),list):raise RuntimeError("Model profiles not ready")
+       if catalog.get("systemEnabled",True):
+        coding=urllib.request.Request("http://127.0.0.1:18126/api/ai/coding/capabilities?modelProfileId=system",headers=headers)
+        with urllib.request.urlopen(coding,timeout=10) as result:capability=json.load(result)
         configured=bool(env.get("CODING_MODEL_API_KEY") or env.get("MODEL_API_KEY"))
         if not isinstance(capability.get("available"),bool) or (configured and not capability["available"]):raise RuntimeError("Coding runtime not ready")
-       models=urllib.request.Request("http://127.0.0.1:18126/api/ai/models",headers=headers)
-       with urllib.request.urlopen(models,timeout=10) as result:
-        if not isinstance(json.load(result).get("profiles"),list):raise RuntimeError("Model profiles not ready")
       return
   except Exception:pass
   time.sleep(1)

@@ -86,7 +86,7 @@ test('actual pi SDK + loopback model completes write/read/edit tool loop and res
   assert.equal(events.filter(x => x.event?.type === 'tool_end' && x.event.ok).length, 3);
   assert.equal(requests.length, 4);
   assert.equal(events.filter(x => x.event?.type === 'approval_required').length, 2);
-  assert.deepEqual(requests[0].tools.map(x => x.function.name).sort(), ['edit', 'list', 'read', 'write']);
+  assert.deepEqual(requests[0].tools.map(x => x.function.name).sort(), ['edit', 'list', 'read', 'recall', 'write']);
   assert.ok(requests[2].messages.some(x => x.role === 'tool' && x.content.includes('hello pi')));
   await turn('What did you just do?');
   assert.ok(requests.at(-1).messages.some(x => x.role === 'user' && JSON.stringify(x.content).includes('Create hello.txt')));

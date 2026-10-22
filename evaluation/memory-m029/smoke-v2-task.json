@@ -1,0 +1,129 @@
+{
+  "id": "SM01",
+  "category": "new-combined-feasibility",
+  "target": "combined-pressure",
+  "scope": "smoke-project",
+  "memory": [
+    {
+      "op": "remember",
+      "key": "wire-format",
+      "kind": "CONSTRAINT",
+      "content": "项目事件导出消息的 wireFormat 固定为 cbor-seq，不能使用 JSON 编码。",
+      "session": "prior-new",
+      "scope": "smoke-project"
+    }
+  ],
+  "sameSessionHistory": [
+    {
+      "role": "user",
+      "content": "本次事件回放功能的新要求：replayWindow 必须是 29。后续例行开发进度不更改此约束。"
+    },
+    {
+      "role": "assistant",
+      "content": "已收到本轮事件回放约束。"
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 1. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 2. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 3. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 4. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 5. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 6. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 7. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 8. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 9. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 10. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 11. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    },
+    {
+      "role": "user",
+      "content": "New smoke routine 12. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. Routine coding status: inspect a file, review a boundary condition, record progress; no requirements change. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine review completed. No business requirement changed."
+    }
+  ],
+  "prompt": "请组合当前项目跨会话保存的事件导出 wireFormat 与本轮最早的 replayWindow 要求，只输出一个 JSON 对象，字段为 wireFormat 和 replayWindow；未知字段必须为 null，不猜测。不要调用工具。",
+  "expected": {
+    "wireFormat": "cbor-seq",
+    "replayWindow": 29
+  },
+  "prohibited": [],
+  "requiresCompactionForShortTermClaim": true
+}

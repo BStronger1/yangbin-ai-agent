@@ -88,7 +88,7 @@ test('wrong credentials never leak echoed key into protocol, diagnostics or pi J
     const f=await fixture(t,(_request,res)=>{ res.writeHead(401,{'Content-Type':'application/json'}); res.end(JSON.stringify({type:'error',error:{type:'authentication_error',message:'Invalid API key '+key}})); });
     const result=await run(f,{CODING_MODEL_API:api}); assert.equal(result.ok,false); assert.equal(f.requests.length,1);
     assert.ok(result.stdout.includes('[redacted]')); assert.ok(!result.stdout.includes(key)); assert.ok(!result.stderr.includes(key));
-    for(const file of await fs.readdir(path.join(f.root,'session'))) { const content=await fs.readFile(path.join(f.root,'session',file),'utf8'); assert.ok(!content.includes(key),file); }
+    await assertStoredRedaction(path.join(f.root,'session'));
   }
 });
 test('redirects cannot forward BYOK credentials to another endpoint', {timeout:60000}, async t=>{
@@ -122,7 +122,7 @@ test('provider echoed secret split across SSE deltas is redacted before UI and s
   const result=await run(f); assert.equal(result.ok,true,result.stdout);
   const displayed=result.events.filter(x=>x.event?.type==='text_delta').map(x=>x.event.delta).join('');
   assert.equal(displayed,'Echo [redacted] completed');
-  for(const file of await fs.readdir(path.join(f.root,'session'))) assert.ok(!(await fs.readFile(path.join(f.root,'session',file),'utf8')).includes(key));
+  await assertStoredRedaction(path.join(f.root,'session'));
 });
 
 test('production JSONL admission denies HTTP and then allows one separately accounted request', {timeout:60000}, async t=>{
@@ -135,3 +135,11 @@ test('production JSONL admission denies HTTP and then allows one separately acco
   const usage=allowed.events.find(x=>x.event?.type==='model_usage').event;
   assert.equal(usage.requestId,admission.requestId);assert.equal(usage.inputTokens,null);assert.equal(usage.outputTokens,null);assert.equal(usage.status,'SUCCEEDED');
 });
+
+async function assertStoredRedaction(directory) {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const location = path.join(directory, entry.name);
+    if (entry.isDirectory()) await assertStoredRedaction(location);
+    else assert.ok(!(await fs.readFile(location, 'utf8')).includes(key), entry.name);
+  }
+}

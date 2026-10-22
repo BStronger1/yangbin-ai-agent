@@ -106,6 +106,15 @@ class GatewayHttpTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers['Retry-After'],'60')
         self.assertEqual((await self.client.post('/api/ai/coding/sessions/123/cancel',json={},headers=self.headers)).status,200)
 
+    async def test_assistant_modes_share_model_rate_limit_with_coding(self):
+        response=await self.client.post('/api/ai/assistant/partners/office/jobs?mode=chat',json={},headers=self.headers)
+        self.assertEqual(response.status,200)
+        for path in ['/api/ai/assistant/partners/office/jobs?mode=work','/api/ai/coding/sessions/123/turns']:
+            self.assertEqual((await self.client.post(path,json={},headers=self.headers)).status,429)
+        self.assertEqual((await self.client.get('/api/ai/assistant/partners/office/conversations/123/events?mode=work')).status,200)
+        self.assertEqual((await self.client.post('/api/ai/assistant/partners/office/conversations/123/stop?mode=work',json={},headers=self.headers)).status,200)
+        self.assertEqual(self.app['admission'].models,0)
+
     async def test_metrics_and_logs_do_not_include_content_or_identifiers(self):
         with self.assertLogs('yangbin.gateway',logging.INFO) as captured:
             response=await self.client.post('/api/private-secret-path?secret=private-query',data='private-body',headers=self.headers)

@@ -45,9 +45,40 @@ public class ModelGovernance {
         try { if(Files.isSymbolicLink(this.root))throw new IllegalStateException();Files.createDirectories(this.root); }
         catch(Exception e){throw new IllegalStateException("模型用量目录不可用");}
     }
+    /** Administrator-managed, tightening-only account policy; no user write API. Re-read before admission. */
+    public Limits accountLimits() {
+        String owner=UserContext.current().id();
+        if(!UserContext.validId(owner))throw new Denied("账号额度配置不可用");
+        Path directory=root.resolve(owner),file=directory.resolve("limits.json");
+        try {
+            if(Files.isSymbolicLink(root)||Files.isSymbolicLink(directory)||Files.isSymbolicLink(file))throw new IllegalStateException();
+            java.nio.file.attribute.BasicFileAttributes attributes;
+            try{
+                var ownerAttributes=Files.readAttributes(directory,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+                if(!ownerAttributes.isDirectory())throw new IllegalStateException();
+                attributes=Files.readAttributes(file,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+            }
+            catch(NoSuchFileException absent){return limits;}
+            if(!attributes.isRegularFile()||attributes.size()>4096)throw new IllegalStateException();
+            byte[] policyBytes;try(var stream=Files.newInputStream(file,LinkOption.NOFOLLOW_LINKS)){policyBytes=stream.readNBytes(4097);}
+            if(policyBytes.length>4096)throw new IllegalStateException();
+            com.fasterxml.jackson.databind.JsonNode policy=json.reader().with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS).with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION).readTree(policyBytes);
+            if(policy==null||!policy.isObject())throw new IllegalStateException();
+            var fields=policy.fieldNames();
+            while(fields.hasNext())if(!Set.of("accountConcurrency","dailyRequests","dailyTokens","outputTokens").contains(fields.next()))throw new IllegalStateException();
+            return new Limits((int)tightened(policy,"accountConcurrency",limits.accountConcurrency()),limits.globalConcurrency(),
+                (int)tightened(policy,"dailyRequests",limits.dailyRequests()),tightened(policy,"dailyTokens",limits.dailyTokens()),
+                (int)tightened(policy,"outputTokens",limits.outputTokens()));
+        }catch(Exception invalid){throw new Denied("账号额度配置不可用，已停止新调用");}
+    }
+    private static long tightened(com.fasterxml.jackson.databind.JsonNode policy,String name,long ceiling) {
+        var value=policy.get(name);if(value==null)return ceiling;
+        if(!value.isIntegralNumber()||!value.canConvertToLong()||value.longValue()<1||value.longValue()>ceiling)throw new IllegalArgumentException();
+        return value.longValue();
+    }
     public synchronized Lease reserve(String provider,String model,long reservedTokens) {
         flushPending();
-        String owner=UserContext.current().id(),day=date();Day ledger=load(owner,day);
+        String owner=UserContext.current().id(),day=date();Limits limits=accountLimits();Day ledger=load(owner,day);
         if(reservedTokens<1||reservedTokens>limits.dailyTokens())throw new Denied("单次模型请求超过每日 Token 预算，请缩短上下文");
         if(active.size()>=limits.globalConcurrency()||owners.getOrDefault(owner,0)>=limits.accountConcurrency())throw new Denied("模型请求并发已满，请稍后重试");
         if(ledger.events.size()>=limits.dailyRequests())throw new Denied("今日模型请求次数已用完");
@@ -80,7 +111,7 @@ public class ModelGovernance {
     private void flushPending(){for(Pending item:List.copyOf(pending.values()))finish(item.lease(),item.input(),item.output(),item.status());}
     public synchronized Summary summary() {
         flushPending();
-        String owner=UserContext.current().id();Day d=load(owner,date());long known=0,unknown=0,charged=0,failed=0;
+        String owner=UserContext.current().id();Limits limits=accountLimits();Day d=load(owner,date());long known=0,unknown=0,charged=0,failed=0;
         for(Event e:d.events){charged+=e.chargedTokens();if(e.inputTokens()!=null&&e.outputTokens()!=null)known+=e.inputTokens()+e.outputTokens();else unknown++;if(Set.of("FAILED","UNKNOWN","CANCELLED").contains(e.status()))failed++;}
         return new Summary(date(),"UTC",limits,owners.getOrDefault(owner,0),UserContext.current().admin()?active.size():-1,d.events.size(),known,unknown,charged,Math.max(0,limits.dailyTokens()-charged),failed,"UNKNOWN","当前服务实例受控模型调用；预算扣除至少为预留估算，与实际已知Token分别统计；不含外部嵌入/PPT服务，费用未配置价格");
     }
@@ -137,7 +168,7 @@ public class ModelGovernance {
         throw new Denied("模型工具任务达到20轮上限，请缩小任务后继续");
     }
     private static <T>T choose(T preferred,T fallback){return preferred==null?fallback:preferred;}
-    private Prompt limited(Prompt prompt,ChatOptions defaults){ChatOptions options=prompt.getOptions()!=null?prompt.getOptions():defaults;
+    private Prompt limited(Prompt prompt,ChatOptions defaults){Limits limits=accountLimits();ChatOptions options=prompt.getOptions()!=null?prompt.getOptions():defaults;
         Integer requested=options==null?null:options.getMaxTokens();if(requested==null&&defaults!=null)requested=defaults.getMaxTokens();
         var b=ToolCallingChatOptions.builder().maxTokens(requested==null?limits.outputTokens():Math.min(limits.outputTokens(),Math.max(1,requested)));
         if(options!=null){b.model(choose(options.getModel(),defaults==null?null:defaults.getModel())).temperature(choose(options.getTemperature(),defaults==null?null:defaults.getTemperature())).topP(choose(options.getTopP(),defaults==null?null:defaults.getTopP())).topK(choose(options.getTopK(),defaults==null?null:defaults.getTopK())).frequencyPenalty(choose(options.getFrequencyPenalty(),defaults==null?null:defaults.getFrequencyPenalty())).presencePenalty(choose(options.getPresencePenalty(),defaults==null?null:defaults.getPresencePenalty())).stopSequences(choose(options.getStopSequences(),defaults==null?null:defaults.getStopSequences()));}

@@ -1,0 +1,33 @@
+{
+  "piVersion": "1.3.0",
+  "files": {
+    "fixtures.mjs": "ce0fdccb2de6a20d768e40d4c34d26174b53cee9f7dba5b703c6260ee875d69e",
+    "fixtures.test.mjs": "e5c368ab6bffba7c847e65150957c454ff40dc319702e46eefbf03e38aba7913",
+    "guards.mjs": "701c98347a5f26b537bcbf626d30c595793b2582d14055db49de1322d9fa3e4e",
+    "guards.test.mjs": "e0a5dda9564f05638f7aa0438c914a9c0a60625376d1659a215a4cb1b0aab3b1",
+    "offline.mjs": "995789f73ac83046a2ef7a392e40fa099de178dc2201e5f1e136d0adaa975e81",
+    "protocol.json": "4a0d2d9f01b480bd90d0e1f3470fc2a7142bfe5c00780b9173bb87aeb721205f",
+    "run.mjs": "dc07beea716fb584a974c823b2b891399e91a6d673d9e742d2b16b8cc000572c",
+    "runtime.test.mjs": "599e73dfc3e0bb6574768fe3fa337b2c23209f09dff36b64bc3e9159aaf90122",
+    "scoring.mjs": "317e8a1a188913693aebf5802ca0d92d20db449c6ee615f1a7f852031acdee32",
+    "scoring.test.mjs": "bab87af498634c8f95caa37938c7a23220c9f499fac99ae5f651f010e0aacd01",
+    "tasks.json": "10fac6980d8d4675b768518afff75da1e4854d66d7545467961056ab8cd67949",
+    "SCORING.md": "5e5440bef6cb1b60054871fa974d62743d9c30a741015adc24df90dc1320a240",
+    "TASKS.md": "bdd99de25ef6ad1fd5dbcbae19e15777fc4def86b9815d2717fb4060315c81da"
+  },
+  "runtime": {
+    "src/agent.mjs": "3380740fed781800808bc080e38d909e96b9ecb197462107b3ec62e0b3879975",
+    "src/context-policy.mjs": "710015a211216f7dc4dbdf897ee5c767f40630e30c83d6d9dbbf5fe86e625aa4",
+    "src/context-store.mjs": "29643b552dc5783edba70c7a7c7b571d73136ea8c6b47bef6adbaae3bdbbff3a",
+    "src/long-term-memory.mjs": "6c75fa4d880ba612534c08504af0e76ff2adb523c9b5b5bbf13103165163f54b",
+    "src/main.mjs": "8ae0fee97dba97da8a5f3daca952d60a45c1256a6ec6fcbdb43e65a8930d2f00",
+    "src/model-gate.mjs": "38a31b44d17cc0e7ee9188ef2088cee51a6909dc2c79eef122127a17c66b67a4",
+    "src/model-transport.mjs": "81d584f57a14380213e66657fa6311f5e2f27fa2a5757c9693bb274ed4757646",
+    "src/reasoning-effort.mjs": "29dcd99fbac6c30118a2b1e78cbbf17306a7cea3d02e2fba30945627ab1926de",
+    "src/sandbox.mjs": "b59948cdd412dec648a3a65413cf30bd14726d42f187225b906d600deb1ee7fc",
+    "src/tools.mjs": "9311b077ca1d74cb5652f38c7052ea6c5c8a94e997919605f379c29709a1b5bc",
+    "package.json": "60be214d33f1b28554909a28f3b8399eb9f72b3a317e6b048cb144f154ff1007",
+    "package-lock.json": "3e72926b4150e7595bd15624be1cbb4fc36fd779c9989121203b9ea3b2c3ca92"
+  },
+  "legacyCoreSha256": "be4ac93e858cec7ec2704d3e4e753548e10496b6973eeaecd77ed59b26b289eb"
+}

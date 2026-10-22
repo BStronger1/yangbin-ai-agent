@@ -1,6 +1,6 @@
 # yangbin AI Agent
 
-**一个网页，两种工作方式：AI 超级智能体对话与基于 pi 的 Coding Agent。**
+**一个网页，两个工作空间：通用助手（Chat / Work）与基于 pi 的 Coding Agent。**
 
 基于 **Spring Boot 3 + Java 21 + Spring AI + Vue 3** 构建的 AI 智能体工作台，集成 AI 恋爱大师、ReAct 自主规划智能体 **YangbinManus** 和基于 **pi** 的 Coding Agent，覆盖多厂商模型接入、用户自带 API Key（BYOK）、Prompt 工程、RAG 检索增强、Tool Calling、MCP、任务审批与文件产物管理。在课程项目基础上持续扩展对话与编程能力；RAG、MCP 等扩展需额外配置。
 
@@ -8,13 +8,14 @@ Bring your own model, keep projects private, and review tool actions before they
 
 [![Build](https://github.com/BStronger1/yangbin-ai-agent/actions/workflows/build.yml/badge.svg)](https://github.com/BStronger1/yangbin-ai-agent/actions/workflows/build.yml)
 
-[架构](#项目架构) · [功能模块](#功能模块) · [技术选型](#技术选型) · [快速开始](#本地运行) · [模型接入](docs/MODEL-PROVIDERS.md) · [运行治理](docs/PRODUCTION-GOVERNANCE.md) · [部署](docs/SELF-HOSTING.md) · [贡献](CONTRIBUTING.md) · [来源与许可](NOTICE.md)
+[工作空间与兼容规则](docs/WORKSPACES.md) · [架构](#项目架构) · [功能模块](#功能模块) · [技术选型](#技术选型) · [快速开始](#本地运行) · [模型接入](docs/MODEL-PROVIDERS.md) · [运行治理](docs/PRODUCTION-GOVERNANCE.md) · [部署](docs/SELF-HOSTING.md) · [贡献](CONTRIBUTING.md) · [来源与许可](NOTICE.md)
 
 ## 能做什么
 
-- **对话**：选择自己的模型，使用现有 ReAct 超级智能体与工具链。
-- **工作**：创建服务端私有项目，让 pi Coding Agent 读取、编写、编辑文件；查看实际工具事件、审批、取消、历史任务和最近一轮文本差异。
-- **自带模型**：Claude 原生 Messages、OpenAI / DeepSeek / Kimi 的兼容接口，以及自定义兼容 Base URL 和模型 ID。配置按账号隔离，API Key 在服务器加密保存、不回显。
+- **通用 Chat**：直接问答、讨论与修改内容，使用文字及已解析材料，不为简单问题强制创建工作计划。
+- **通用 Work**：确认本轮目标、材料和交付物，查看实际处理进度与 Word、Markdown、数据成果；切换或刷新后恢复服务端状态。
+- **Coding Agent**：创建服务端私有项目，让 pi Coding Agent 读取、编写、编辑文件；查看实际工具事件、审批、取消、历史任务和最近一轮文本差异。
+- **总设置中的模型管理**：在 `/settings` 保存服务连接和加密 API Key，获取模型列表并勾选常用模型（建议 6 个，不限 6 个）。Chat、Work、Coding 只显示所选模型，输入区可选已核实的原生推理强度；未知能力保留服务默认。[用法与边界](docs/MODEL-SETTINGS.md)。
 - **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员授权及可用的 Linux 隔离环境，不回退宿主 shell。
 - **运行治理**：账号/全局模型并发、每日请求与保守 Token 配额、持久用量账本、失败熔断、请求关联及网关指标；未知用量和费用明确区分，详见[运行治理与安全边界](docs/PRODUCTION-GOVERNANCE.md)。
 - **主对话历史**：按账号保存会话与任务状态、重复请求去重、取消和有界历史上下文；支持用户显式维护参考便签。
@@ -42,7 +43,7 @@ Bring your own model, keep projects private, and review tool actions before they
 
 ```mermaid
 flowchart TB
-    UI["Vue 3 网页<br/>对话 · 工作 · 模型设置 · 原工作台"]
+    UI["Vue 3 网页<br/>通用 Chat / Work · Coding · 模型设置"]
     Gateway["Python / aiohttp 网关<br/>会话认证 · CSRF · 静态资源 · 反向代理"]
     Accounts[("SQLite<br/>账号 · 邀请码 · 会话")]
 
@@ -50,6 +51,7 @@ flowchart TB
         API["HTTP API / 用户上下文<br/>内部令牌校验 · 权限检查"]
         Profiles["ModelProfileService<br/>账号私有模型 · 配置解析"]
         Governance["ModelGovernance<br/>逐次准入 · 配额账本 · 熔断 · 安全事件"]
+        Assistant["AssistantController / PartnerChatService<br/>固定模式 · 持久任务 · 材料与成果"]
         Chat["YangbinManus / ReAct<br/>模型推理 · Java 工具调用"]
         Coding["CodingService / NodeCodingRuntime<br/>任务状态 · 审批 · 取消 · 模型快照"]
         Modules["技能 · 伙伴 · 规划 · 知识库 · 产物"]
@@ -67,6 +69,9 @@ flowchart TB
     Gateway -->|内部鉴权与账号身份| API
     API --> Profiles
     API --> Chat
+    API --> Assistant
+    Assistant --> Governance
+    Assistant --> Storage
     API --> Coding
     API --> Modules
     Profiles --> Storage
@@ -86,10 +91,12 @@ flowchart TB
     Gateway -.-> PPT
 ```
 
-### 两条核心执行链路
+### 工作空间与执行链路
 
-- **对话**：浏览器经网关提交消息和模型配置 ID → 后端按当前账号解析模型 → `YangbinManus` 执行 ReAct 推理与工具调用 → 逐轮通过模型准入后，通过 SSE 返回步骤、工具事件与回答。每轮任务有独立状态与编号，成功历史以有界上下文继续使用；用户便签可跨会话引用，尚非自动语义长期记忆。
-- **工作**：浏览器提交项目、提示词、`requestId`、版本号和模型配置 ID → `CodingService` 校验并保存轮次 → 独立 Node 子进程运行 pi → 需要确认的工具等待网页审批 → 实际执行文件操作并保存事件、状态及最近一轮差异。网页通过 HTTP 轮询恢复任务状态；Java 与 Node 之间使用 JSONL，不把它误写成浏览器 SSE。
+- **通用 Chat / Work**：`AssistantController` 校验账号与固定模式 → 复用 `PartnerChatService` 的持久任务、解析材料和共享模型治理 → Chat 保存回复，Work 发布真实成果 → 只读状态 SSE / GET 恢复。此 SSE 为状态快照，不是逐 Token 流；订阅断开不取消任务。
+- **Coding 项目长期记忆**：保存事实、偏好和项目约束，在同项目新会话按需检索；支持更正、版本冲突、归档和忘记，默认关闭明确格式自动保存。记忆不授予工具权限，检索有上下文预算；不是完整语义记忆。见 [使用与边界](docs/LONG-TERM-MEMORY.md) 和 [真实评测记录](evaluation/memory-m029/REAL-RESULTS.md)。
+- **旧 Manus 对话**：浏览器经网关提交消息和模型配置 ID → 后端按当前账号解析模型 → `YangbinManus` 执行 ReAct 推理与工具调用 → 逐轮通过模型准入后，通过 SSE 返回步骤、工具事件与回答。每轮任务有独立状态与编号，成功历史以有界上下文继续使用；用户便签可跨会话引用，尚非自动语义长期记忆。
+- **Coding**：浏览器提交项目、提示词、`requestId`、版本号和模型配置 ID → `CodingService` 校验并保存轮次 → 独立 Node 子进程运行 pi → 需要确认的工具等待网页审批 → 实际执行文件操作并保存事件、状态及最近一轮差异。网页通过 HTTP 轮询恢复任务状态；Java 与 Node 之间使用 JSONL，不把它误写成浏览器 SSE。
 
 个人模型配置提供统一的账号归属和选择语义；Java 对话通过 Spring AI 适配，Node 编码通过 pi 适配，二者分别处理对应供应商协议。RAG、MCP 和技能工作台的存在不意味着 Coding Agent 已自动接入这些扩展。
 
@@ -113,9 +120,9 @@ flowchart TB
 
 | 模块 | 已实现功能 | 页面或源码入口 | 范围说明 |
 | --- | --- | --- | --- |
-| 双模式首页 | 对话 / 工作切换，模型选择，最近项目与任务入口 | `/work`；[CodingWorkspace.vue](yangbin-ai-agent-frontend/src/views/CodingWorkspace.vue) | 对话与工作分别记住非密钥模型选择 |
+| 工作空间 | 通用助手 Chat/Work、独立 Coding，模式草稿/模型/布局及历史恢复 | `/assistant?mode=chat`、`/assistant?mode=work`、`/coding`；[兼容规则](docs/WORKSPACES.md) | 原 `/work` 保留 Coding 上下文；跨空间仅用户审阅后转交草稿 |
 | AI 超级智能体 | ReAct 推理、Java 工具调用、执行事件与 SSE 回答 | `/work?mode=chat`；[agent](src/main/java/com/yangbin/yangbinaiagent/agent) | 持久会话、重复请求去重、有界上下文与取消；工具依赖和权限分别配置 |
-| Coding Agent | 私有项目、读写与精确编辑、三档审批、取消、历史恢复、文本差异 | `/work?mode=work`；[coding](src/main/java/com/yangbin/yangbinaiagent/coding)、[pi 运行时](coding-agent) | 命令执行另需管理员开启；未实现本机仓库或 Git/PR 操作 |
+| Coding Agent | 私有项目、读写与精确编辑、三档审批、取消、历史恢复、文本差异 | `/coding`（旧 `/work` 兼容）；[coding](src/main/java/com/yangbin/yangbinaiagent/coding)、[pi 运行时](coding-agent) | 命令执行另需管理员开启；未实现本机仓库或 Git/PR 操作 |
 | 运行治理 | 模型准入、保守配额、未知用量标记、熔断、关联事件、显式便签及管理员网关状态 | `/governance`；[governance](src/main/java/com/yangbin/yangbinaiagent/governance) | 单实例控制；不含 Embedding/独立 PPT 费用，不是账单或完整监控平台 |
 | BYOK 模型管理 | Claude / OpenAI / DeepSeek / Kimi / 自定义兼容配置，增删改与默认模型 | 输入栏“模型设置”；[models](src/main/java/com/yangbin/yangbinaiagent/models) | 已接入主对话、Coding 与 11 个伙伴对话；旧版单次任务及独立 PPT 工作台仍分别配置模型 |
 | 账号与访问控制 | 邀请注册、登录、改密、管理员账号控制、会话与 CSRF | `/account`；[accounts.py](deploy/turing/accounts.py)、[proxy.py](deploy/turing/proxy.py) | 普通账号与管理员权限分开，资源按账号校验 |
@@ -158,7 +165,7 @@ python -m pip install -r deploy/turing/requirements.txt
 python tools/run_local.py --build
 ```
 
-首次启动会让你设置本地管理员密码（输入不显示）。打开 **http://127.0.0.1:18825/work**，默认账号为 `admin`。在输入栏的模型菜单进入“模型设置”，填写厂商、Base URL、模型 ID 和 API Key，然后分别在“对话”和“工作”中选择它。
+首次启动会让你设置本地管理员密码（输入不显示）。打开 **http://127.0.0.1:18825/assistant?mode=chat**，默认账号为 `admin`。在输入栏的模型菜单进入“模型设置”，填写厂商、Base URL、模型 ID 和 API Key，然后分别在通用 Chat、Work 或 Coding 空间中选择它。旧 `/work` 链接继续打开 Coding。
 
 无需先配置全站共享模型。已有构建后直接 `python tools/run_local.py`；用 `--check` 检查环境，用 Ctrl+C 停止本次服务。启动器仅监听本机，不覆盖已有账号密码。MCP、RAG、NarrativePPT 和命令执行默认不开启。
 

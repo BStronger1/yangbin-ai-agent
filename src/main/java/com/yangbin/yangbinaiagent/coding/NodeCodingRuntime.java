@@ -18,7 +18,10 @@ public class NodeCodingRuntime implements CodingRuntime {
     private final String node, key, baseUrl, model, provider;
     @Value("${app.coding.api:${CODING_MODEL_API:openai-completions}}") private String systemApi="openai-completions";
     @Value("${app.coding.context-window:${CODING_CONTEXT_WINDOW:64000}}") private int contextWindow=64000;
+    @Value("${app.coding.context-policy:${CODING_CONTEXT_POLICY:layered-v1}}") private String contextPolicy="layered-v1";
+    @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
     @Value("${app.governance.output-tokens:4096}") private int outputTokens=4096;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.governance.ModelGovernance governance;
     private final Path entry;
     private final boolean enabled;
     private final long timeoutSeconds;
@@ -62,10 +65,13 @@ public class NodeCodingRuntime implements CodingRuntime {
         ProcessBuilder builder=new ProcessBuilder(node,entry.toString()).directory(entry.getParent().getParent().toFile());
         restrictEnvironment(builder);
         builder.environment().put("CODING_GOVERNANCE_REQUIRED","true");
+        builder.environment().put("CODING_CONTEXT_POLICY",contextPolicy);
+        builder.environment().put("CODING_LONG_TERM_MEMORY",longTermMemory);
         builder.environment().put("CODING_CONTEXT_WINDOW",Integer.toString(Math.max(4096,Math.min(contextWindow,200000))));
-        builder.environment().put("CODING_OUTPUT_TOKENS",Integer.toString(Math.max(1,Math.min(outputTokens,65536))));
+        builder.environment().put("CODING_OUTPUT_TOKENS",Integer.toString(Math.max(1,Math.min(governance==null?outputTokens:governance.accountLimits().outputTokens(),65536))));
         builder.environment().put("CODING_MODEL_API_KEY",activeKey);builder.environment().put("CODING_MODEL_BASE_URL",activeBase);
         builder.environment().put("CODING_MODEL_NAME",activeModel);builder.environment().put("CODING_MODEL_MODEL",activeModel);builder.environment().put("CODING_MODEL_PROVIDER",activeProvider);
+        builder.environment().put("CODING_MODEL_REASONING_EFFORT",selected==null?"":java.util.Objects.toString(selected.snapshot().reasoningEffort(),""));
         builder.environment().put("CODING_MODEL_API",activeApi);builder.environment().put("CODING_MODEL_ALLOW_PRIVATE",Boolean.toString(selected==null||selected.allowPrivate()));
         builder.redirectError(ProcessBuilder.Redirect.DISCARD); // provider/process errors must not expose secrets
         Process process=builder.start();
@@ -85,7 +91,7 @@ public class NodeCodingRuntime implements CodingRuntime {
                 while((line=readBoundedLine(reader,2_000_000))!=null){
                     Map<String,Object> item=json.readValue(line,new TypeReference<>(){});
                     if("ready".equals(item.get("type"))&&!started){
-                        var start=new LinkedHashMap<String,Object>();start.put("id",request.sessionId());start.put("type","start");start.put("sessionId",request.sessionId());start.put("workspace",request.workspace().toString());start.put("sessionDir",request.sessionDir().toString());start.put("prompt",request.prompt());start.put("approvalMode",request.approvalMode());start.put("allowShell",request.allowShell());
+                        var start=new LinkedHashMap<String,Object>();start.put("id",request.sessionId());start.put("type","start");start.put("sessionId",request.sessionId());start.put("workspace",request.workspace().toString());start.put("sessionDir",request.sessionDir().toString());start.put("prompt",request.prompt());start.put("approvalMode",request.approvalMode());start.put("allowShell",request.allowShell());if(request.memoryFile()!=null)start.put("memoryFile",request.memoryFile().toString());
                         synchronized(writer){writer.write(json.writeValueAsString(start));writer.newLine();writer.flush();}started=true;
                     }else if("event".equals(item.get("type"))&&item.get("event") instanceof Map<?,?> raw){
                         @SuppressWarnings("unchecked") Map<String,Object> event=(Map<String,Object>)raw;

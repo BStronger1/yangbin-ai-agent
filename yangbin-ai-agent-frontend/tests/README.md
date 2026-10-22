@@ -10,4 +10,6 @@ npm run test:models-ui
 
 Linux CI 可使用 `npx playwright install --with-deps chromium` 安装浏览器及系统依赖。若已安装 Chrome/Chromium，可将 `CHROME_EXECUTABLE_PATH` 设置为其可执行文件路径，跳过浏览器下载。
 
-脚本先构建前端，再使用本地 API 夹具检查模型管理、密钥输入、双模式选择、待确认重试和手机布局；不调用真实模型。默认报告与截图写入前端项目的 `tmp/model-profiles-ui/`。可用 `EVIDENCE_DIR` 指定其他输出目录。两个环境变量均为可选项，测试代码不依赖个人机器路径。
+脚本先构建前端，再使用本地 API 夹具检查总设置的服务连接、模型发现与多选、密钥清空、Chat/Work/Coding 的模型与推理强度、待确认原请求重试及手机布局；不调用真实模型。默认报告与截图写入前端项目的 `tmp/model-profiles-ui/`。可用 `EVIDENCE_DIR` 指定其他输出目录。两个环境变量均为可选项，测试代码不依赖个人机器路径。
+
+新增工作空间/伙伴回归可分别运行 `node tests/workspaces.browser.mjs`、`node tests/partners.browser.mjs`。全部为离线 API 合同夹具，不证明后端鉴权或供应商模型质量。

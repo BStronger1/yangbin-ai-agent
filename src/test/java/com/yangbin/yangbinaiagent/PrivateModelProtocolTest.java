@@ -31,13 +31,13 @@ class PrivateModelProtocolTest {
         String result=new YangbinManus(new ToolCallback[]{tool()},new PrivateChatModels().create(selected(provider,"/gateway/provider"))).run("use the tool then answer");
         assertThat(result).contains("tool-evidence","finished [REDACTED]").doesNotContain(credential,"执行错误");assertThat(tools).hasValue(1);assertThat(requests).hasSize(2);assertThat(requests.get(1).toString()).contains("tool-evidence");
     }
-    @Test void nativeAnthropicMessagesPreservesManusToolLoopAndProtocolHeaders()throws Exception{
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"/anthropic-gateway","/anthropic-gateway/v1"}) void nativeAnthropicMessagesPreservesManusToolLoopAndProtocolHeaders(String basePath)throws Exception{
         server.createContext("/anthropic-gateway/v1/messages",e->{try{
             assertThat(e.getRequestHeaders().getFirst("x-api-key")).isEqualTo(credential);assertThat(e.getRequestHeaders().getFirst("anthropic-version")).isNotBlank();JsonNode r=json.readTree(e.getRequestBody());requests.add(r);assertThat(r.path("model").asText()).isEqualTo("fixture-model");assertThat(r.path("max_tokens").asInt()).isPositive();assertThat(r.has("temperature")).isFalse();
             var content=requests.size()==1?List.of(Map.of("type","tool_use","id","tool-1","name","echoWitness","input",Map.of("text",credential))):List.of(Map.of("type","text","text","claude finished "+credential));
             reply(e,200,Map.of("id","msg-test","type","message","role","assistant","model","fixture-model","content",content,"stop_reason",requests.size()==1?"tool_use":"end_turn","usage",Map.of("input_tokens",10,"output_tokens",5)));
         }catch(Throwable failure){reply(e,500,Map.of("error","fixture failure"));throw new RuntimeException(failure);}});
-        String result=new YangbinManus(new ToolCallback[]{tool()},new PrivateChatModels().create(selected("anthropic","/anthropic-gateway"))).run("use native tool");
+        String result=new YangbinManus(new ToolCallback[]{tool()},new PrivateChatModels().create(selected("anthropic",basePath))).run("use native tool");
         assertThat(result).contains("tool-evidence","claude finished [REDACTED]").doesNotContain(credential,"执行错误");assertThat(tools).hasValue(1);assertThat(requests).hasSize(2);assertThat(requests.get(1).toString()).contains("tool_result","tool-evidence");
     }
     @Test void refusesRedirectWithoutSendingCredentialToRedirectTarget()throws Exception{
@@ -51,6 +51,23 @@ class PrivateModelProtocolTest {
     @Test void usageMetadataIsPreservedOnlyWhenProviderActuallyReportsIt()throws Exception{
         server.createContext("/usage/chat/completions",e->{int n=tools.incrementAndGet();var payload=new java.util.HashMap<String,Object>(Map.of("id","usage","object","chat.completion","created",1,"model","fixture-model","choices",List.of(Map.of("index",0,"message",Map.of("role","assistant","content","ok"),"finish_reason","stop"))));if(n==1)payload.put("usage",Map.of("prompt_tokens",12,"completion_tokens",4,"total_tokens",16));reply(e,200,payload);});
         var model=new PrivateChatModels().create(selected("openai","/usage"));var known=model.call(new Prompt("hello"));assertThat(known.getMetadata().getUsage().getTotalTokens()).isEqualTo(16);var unknown=model.call(new Prompt("hello"));assertThat(unknown.getMetadata().getUsage()).isInstanceOf(org.springframework.ai.chat.metadata.EmptyUsage.class);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"openai,gpt-5,low","deepseek,deepseek-v4-pro,high","deepseek,deepseek-v4-pro,none","anthropic,claude-sonnet-4-6,high"})
+    void selectedEffortReachesActualHttpBody(String provider,String modelId,String effort)throws Exception{
+        boolean anthropic=provider.equals("anthropic");
+        server.createContext(anthropic?"/effort/v1/messages":"/effort/chat/completions",e->{
+            requests.add(json.readTree(e.getRequestBody()));
+            if(anthropic)reply(e,200,Map.of("id","msg-effort","type","message","role","assistant","model",modelId,"content",List.of(Map.of("type","text","text","ok")),"stop_reason","end_turn","usage",Map.of("input_tokens",10,"output_tokens",5)));
+            else reply(e,200,Map.of("id","effort","object","chat.completion","created",1,"model",modelId,"choices",List.of(Map.of("index",0,"message",Map.of("role","assistant","content","ok"),"finish_reason","stop"))));
+        });
+        var selected=new ModelProfileService.Resolved(new ModelProfileService.Snapshot("effort","fixture",provider,origin+"/effort",modelId,anthropic?"anthropic-messages":"openai-completions",effort),credential,true);
+        assertThat(new PrivateChatModels().create(selected).call(new Prompt("hello",org.springframework.ai.openai.OpenAiChatOptions.builder().maxTokens(128).build())).getResult().getOutput().getText()).isEqualTo("ok");
+        assertThat(requests).hasSize(1);var body=requests.getFirst();
+        if(provider.equals("openai")){assertThat(body.has("max_tokens")).isFalse();assertThat(body.path("max_completion_tokens").asInt()).isEqualTo(128);}
+        if(anthropic)assertThat(body.path("output_config").path("effort").asText()).isEqualTo(effort);
+        else if(provider.equals("deepseek")&&effort.equals("none")){assertThat(body.path("thinking").path("type").asText()).isEqualTo("disabled");assertThat(body.has("reasoning_effort")).isFalse();}
+        else{assertThat(body.path("reasoning_effort").asText()).isEqualTo(effort);if(provider.equals("deepseek"))assertThat(body.path("thinking").path("type").asText()).isEqualTo("enabled");}
     }
     @Test void unconfiguredSharedModelFailsClearlyWithoutExternalRequest(){assertThatThrownBy(()->new UnconfiguredChatModel().call(new Prompt("hello"))).isInstanceOf(IllegalStateException.class).hasMessageContaining("个人模型");}
 }

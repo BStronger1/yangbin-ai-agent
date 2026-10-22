@@ -1,14 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import {auth,loadUser,safeNext} from '../auth'
 
+const legacyWork = to => ({ path: typeof to.query.session === 'string' || typeof to.query.project === 'string' || to.query.mode !== 'chat' ? '/coding' : '/super-agent', query: to.query, hash: to.hash })
+
 const routes = [
+  {path:'/settings',component:()=>import('../views/Settings.vue'),meta:{title:'设置 · yangbin AI'}},
+  {path:'/assistant',component:()=>import('../views/AssistantWorkspace.vue'),meta:{title:'通用助手 · yangbin AI'}},
+  {path:'/coding',component:()=>import('../views/CodingWorkspace.vue'),meta:{title:'Coding Agent · yangbin AI'}},
   {path:'/governance',component:()=>import('../views/Governance.vue'),meta:{title:'用量与运行状态 · yangbin AI'}},
   {path:'/partners/:partnerId',component:()=>import('../views/PartnerHome.vue'),meta:{title:'工作伙伴 · yangbin AI'}},
   {path:'/partners/:partnerId/details',component:()=>import('../views/PartnerDetails.vue'),meta:{title:'伙伴详情 · yangbin AI'}},
   {path:'/presentation',component:()=>import('../views/PresentationStudio.vue'),meta:{title:'演示工作台 · yangbin AI'}},
   {path:'/skills',component:()=>import('../views/SkillHub.vue'),meta:{title:'技能与伙伴 · yangbin AI'}},
   {path:'/skills/manage',component:()=>import('../views/Skills.vue'),meta:{title:'出行技能管理 · yangbin AI'}},
-  {path:'/work',component:()=>import('../views/CodingWorkspace.vue'),meta:{title:'工作任务 · yangbin AI'}},
+  {path:'/work',redirect:legacyWork},
   {path:'/work/:skillId',component:()=>import('../views/WorkDesk.vue'),meta:{title:'技能任务 · yangbin AI'}},
   {path:'/tasks',component:()=>import('../views/Tasks.vue'),meta:{title:'任务工作台 · yangbin AI'}},
   {path:'/tasks/:id',component:()=>import('../views/Tasks.vue'),meta:{title:'任务详情 · yangbin AI'}},
@@ -21,9 +26,9 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('../views/CodingWorkspace.vue'),
+    redirect: to => (to.query.session || to.query.project || to.query.mode ? legacyWork(to) : { path: '/assistant', query: { mode: 'chat' } }),
     meta: {
-      title: '工作任务 · yangbin AI',
+      title: '通用助手 · yangbin AI',
       description: 'yangbinAI超级智能体应用平台提供AI恋爱大师和AI超级智能体服务，满足您的各种AI对话需求'
     }
   },

@@ -1,0 +1,85 @@
+{
+  "id": "memory-m030-v1",
+  "status": "frozen",
+  "date": "2026-10-22",
+  "baselineManifestSha256": "0dadd0d480495ec0f53af7713099c0d384c8a38d59c91c3cf73e79935a1a31db",
+  "productRelease": "m029-20261022-8895b9ab7622",
+  "piVersion": "1.3.0",
+  "groups": {
+    "A": {
+      "shortTerm": "baseline",
+      "longTerm": false
+    },
+    "B": {
+      "shortTerm": "layered-v1",
+      "longTerm": false
+    },
+    "C": {
+      "shortTerm": "baseline",
+      "longTerm": true
+    },
+    "D": {
+      "shortTerm": "layered-v1",
+      "longTerm": true
+    }
+  },
+  "taskOrder": [
+    "N01",
+    "N02",
+    "N03",
+    "N04"
+  ],
+  "executionOrders": {
+    "N01": [
+      "A",
+      "D",
+      "B",
+      "C"
+    ],
+    "N02": [
+      "B",
+      "A",
+      "C",
+      "D"
+    ],
+    "N03": [
+      "C",
+      "B",
+      "D",
+      "A"
+    ],
+    "N04": [
+      "D",
+      "C",
+      "A",
+      "B"
+    ]
+  },
+  "contextWindow": 32768,
+  "model": {
+    "model": "deepseek-v4.1-flash-1017",
+    "provider": "custom",
+    "api": "openai-completions",
+    "reasoningEffort": "default"
+  },
+  "budget": {
+    "maxRequests": 128,
+    "maxReservedTokens": 3072000,
+    "perInstanceRequests": 8,
+    "perInstanceReservedTokens": 192000,
+    "maxOutputTokens": 2048,
+    "maxTaskSeconds": 360,
+    "retries": 0,
+    "paidJudgeCalls": 0
+  },
+  "memoryBudgetBytes": 1024,
+  "memoryLimit": 4,
+  "stages": 2,
+  "compactionsPerInstance": 2,
+  "scoring": "Content, format, runtime and safety independent. N01 task success uses actual artifact and successful write/edit tool, never prose claims. All planned instances stay in ITT. See SCORING.md.",
+  "safety": "Synthetic isolated projects only; shell always false; no generated code execution; writes approved only to N01 artifact in stage 2. Any runtime failure halts remaining instances.",
+  "claims": "4 synthetic tasks, 16 factorial instances; two forced SDK compactions with imported history, not 16 independent tasks or a natural repository long-task benchmark. No population improvement claim.",
+  "artifactTaskIds": [
+    "N01"
+  ]
+}

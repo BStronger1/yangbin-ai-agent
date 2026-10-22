@@ -29,7 +29,7 @@ jobs:
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
       - name: Install Chinese font for presentation export
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-      - run: mvn -B -ntp "-Dtest.presentation.font=Noto Sans CJK SC" -Dtest=NodeCodingRuntimeBoundaryTest,ChatModelGovernanceConfigTest,AiControllerLifecycleTest,ManusConversationsTest,ModelGovernanceTest,ContentFreeLoggingTest,DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest,ExecutionProvenanceTest,FrozenDatasetEvaluationTest,SourceClaimReviewTest,PlanRouteServiceTest,WorkServiceTest,WorkPresentationTest,PartnerChatServiceTest,PartnerWorkspaceTest,PartnerCapabilitiesTest,McpWorkbenchTest,CodingServiceTest,CodingAgentEndToEndTest,ModelProfileServiceTest,PrivateModelProtocolTest,CodingModelSelectionTest,ModelProfilesHttpEndToEndTest,KeylessStartupTest,MissingDashScopeKeyEnvironmentPostProcessorTest package
+      - run: mvn -B -ntp "-Dtest.presentation.font=Noto Sans CJK SC" -Dtest=MemoryServiceM029Test,MemoryHttpEndToEndTest,MemoryProcessRecoveryTest,AssistantHttpEndToEndTest,AssistantWorkspaceTest,ManusDisconnectTest,NodeCodingRuntimeBoundaryTest,ChatModelGovernanceConfigTest,AiControllerLifecycleTest,ManusConversationsTest,ModelGovernanceTest,ContentFreeLoggingTest,DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest,ExecutionProvenanceTest,FrozenDatasetEvaluationTest,SourceClaimReviewTest,PlanRouteServiceTest,WorkServiceTest,WorkPresentationTest,PartnerChatServiceTest,PartnerWorkspaceTest,PartnerCapabilitiesTest,McpWorkbenchTest,CodingServiceTest,CodingAgentEndToEndTest,ModelProfileServiceTest,PrivateModelProtocolTest,CodingModelSelectionTest,ModelSettingsTest,ModelProfilesHttpEndToEndTest,KeylessStartupTest,MissingDashScopeKeyEnvironmentPostProcessorTest package
       - name: Preserve source-rule evaluation report
         if: always()
         uses: actions/upload-artifact@v4
@@ -137,3 +137,22 @@ jobs:
           name: production-governance-ui
           path: yangbin-ai-agent-frontend/tmp/production-ui/
           if-no-files-found: warn
+
+      - name: Verify assistant workspace navigation and monotonic recovery
+        run: |
+          node --test tests/workspace-projection.test.mjs
+          node tests/workspaces.browser.mjs
+        working-directory: yangbin-ai-agent-frontend
+      - name: Preserve assistant workspace evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-workspace-ui
+          path: yangbin-ai-agent-frontend/tmp/workspaces-m026/
+          if-no-files-found: warn
+
+      - name: Verify project memory UI without models
+        run: node tests/memory.browser.mjs
+        working-directory: yangbin-ai-agent-frontend
+      - name: Verify frozen memory evaluation contracts without models
+        run: node --test evaluation/memory-m029/*.test.mjs evaluation/memory-m030/*.test.mjs evaluation/memory-m030-unrun/*.test.mjs

@@ -14,6 +14,12 @@ public class ModelProfileController {
     @PutMapping("/profiles/{id}") public Object update(@PathVariable String id,@RequestBody ModelProfileService.Input input)throws Exception{return service.update(id,input);}
     @DeleteMapping("/profiles/{id}") public Object delete(@PathVariable String id)throws Exception{service.delete(id);return Map.of("deleted",true);}
     @PutMapping("/defaults") public Object defaults(@RequestBody DefaultInput input)throws Exception{return service.defaults(input.modelProfileId());}
+    public record SelectionInput(java.util.List<String> modelProfileIds){}
+    @PostMapping("/connections") public Object createConnection(@RequestBody ModelProfileService.ConnectionInput input)throws Exception{return service.createConnection(input);}
+    @PutMapping("/connections/{id}") public Object updateConnection(@PathVariable String id,@RequestBody ModelProfileService.ConnectionInput input)throws Exception{return service.updateConnection(id,input);}
+    @DeleteMapping("/connections/{id}") public Object deleteConnection(@PathVariable String id)throws Exception{return service.deleteConnection(id);}
+    @PostMapping("/connections/{id}/discover") public Object discover(@PathVariable String id)throws Exception{return service.discover(id);}
+    @PutMapping("/selection") public Object selection(@RequestBody SelectionInput input)throws Exception{return service.selection(input.modelProfileIds());}
     @ExceptionHandler(IllegalArgumentException.class) public ResponseEntity<?> invalid(IllegalArgumentException e){return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()));}
     @ExceptionHandler(IllegalStateException.class) public ResponseEntity<?> conflict(IllegalStateException e){return ResponseEntity.status(409).body(Map.of("message",e.getMessage()));}
     @ExceptionHandler(Exception.class) public ResponseEntity<?> unavailable(Exception e){return ResponseEntity.status(503).body(Map.of("message","模型配置暂不可用，请稍后重试"));}

@@ -1,0 +1,193 @@
+{
+  "id": "SM02",
+  "category": "telemetry-archive-combined-feasibility",
+  "target": "combined-pressure",
+  "scope": "telemetry-new-project",
+  "memory": [
+    {
+      "op": "remember",
+      "key": "telemetry-archive-codec",
+      "kind": "CONSTRAINT",
+      "content": "遥测归档项目的 archiveCodec 统一为 zstd-framed，不使用默认无压缩格式。",
+      "session": "prior-v3-only",
+      "scope": "telemetry-new-project"
+    }
+  ],
+  "sameSessionHistory": [
+    {
+      "role": "user",
+      "content": "本轮遥测批处理功能新增约束：batchStride 必须为 43。以后例行进度不会修改这个数值。"
+    },
+    {
+      "role": "assistant",
+      "content": "已记录本轮遥测批处理约束。"
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 1. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 2. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 3. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 4. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 5. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 6. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 7. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 8. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 9. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 10. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 11. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 12. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 13. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 14. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 15. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 16. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 17. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 18. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 19. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    },
+    {
+      "role": "user",
+      "content": "Telemetry progress 20. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. Routine telemetry review: inspect pagination and bounds, record progress, and check cancellation paths. This note changes no business constraints. "
+    },
+    {
+      "role": "assistant",
+      "content": "Routine telemetry review noted. The earlier business constraint remains unchanged."
+    }
+  ],
+  "prompt": "依据遥测归档项目已保存的 archiveCodec 和本轮最早约定的 batchStride，输出一个 JSON 对象，恰含 archiveCodec 与 batchStride。没有明确证据的字段必须为 null，不采用默认值。不要调用工具。",
+  "expected": {
+    "archiveCodec": "zstd-framed",
+    "batchStride": 43
+  },
+  "prohibited": [],
+  "requiresCompactionForShortTermClaim": true
+}

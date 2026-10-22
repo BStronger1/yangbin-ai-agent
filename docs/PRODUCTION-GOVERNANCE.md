@@ -31,12 +31,24 @@ Spring AI 的自动工具循环由治理层逐轮执行，每轮重新准入，�
 | `app.governance.global-concurrency` | `8` | 当前 Java 实例正在进行的模型请求上限 |
 | `app.governance.daily-requests` | `100` | 每账号每天准入的请求次数；一次任务可能有多次模型请求 |
 | `app.governance.daily-tokens` | `200000` | 每账号每天的保守 Token 配额，并非供应商账单额度 |
-| `app.governance.output-tokens` | `4096` | Java 模型请求的最大输出参数 |
+| `app.governance.output-tokens` | `4096` | Java 与 Coding 模型请求的最大输出参数 |
 | `app.coding.global-concurrency` | `8` | 当前实例同时运行的 Coding 任务上限 |
 | `app.coding.context-window` | `64000` | Coding 声明的上下文窗口；须符合实际所选模型 |
 | `app.coding.timeout-seconds` | `900` | Java 对 Coding 子进程的总等待上限；Node 每轮还有自身时间限制 |
 
-日界使用 **UTC**。Coding 的模型输出上限由运行时上下文配置决定，最高 8192，不由 Java 的 `output-tokens` 控制；其完整模型请求正文与输出上限均纳入同一日配额准入。Coding 每轮模型 HTTP 请求最多 100 次（包含压缩），工具调用最多 80 次。上限是停止条件，不代表一定能完成相同长度的任务。
+日界使用 **UTC**。Coding 启动时读取当前账号生效的 `outputTokens`，下传给 pi；其完整模型请求正文与输出上限均纳入同一日配额准入。Coding 每轮模型 HTTP 请求最多 100 次（包含压缩），工具调用最多 80 次。上限是停止条件，不代表一定能完成相同长度的任务。
+
+### 管理员收紧单账号额度
+
+可在治理目录 `<owner>/limits.json` 原子写入策略，例如：
+
+```json
+{"accountConcurrency":1,"dailyRequests":8,"dailyTokens":200000,"outputTokens":512}
+```
+
+文件仅由部署管理员管理，没有用户可写 API。只允许上述四个整数键，每项必须介于 1 和实例默认值之间；省略项使用实例值，全局并发保持实例设置。`/governance` 返回该账号生效值。每次准入重新读取策略，Java 请求和 Coding 每次实际模型 HTTP 请求均受每日请求硬上限约束；Coding 的单次输出上限在子进程启动时冻结。损坏、超大或符号链接策略失败关闭，不降级到默认额度。配置变更不会取消已经在供应商执行的请求。
+
+策略随治理账本一起备份，不能通过清空账本来重复试验。公网验收脚本只给新建合成验收账号设置 8 次/512 输出上限；一次运行最多 3 个逻辑任务，持久化 STARTED 标记后禁止重放。成本仍为 UNKNOWN。
 
 ### 配额、实际用量与状态分别统计
 

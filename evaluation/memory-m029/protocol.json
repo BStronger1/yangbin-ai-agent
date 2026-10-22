@@ -1,0 +1,77 @@
+{
+  "id": "memory-m029-v1",
+  "frozenAt": "2026-10-22",
+  "baselineManifestSha256": "59e2b6ada96e6e64db0858c21199458f887fb57118a92b4556c6e213cf33f169",
+  "piVersion": "1.3.0",
+  "groups": {
+    "A": {
+      "shortTerm": "baseline",
+      "longTerm": false
+    },
+    "B": {
+      "shortTerm": "layered-v1",
+      "longTerm": false
+    },
+    "C": {
+      "shortTerm": "baseline",
+      "longTerm": true
+    },
+    "D": {
+      "shortTerm": "layered-v1",
+      "longTerm": true
+    }
+  },
+  "model": {
+    "model": "deepseek-v4.1-flash-1017",
+    "profileId": "0469fbaa-efb2-4110-a826-326aa1148569",
+    "reasoningEffort": "default",
+    "api": "openai-completions",
+    "provider": "custom",
+    "mustFreezeSnapshot": true,
+    "discoveryCalls": 0,
+    "limitation": "Compatible endpoint model identity is a configured/provider-returned identifier, not independently verified underlying weights."
+  },
+  "budget": {
+    "taskInstances": 32,
+    "maxRequests": 64,
+    "maxReservedTokens": 512000,
+    "perInstanceRequests": 2,
+    "perInstanceReservedTokens": 32000,
+    "maxOutputTokens": 512,
+    "retries": 0,
+    "maxTaskSeconds": 120,
+    "paidJudgeCalls": 0
+  },
+  "contextWindow": 4096,
+  "memoryBudgetBytes": 1024,
+  "memoryLimit": 4,
+  "executionOrder": [
+    "A",
+    "D",
+    "B",
+    "C"
+  ],
+  "taskOrder": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08"
+  ],
+  "seed": 29022,
+  "isolation": "fresh-owner-project-session-per-task-and-group",
+  "dataPreparation": "Only user-authored explicit memory operations, same-session chronological fixture history; never gold labels.",
+  "scoring": "deterministic JSON expected fields and prohibited values. Budget-exhausted has no quality label and remains explicitly in attempt denominator; errors separately reported.",
+  "qualityClaims": "Self-built small Coding-constraint pilot, not LongMemEval/LoCoMo or real repository coding success. Short-term contribution eligible only where real compression observed.",
+  "fees": "Unknown prices or incomplete usage => UNKNOWN; SDK zero placeholders ignored. Conservative byte+output reservations enforce hard admission, not exact billing.",
+  "sources": [
+    "https://github.com/xiaowu0162/LongMemEval",
+    "https://github.com/xiaowu0162/LongMemEval/blob/main/LICENSE",
+    "https://github.com/xiaowu0162/LongMemEval-V2",
+    "https://github.com/snap-research/locomo",
+    "https://github.com/snap-research/locomo/blob/main/LICENSE.txt"
+  ]
+}

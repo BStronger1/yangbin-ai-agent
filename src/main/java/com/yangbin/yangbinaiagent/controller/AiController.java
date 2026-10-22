@@ -123,11 +123,12 @@ public class AiController {
      * @return
      */
     @GetMapping("/manus/chat")
-    public SseEmitter doChatWithManus(String message,@RequestParam(required=false) String modelProfileId,@RequestParam(required=false) String chatId,@RequestParam(required=false) String requestId)throws Exception {
-        var selected=modelProfiles.resolve(modelProfileId);ChatModel model=selected==null?appChatModel:privateChatModels.create(selected);
+    public SseEmitter doChatWithManus(String message,@RequestParam(required=false) String modelProfileId,@RequestParam(required=false) String reasoningEffort,@RequestParam(required=false) String chatId,@RequestParam(required=false) String requestId)throws Exception {
         var owner=com.yangbin.yangbinaiagent.security.UserContext.current();
         String cid=chatId==null?java.util.UUID.randomUUID().toString():chatId,rid=requestId==null?java.util.UUID.randomUUID().toString():requestId;
-        var reserved=manusConversations.reserve(cid,rid,message,modelProfileId);
+        var reserved=manusConversations.replay(cid,rid,message,modelProfileId,reasoningEffort);
+        ChatModel model=null;
+        if(reserved==null){var selected=modelProfiles.resolve(modelProfileId,reasoningEffort);model=selected==null?appChatModel:privateChatModels.create(selected);reserved=manusConversations.reserve(cid,rid,message,modelProfileId,reasoningEffort);}
         if(reserved.existing()){
             var turn=reserved.conversation().turns().stream().filter(t->t.id().equals(rid)).findFirst().orElseThrow();
             var emitter=new SseEmitter(300000L);
@@ -138,6 +139,6 @@ public class AiController {
         agent.setMessageList(new java.util.ArrayList<>(reserved.context()));
         agent.onFinished((status,text)->{try(var scope=com.yangbin.yangbinaiagent.security.UserContext.open(owner)){try{manusConversations.complete(cid,rid,status,text);}catch(Exception e){throw new IllegalStateException("Unable to persist conversation");}}});
         agent.onSettled(()->{try(var scope=com.yangbin.yangbinaiagent.security.UserContext.open(owner)){manusConversations.release(cid);}});
-        manusConversations.attach(cid,rid,agent);return agent.runStream(message);
+        manusConversations.attach(cid,rid,agent);return agent.runStream(message,true);
     }
 }

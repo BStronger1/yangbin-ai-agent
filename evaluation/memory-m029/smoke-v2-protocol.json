@@ -1,0 +1,62 @@
+{
+  "id": "memory-m029-combined-smoke-v2",
+  "frozenAt": "2026-10-22",
+  "purpose": "New n=1 feasibility smoke after v1 invalid protocol; no replay of C01-C08; no population or causal-effect estimate.",
+  "piVersion": "1.3.0",
+  "baselineManifestSha256": "59e2b6ada96e6e64db0858c21199458f887fb57118a92b4556c6e213cf33f169",
+  "groups": {
+    "A": {
+      "shortTerm": "baseline",
+      "longTerm": false
+    },
+    "B": {
+      "shortTerm": "layered-v1",
+      "longTerm": false
+    },
+    "C": {
+      "shortTerm": "baseline",
+      "longTerm": true
+    },
+    "D": {
+      "shortTerm": "layered-v1",
+      "longTerm": true
+    }
+  },
+  "executionOrder": [
+    "A",
+    "D",
+    "B",
+    "C"
+  ],
+  "taskOrder": [
+    "SM01"
+  ],
+  "contextWindow": 16384,
+  "memoryBudgetBytes": 1024,
+  "memoryLimit": 4,
+  "forcedSdkCompaction": true,
+  "model": {
+    "model": "deepseek-v4.1-flash-1017",
+    "provider": "custom",
+    "api": "openai-completions",
+    "reasoningEffort": "default"
+  },
+  "budget": {
+    "taskInstances": 4,
+    "maxRequests": 8,
+    "maxReservedTokens": 256000,
+    "perInstanceRequests": 2,
+    "perInstanceReservedTokens": 64000,
+    "maxOutputTokens": 512,
+    "retries": 0,
+    "maxTaskSeconds": 120,
+    "paidJudgeCalls": 0
+  },
+  "combinedWithV1": {
+    "alreadyRequests": 56,
+    "alreadyReservedTokens": 255668,
+    "maxCombinedRequests": 64,
+    "maxCombinedReservedTokens": 511668
+  },
+  "validation": "Before any real HTTP, verify pi static output capacity. For each outgoing body require output ceiling exactly 512 or fail before transport. Force one actual SDK compact() call before answer for all groups. Stop all subsequent instances on empty answer, transport failure, invalid output ceiling, or failed compaction. No automatic model retry."
+}

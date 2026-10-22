@@ -1,11 +1,20 @@
 <script setup>
 import {computed,onBeforeUnmount,ref,watch} from 'vue'
+import {onBeforeRouteLeave} from 'vue-router'
+import {useUnsavedChanges} from '../composables/useUnsavedChanges'
 import {auth} from '../auth'
 import {modelApi} from '../api/models'
 import ModelManager from '../components/ModelManager.vue'
 const catalog=ref({profiles:[],allProfiles:[],connections:[],providers:[],systemEnabled:false,defaultModelId:''})
 const loading=ref(true),busy=ref(false),error=ref(''),message=ref(''),selected=ref([]),search=ref(''),legacy=ref(false)
 const editing=ref(''),name=ref(''),provider=ref('openai'),baseUrl=ref(''),apiKey=ref(''),manualConnection=ref(''),manualModel=ref(''),manualName=ref('')
+const connectionBaseline=ref(''), selectionBaseline=ref('')
+const connectionSignature=()=>JSON.stringify([editing.value,name.value,provider.value,baseUrl.value])
+const connectionDirty=computed(()=>!!connectionBaseline.value&&(connectionSignature()!==connectionBaseline.value||!!apiKey.value))
+const dirty=computed(()=>connectionDirty.value||JSON.stringify([...selected.value].sort())!==selectionBaseline.value||!!manualModel.value||!!manualName.value)
+const {allowDiscard}=useUnsavedChanges(dirty,busy, () => auth.user?.id || auth.user?.username)
+const {allowDiscard:allowConnectionDiscard}=useUnsavedChanges(connectionDirty,busy, () => auth.user?.id || auth.user?.username)
+onBeforeRouteLeave(()=>allowDiscard())
 let generation=0,disposed=false
 const owner=()=>auth.user?.id||auth.user?.username
 const safe=token=>!disposed&&token===generation
@@ -13,17 +22,18 @@ const all=computed(()=>catalog.value.allProfiles||catalog.value.profiles||[])
 const filtered=computed(()=>all.value.filter(p=>(p.name+' '+p.model+' '+p.provider).toLowerCase().includes(search.value.toLowerCase())))
 const legacyCatalog=computed(()=>({...catalog.value,profiles:all.value.filter(p=>!p.connectionId)}))
 const insecure=location.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(location.hostname)
-function apply(value){catalog.value=value;selected.value=[...(value.systemEnabled!==false?['system']:[]),...value.profiles.map(p=>p.id)]}
+function apply(value,preserve=false){const previous=[...selected.value];catalog.value=value;const saved=[...(value.systemEnabled!==false?['system']:[]),...value.profiles.map(p=>p.id)];selectionBaseline.value=JSON.stringify([...saved].sort());selected.value=preserve?previous:saved}
 function preset(){const info=catalog.value.providers.find(p=>p.id===provider.value);baseUrl.value=info?.defaultBaseUrl||'';name.value=info?.name||'';apiKey.value=''}
-function edit(connection){editing.value=connection?.id||'';provider.value=connection?.provider||catalog.value.providers[0]?.id||'openai';name.value=connection?.name||'';baseUrl.value=connection?.baseUrl||'';apiKey.value='';if(!connection)preset()}
-async function load(){const token=++generation;loading.value=true;error.value='';try{const value=await modelApi.list();if(safe(token)){apply(value);if(!editing.value)preset()}}catch{if(safe(token))error.value='设置加载失败，请重试。'}finally{if(safe(token))loading.value=false}}
-async function run(action,success){if(busy.value)return;const token=generation;busy.value=true;error.value='';message.value='';try{const result=await action();if(!safe(token))return;const value=result?.profiles?result:await modelApi.list();if(safe(token)){apply(value);message.value=success}}catch{if(safe(token))error.value='操作未完成。请检查服务地址、权限或模型 ID 后重试；原选择没有被替换。'}finally{if(safe(token))busy.value=false}}
-async function saveConnection(){if(!name.value.trim()||!baseUrl.value.trim()||(!editing.value&&!apiKey.value.trim()))return;const payload={name:name.value.trim(),provider:provider.value,baseUrl:baseUrl.value.trim(),apiKey:apiKey.value};await run(()=>editing.value?modelApi.updateConnection(editing.value,payload):modelApi.createConnection(payload),'连接已保存。现在获取模型列表，再勾选常用模型。');payload.apiKey='';apiKey.value=''}
+function setEditor(connection){editing.value=connection?.id||'';provider.value=connection?.provider||catalog.value.providers[0]?.id||'openai';name.value=connection?.name||'';baseUrl.value=connection?.baseUrl||'';apiKey.value='';if(!connection)preset();connectionBaseline.value=connectionSignature()}
+async function edit(connection){if(await allowConnectionDiscard())setEditor(connection)}
+async function load(){const token=++generation;loading.value=true;error.value='';try{const value=await modelApi.list();if(safe(token)){apply(value,!!selectionBaseline.value&&JSON.stringify([...selected.value].sort())!==selectionBaseline.value);if(!editing.value&&!connectionDirty.value)setEditor(null)}}catch{if(safe(token))error.value='设置加载失败，请重试。'}finally{if(safe(token))loading.value=false}}
+async function run(action,success,preserveSelection=true){if(busy.value)return;const token=generation;busy.value=true;error.value='';message.value='';try{const result=await action();if(!safe(token))return;const value=result?.profiles?result:await modelApi.list();if(safe(token)){apply(value,preserveSelection&&JSON.stringify([...selected.value].sort())!==selectionBaseline.value);message.value=success;return true}}catch{if(safe(token))error.value='操作未完成。请检查服务地址、权限或模型 ID 后重试；原选择没有被替换。'}finally{if(safe(token))busy.value=false}}
+async function saveConnection(){if(!name.value.trim()||!baseUrl.value.trim()||(!editing.value&&!apiKey.value.trim()))return;const payload={name:name.value.trim(),provider:provider.value,baseUrl:baseUrl.value.trim(),apiKey:apiKey.value};const saved=await run(()=>editing.value?modelApi.updateConnection(editing.value,payload):modelApi.createConnection(payload),'连接已保存。现在获取模型列表，再勾选常用模型。');payload.apiKey='';apiKey.value='';if(saved)connectionBaseline.value=connectionSignature()}
 async function discover(id){await run(()=>modelApi.discover(id),'模型列表已更新。新模型需勾选并保存后才会出现在对话中。')}
-async function remove(id){if(!confirm('删除此连接及其密钥？关联模型将不可用于新任务，历史记录保留。'))return;await run(()=>modelApi.removeConnection(id),'连接已删除，历史任务保留。');if(editing.value===id)edit(null)}
-async function saveSelection(){const ids=[...selected.value];await run(()=>modelApi.select(ids),'可选模型已保存。各工作空间只显示这些模型。')}
-async function addManual(){if(!manualConnection.value||!manualModel.value.trim())return;await run(()=>modelApi.create({connectionId:manualConnection.value,model:manualModel.value.trim(),name:manualName.value.trim()||manualModel.value.trim()}),'模型已添加，请勾选并保存。');manualModel.value='';manualName.value=''}
-watch(owner,()=>{editing.value='';apiKey.value='';legacy.value=false;catalog.value={profiles:[],allProfiles:[],connections:[],providers:[],systemEnabled:false,defaultModelId:''};selected.value=[];busy.value=false;message.value='';load()},{immediate:true})
+async function remove(id){if(editing.value===id&&!(await allowConnectionDiscard()))return;if(!confirm('删除此连接及其密钥？关联模型将不可用于新任务，历史记录保留。'))return;await run(()=>modelApi.removeConnection(id),'连接已删除，历史任务保留。');if(editing.value===id)setEditor(null)}
+async function saveSelection(){const ids=[...selected.value];await run(()=>modelApi.select(ids),'可选模型已保存。各工作空间只显示这些模型。',false)}
+async function addManual(){if(!manualConnection.value||!manualModel.value.trim())return;const saved=await run(()=>modelApi.create({connectionId:manualConnection.value,model:manualModel.value.trim(),name:manualName.value.trim()||manualModel.value.trim()}),'模型已添加，请勾选并保存。');if(saved){manualModel.value='';manualName.value=''}}
+watch(owner,()=>{connectionBaseline.value='';selectionBaseline.value='';name.value='';baseUrl.value='';manualConnection.value='';manualModel.value='';manualName.value='';editing.value='';apiKey.value='';legacy.value=false;catalog.value={profiles:[],allProfiles:[],connections:[],providers:[],systemEnabled:false,defaultModelId:''};selected.value=[];busy.value=false;message.value='';load()},{immediate:true})
 onBeforeUnmount(()=>{disposed=true;generation++;apiKey.value=''})
 </script>
 <template>

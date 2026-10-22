@@ -75,7 +75,35 @@ try{
  await page.getByTestId('team-artifact-a2').locator('summary').click();await page.getByTestId('team-artifact-a2').getByRole('alert').waitFor()
  check('mismatched-reference-not-displayed',await page.getByTestId('artifact-content-a2').count()===0)
  check('artifact-url-never-followed',!unknown.includes('external artifact URL'))
- await page.setViewportSize({width:390,height:844});check('mobile-no-overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.getByTestId('coding-team').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'team-mobile.png')})
+ // A resize animates the desktop sidebar offscreen for 200 ms. Wait for actual
+ // geometry, not an arbitrary delay or a screenshot captured mid-transition.
+ for(const width of [320,390]){
+  await page.setViewportSize({width,height:844})
+  await page.waitForFunction(()=>document.querySelector('#studio-sidebar').getBoundingClientRect().right<=0)
+  check(`mobile-${width}-no-overflow`,await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+  check(`mobile-${width}-topbar-bounds`,await page.evaluate(()=>{
+   const bar=document.querySelector('.coding-topbar').getBoundingClientRect()
+   return [...document.querySelectorAll('.coding-top-actions>a,.coding-top-actions>button,.coding-location strong')].every(el=>{
+    const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=bar.top&&r.bottom<=bar.bottom&&r.height<=40
+   })
+  }))
+  await page.getByTestId('coding-team').evaluate(el=>{
+   const scroller=el.closest('.coding-conversation');scroller.style.scrollBehavior='auto'
+   scroller.scrollTop+=el.getBoundingClientRect().top-scroller.getBoundingClientRect().top-12
+  })
+  check(`mobile-${width}-team-header-unobscured`,await page.getByTestId('coding-team').evaluate(el=>{
+   const r=el.getBoundingClientRect(),header=el.querySelector('header'),h=header.getBoundingClientRect(),body=el.closest('.coding-conversation').getBoundingClientRect()
+   return r.left>=0&&r.right<=innerWidth&&h.top>=body.top&&h.bottom<=body.bottom&&header.contains(document.elementFromPoint(h.left+5,h.top+5))
+  }))
+  check(`mobile-${width}-status-single-line`,await page.getByTestId('team-status').evaluate(el=>el.clientHeight<=24))
+  await page.screenshot({path:path.join(out,`team-mobile${width===390?'':'-320'}.png`),animations:'disabled'})
+ }
+ await page.getByRole('button',{name:'打开或关闭导航'}).click()
+ await page.waitForFunction(()=>document.querySelector('#studio-sidebar').getBoundingClientRect().left>=0)
+ check('mobile-navigation-intentionally-opens',await page.locator('#studio-sidebar').evaluate(el=>el.classList.contains('expanded')))
+ await page.getByRole('button',{name:'关闭导航',exact:true}).click({position:{x:380,y:400}})
+ await page.waitForFunction(()=>document.querySelector('#studio-sidebar').getBoundingClientRect().right<=0)
+ check('mobile-navigation-closes-without-covering-content',await page.getByTestId('coding-team').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+5,r.top+5))}))
  await page.reload();await page.getByTestId('coding-team').waitFor();check('terminal-refresh-restores-without-reexecution',(await page.getByTestId('team-status').innerText())==='部分完成'&&posts.length===1&&await page.locator('[data-testid^="team-member-"]').count()===3)
  check('no-page-errors',errors.length===0);check('no-unknown-api',unknown.length===0)
 }catch(error){await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({error:String(error),checks,errors,unknown,posts,reads},null,2));await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});throw error}

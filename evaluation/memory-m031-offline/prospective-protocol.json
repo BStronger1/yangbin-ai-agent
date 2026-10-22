@@ -1,0 +1,13 @@
+{
+  "schema": "memory-m031-prospective-draft-v1",
+  "status": "OFFLINE_ONLY_NOT_AUTHORIZED",
+  "realExecutionEnabled": false,
+  "historicalRunsReadOnly": ["memory-m029", "memory-m030", "memory-m030-unrun"],
+  "groups": {"A": {"shortTerm": "baseline", "longTerm": false}, "B": {"shortTerm": "layered-v1", "longTerm": false}, "C": {"shortTerm": "baseline", "longTerm": true}, "D": {"shortTerm": "layered-v1", "longTerm": true}},
+  "newTaskStrata": ["two_stage_numeric_constraints", "version_correction", "forgetting_and_abstention", "account_project_isolation", "read_edit_read_artifact"],
+  "freezeBeforeAuthorization": ["new task IDs and source hashes", "identical model and reasoning level", "paired group rotation and seed", "allowed tool manifest", "actual rendered summary prompt and length target", "provider output cap", "byte-envelope per request and max tool steps", "global atomic reservation including summaries and retries", "request STARTED idempotency markers", "exact scorer and artifact checks", "failure and missing-result denominators"],
+  "summaryPolicy": {"visibleSummaryTargetWords": 200, "lengthFailure": "stop_keep_original_history", "automaticRetry": false, "outputLimitEscalation": false, "rawThinkingStorage": false},
+  "budgetPolicy": {"actualAmounts": "TBD_AFTER_OFFLINE_ENVELOPE_AND_EXPLICIT_USER_APPROVAL", "allGroupsSameTotalBudget": true, "summaryAndToolRequestsCount": true, "unknownUsage": "retain_entire_reservation", "priorPaidRunReplay": false},
+  "report": ["paired complete-case contribution B-A C-A D-B D-C", "intention-to-treat with missing results separate", "task and artifact correctness", "false memory and omission", "retrieval precision recall noise", "context bytes and provider token usage separately", "latency", "denied privilege attempts", "fees UNKNOWN unless independently known"],
+  "standardBenchmark": "Not executed; custom synthetic tasks are not LongMemEval or LoCoMo scores"
+}

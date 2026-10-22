@@ -17,19 +17,26 @@ public class MemoryService {
  public record Create(String requestId,String key,String content,String kind,String sourceSessionId,String sourceTurnId) {}
  public record Update(int version,String key,String content,String kind,String status) {}
  public record Settings(int revision,boolean enabled,boolean autoExtract) {}
- public record PublicItem(String id,String key,String content,String kind,String status,int version,String sourceSessionId,String sourceTurnId,String createdAt,String updatedAt) {}
- public static PublicItem publicItem(Item i){return new PublicItem(i.id,i.key,i.content,i.kind,i.status,i.version,i.sourceSessionId,i.sourceTurnId,i.createdAt,i.updatedAt);}
+ public record PublicItem(String id,String key,String content,String kind,String status,int version,String sourceSessionId,String sourceTurnId,String createdAt,String updatedAt,String sourceType,String uncertainty) {}
+ public static PublicItem publicItem(Item i){return new PublicItem(i.id,i.key,i.content,i.kind,i.status,i.version,i.sourceSessionId,i.sourceTurnId,i.createdAt,i.updatedAt,i.sourceType,i.uncertainty);}
  public static class Item {
   public String id,key,keyHash,content,kind,status,sourceSessionId,sourceTurnId,createdAt,updatedAt;
   public int version;
+  public String sourceType="USER_EXPLICIT",uncertainty="USER_CONFIRMED";
   public List<String> retiredHashes=new ArrayList<>();
   public List<String> retiredKeys=new ArrayList<>();
  }
+ public static class Candidate {
+  public String id,key,content,kind,sourceType,sourceSessionId,sourceTurnId,createdAt,expiresAt,uncertainty,status="PENDING",targetId;
+  public int version=1,targetVersion=0;
+ }
+ public record CandidateDecision(int revision,int version,int targetVersion,boolean accept) {}
  public static class Document {
   public int schema=1,revision=0;
   public String ownerId,projectId;
   public boolean enabled=true,autoExtract=false;
   public List<Item> items=new ArrayList<>();
+  public List<Candidate> candidates=new ArrayList<>();
   public Map<String,String> receipts=new LinkedHashMap<>();
  }
  private static final Set<String> KINDS=Set.of("FACT","PREFERENCE","CONSTRAINT");
@@ -57,7 +64,7 @@ public class MemoryService {
  }
  public synchronized Map<String,Object> forget(String project,String id,int expectedVersion)throws IOException {
   checkCancelled();Document d=read(project);Item i=find(d,id);if("FORGOTTEN".equals(i.status)&&expectedVersion==i.version-1)return Map.of("id",i.id,"status",i.status,"version",i.version);
-  version(i,expectedVersion);if(!"FORGOTTEN".equals(i.status)){i.retiredHashes.add(hash(i.content));i.keyHash=hash(normal(i.key));i.key="";i.content="";i.status="FORGOTTEN";i.sourceSessionId=null;i.sourceTurnId=null;i.version++;i.updatedAt=Instant.now().toString();save(project,d);}return Map.of("id",i.id,"status",i.status,"version",i.version);
+  version(i,expectedVersion);if(!"FORGOTTEN".equals(i.status)){i.retiredHashes.add(hash(i.content));i.keyHash=hash(normal(i.key));for(Candidate c:d.candidates)if(normal(c.key).equals(normal(i.key))||c.content.equals(i.content)||Objects.equals(c.targetId,i.id)){c.key="";c.content="";c.status="FORGOTTEN";c.version++;}i.key="";i.content="";i.status="FORGOTTEN";i.sourceSessionId=null;i.sourceTurnId=null;i.version++;i.updatedAt=Instant.now().toString();save(project,d);}return Map.of("id",i.id,"status",i.status,"version",i.version);
  }
  public synchronized Map<String,Object> settings(String project,Settings input)throws IOException {checkCancelled();Document d=read(project);if(input==null||d.revision!=input.revision())throw new IllegalStateException("记忆设置已更新，请刷新");d.enabled=input.enabled();d.autoExtract=input.autoExtract();save(project,d);return list(project);}
  /** Opt-in deterministic extraction from THIS user turn; no assistant/tool/history replay. */
@@ -66,8 +73,60 @@ public class MemoryService {
   for(String line:prompt.split("\\R")){if(++index>100||saved>=4)break;var match=Pattern.compile("^(偏好|项目约束|事实)[:：]\\s*([^=＝]{1,80})[=＝](.{1,1200})$").matcher(line.strip());if(!match.matches())continue;
    String k=match.group(2).strip(),v=match.group(3).strip();if(d.items.stream().anyMatch(i->(normal(i.key).equals(normal(k))||Objects.equals(i.keyHash,hash(normal(k))))||i.retiredHashes.contains(hash(v))||i.retiredKeys.contains(hash(normal(k)))))continue;
    try{create(project,new Create(UUID.nameUUIDFromBytes((turn+":"+index).getBytes(StandardCharsets.UTF_8)).toString(),k,v,switch(match.group(1)){case "偏好"->"PREFERENCE";case "项目约束"->"CONSTRAINT";default->"FACT";},session,turn));saved++;d=read(project);}catch(IllegalArgumentException|IllegalStateException rejected){/* Discard sensitive/conflicting candidates without logging. */}
-  }return saved;
+  }proposeUser(project,session,turn,prompt);return saved;
  }
+ /** Called only by trusted successful-turn handling, never by a model tool. */
+ public synchronized int proposeUser(String project,String session,String turn,String prompt)throws IOException {
+  checkCancelled();Document d=read(project);if(!d.enabled||!d.autoExtract)return 0;
+  var proposals=MemoryCandidateExtractor.extract(prompt);if(proposals.isEmpty())return 0;
+  validateSource(project,session,turn);if(session==null||turn==null)throw new IllegalArgumentException("候选必须有来源轮次");
+  int added=0;
+  for(var proposal:proposals) {
+   try {validate(proposal.key(),proposal.content(),proposal.kind());}catch(IllegalArgumentException rejected){continue;}
+   if(blocked(d,proposal.key(),proposal.content()))continue;
+   Item current=d.items.stream().filter(i->!"FORGOTTEN".equals(i.status)&&normal(i.key).equals(normal(proposal.key()))).findFirst().orElse(null);
+   if(current!=null&&normal(current.content).equals(normal(proposal.content())))continue;
+   if(d.candidates.stream().anyMatch(c->normal(c.key).equals(normal(proposal.key()))&&normal(c.content).equals(normal(proposal.content()))))continue;
+   if(d.candidates.size()>=200)throw new IllegalStateException("记忆候选达到上限");
+   Candidate c=new Candidate();c.id=UUID.randomUUID().toString();c.key=proposal.key();c.content=proposal.content();c.kind=proposal.kind();c.uncertainty=proposal.uncertainty();c.sourceType="USER_EXPLICIT";c.sourceSessionId=session;c.sourceTurnId=turn;c.createdAt=Instant.now().toString();c.expiresAt=Instant.now().plusSeconds(30L*86400).toString();
+   if(current!=null){c.targetId=current.id;c.targetVersion=current.version;c.uncertainty="CONFLICT_REQUIRES_VERSIONED_CORRECTION";}
+   d.candidates.add(c);added++;
+  }
+  if(added>0)save(project,d);return added;
+ }
+ /** Model reflection and tool observations remain untrusted candidates, never user facts. Internal service API only. */
+ public synchronized Candidate proposeObservation(String project,String session,String turn,String key,String content,String sourceType)throws IOException {
+  checkCancelled();if(!Set.of("MODEL_REFLECTION","TOOL_OBSERVATION").contains(sourceType))throw new IllegalArgumentException("无效观察来源");
+  Document d=read(project);if(!d.enabled||!d.autoExtract)throw new IllegalStateException("自动提取已关闭");validate(key,content,"FACT");validateSource(project,session,turn);if(session==null||turn==null)throw new IllegalArgumentException("候选必须有来源轮次");
+  if(blocked(d,key,content))throw new IllegalStateException("旧版本或已忘记内容不可自动恢复");
+  for(Candidate prior:d.candidates)if(prior.sourceType.equals(sourceType)&&normal(prior.key).equals(normal(key))&&normal(prior.content).equals(normal(content)))return prior;
+  if(d.candidates.size()>=200)throw new IllegalStateException("记忆候选达到上限");
+  Candidate c=new Candidate();c.id=UUID.randomUUID().toString();c.key=key.strip();c.content=content.strip();c.kind="FACT";c.sourceType=sourceType;c.uncertainty="UNVERIFIED_NOT_USER_FACT";c.sourceSessionId=session;c.sourceTurnId=turn;c.createdAt=Instant.now().toString();c.expiresAt=Instant.now().plusSeconds(30L*86400).toString();d.candidates.add(c);save(project,d);return c;
+ }
+ public synchronized Map<String,Object> candidates(String project)throws IOException {
+  Document d=read(project);return Map.of("revision",d.revision,"candidates",d.candidates.stream().filter(c->"PENDING".equals(c.status)&&Instant.parse(c.expiresAt).isAfter(Instant.now())).toList());
+ }
+ /** HTTP user decision only. The caller identity and project ownership come from UserContext. */
+ public synchronized Map<String,Object> decideCandidate(String project,String id,CandidateDecision input)throws IOException {
+  checkCancelled();uuid(id);Document d=read(project);if(input==null||input.revision()!=d.revision)throw new IllegalStateException("记忆已更新，请刷新");
+  Candidate c=d.candidates.stream().filter(x->x.id.equals(id)).findFirst().orElseThrow(()->new IllegalArgumentException("候选不存在"));
+  if(c.version!=input.version()||!"PENDING".equals(c.status))throw new IllegalStateException("候选已处理");
+  if(!input.accept()){c.status="REJECTED";c.version++;c.content="";save(project,d);return Map.of("status",c.status,"revision",d.revision);}
+  if(!d.enabled||!Instant.parse(c.expiresAt).isAfter(Instant.now()))throw new IllegalStateException("候选已过时或记忆已关闭");
+  if(!"USER_EXPLICIT".equals(c.sourceType))throw new IllegalStateException("模型或工具观察不能升级为用户事实，请核实后明确手动保存");
+  if(blocked(d,c.key,c.content))throw new IllegalStateException("旧版本或已忘记内容不可恢复");
+  validate(c.key,c.content,c.kind);Item item;
+  if(c.targetId!=null){item=find(d,c.targetId);if(input.targetVersion()!=c.targetVersion||item.version!=c.targetVersion||"FORGOTTEN".equals(item.status))throw new IllegalStateException("更正目标已更新，请刷新");
+   if(item.retiredHashes.size()>=200)throw new IllegalStateException("此条记忆修订达到上限");item.retiredHashes.add(hash(item.content));item.content=c.content;item.kind=c.kind;item.status="ACTIVE";item.version++;item.updatedAt=Instant.now().toString();
+  }else{
+   if(input.targetVersion()!=0||d.items.stream().anyMatch(i->!"FORGOTTEN".equals(i.status)&&normal(i.key).equals(normal(c.key))))throw new IllegalStateException("同名记忆已存在，请重新确认");
+   if(d.items.stream().filter(i->!"FORGOTTEN".equals(i.status)).count()>=200||d.items.size()>=2000)throw new IllegalStateException("记忆存储达到上限");
+   item=new Item();item.id=UUID.randomUUID().toString();item.key=c.key;item.keyHash=hash(normal(c.key));item.content=c.content;item.kind=c.kind;item.status="ACTIVE";item.version=1;item.createdAt=Instant.now().toString();item.updatedAt=item.createdAt;d.items.add(item);
+  }
+  item.sourceSessionId=c.sourceSessionId;item.sourceTurnId=c.sourceTurnId;item.sourceType=c.sourceType;item.uncertainty="USER_CONFIRMED";
+  c.status="ACCEPTED";c.version++;c.content="";save(project,d);return Map.of("item",publicItem(item),"revision",d.revision,"status",c.status);
+ }
+ private static boolean blocked(Document d,String key,String content){return d.items.stream().anyMatch(i->("FORGOTTEN".equals(i.status)&&Objects.equals(i.keyHash,hash(normal(key))))||i.retiredHashes.contains(hash(content))||i.retiredKeys.contains(hash(normal(key))));}
  public synchronized Map<String,Object> search(String project,String query)throws IOException {
   if(query==null||query.length()>24000)throw new IllegalArgumentException("检索内容过长");Document d=read(project);if(!d.enabled)return Map.of("items",List.of(),"characters",0,"budgetChars",2048);
   var ranked=d.items.stream().filter(i->"ACTIVE".equals(i.status)&&score(i,query)>0).sorted(Comparator.<Item>comparingDouble(i->score(i,query)).reversed().thenComparing(i->i.id)).toList();
@@ -82,7 +141,7 @@ public class MemoryService {
  private void validateSource(String project,String session,String turn)throws IOException {if(session==null||session.isBlank()){if(turn!=null&&!turn.isBlank())throw new IllegalArgumentException("缺少来源会话");return;}uuid(session);Path f=root.resolve(UserContext.current().id()).resolve("sessions").resolve(session+".json");safe(f);if(!Files.isRegularFile(f,LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("来源会话不存在");var s=json.readTree(f.toFile());if(!project.equals(s.path("projectId").asText()))throw new IllegalArgumentException("来源会话不属于此项目");if(turn!=null&&!turn.isBlank()){uuid(turn);boolean found=false;for(var t:s.path("turns"))if(turn.equals(t.path("id").asText()))found=true;if(!found)throw new IllegalArgumentException("来源轮次不存在");}}
  private Path file(String project)throws IOException {uuid(project);Path folder=root.resolve(UserContext.current().id()).resolve("projects").resolve(project);safe(folder);if(!Files.isRegularFile(folder.resolve("project.json"),LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("项目不存在");Path f=folder.resolve("memory.json");safe(f);return f;}
  private void safe(Path file)throws IOException {for(Path p=file;p!=null&&p.startsWith(root);p=p.getParent())if(Files.isSymbolicLink(p))throw new IOException("Invalid memory path");}
- private Document read(String project)throws IOException {Path f=file(project);Document d;if(Files.exists(f)){if(Files.size(f)>4*1024*1024)throw new IOException("Memory store too large");d=json.readValue(f.toFile(),Document.class);if(d.schema!=1||!project.equals(d.projectId)||!UserContext.current().id().equals(d.ownerId)||d.items==null||d.receipts==null)throw new IOException("Invalid memory scope");}else{d=new Document();d.ownerId=UserContext.current().id();d.projectId=project;}return d;}
+ private Document read(String project)throws IOException {Path f=file(project);Document d;if(Files.exists(f)){if(Files.size(f)>4*1024*1024)throw new IOException("Memory store too large");d=json.readValue(f.toFile(),Document.class);if(d.schema!=1||!project.equals(d.projectId)||!UserContext.current().id().equals(d.ownerId)||d.items==null||d.receipts==null||d.candidates==null)throw new IOException("Invalid memory scope");}else{d=new Document();d.ownerId=UserContext.current().id();d.projectId=project;}return d;}
  private void save(String project,Document d)throws IOException {checkCancelled();d.revision++;write(file(project),d);}
  private void write(Path f,Document d)throws IOException {byte[] bytes=json.writeValueAsBytes(d);if(bytes.length>4*1024*1024)throw new IllegalStateException("记忆存储达到上限");Path tmp=Files.createTempFile(f.getParent(),".memory-",".tmp");try{Files.write(tmp,bytes);try(var channel=java.nio.channels.FileChannel.open(tmp,StandardOpenOption.WRITE)){channel.force(true);}checkCancelled();Files.move(tmp,f,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}finally{Files.deleteIfExists(tmp);}}
  private static Item find(Document d,String id){uuid(id);return d.items.stream().filter(i->id.equals(i.id)).findFirst().orElseThrow(()->new IllegalArgumentException("记忆不存在"));}

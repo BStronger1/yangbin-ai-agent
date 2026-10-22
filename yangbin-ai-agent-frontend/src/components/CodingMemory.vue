@@ -117,8 +117,8 @@ onBeforeUnmount(() => { disposed = true; epoch++ })
       <template v-if="snapshot">
         <fieldset class="memory-settings" :disabled="effectiveBusy || loading">
           <label><input type="checkbox" :checked="snapshot.enabled" data-testid="memory-enabled" @change="setOption('enabled', $event.target.checked)" /> 在后续任务中使用项目记忆</label>
-          <label><input type="checkbox" :checked="snapshot.autoExtract" :disabled="!snapshot.enabled" data-testid="memory-auto-extract" @change="setOption('autoExtract', $event.target.checked)" /> 自动保存用户消息中明确标注的记忆</label>
-          <small>开启后，仅识别用户消息中的「偏好:名称=内容」「项目约束:名称=内容」「事实:名称=内容」。不会从工具输出或模型猜测中自动保存；关闭使用不删除条目。</small>
+          <label><input type="checkbox" :checked="snapshot.autoExtract" :disabled="!snapshot.enabled" data-testid="memory-auto-extract" @change="setOption('autoExtract', $event.target.checked)" /> 识别用户消息中的记忆</label>
+          <small>开启后，明确格式「偏好:名称=内容」「项目约束:名称=内容」「事实:名称=内容」直接保存；自然语言先形成候选，需你审阅确认。模型反思与工具观察不会自动成为用户事实；关闭使用不删除条目。</small>
         </fieldset>
         <form class="memory-search" @submit.prevent="search"><input v-model="query" maxlength="500" aria-label="检索项目记忆" placeholder="输入当前任务关键词" data-testid="memory-query" :disabled="effectiveBusy || loading" /><button class="coding-primary" :disabled="effectiveBusy || loading || !query.trim()" data-testid="memory-search">检索</button></form>
         <div class="memory-tabs"><button class="quiet-button" :aria-pressed="!results && tab === 'ACTIVE'" :disabled="effectiveBusy || loading" @click="tab = 'ACTIVE'; results = null">有效记忆</button><button class="quiet-button" :aria-pressed="!results && tab === 'ARCHIVED'" :disabled="effectiveBusy || loading" @click="tab = 'ARCHIVED'; results = null" data-testid="memory-archived">已归档</button><small v-if="results">检索结果 · {{ results.characters }} / {{ results.budgetChars }} 字符</small></div>

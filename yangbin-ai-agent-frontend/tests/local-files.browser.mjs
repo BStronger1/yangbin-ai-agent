@@ -49,6 +49,11 @@ async function content(){return page.evaluate(async()=>{const root=await navigat
 try {
   await page.goto('http://localhost:19032/coding');await page.getByTestId('project-picker').click();await page.getByTestId('add-local-project').click();
   await page.getByTestId('local-status').filter({hasText:'已连接'}).waitFor();check('picker-handle-stored-and-connected');
+  await page.getByTestId('approval-policy').click();
+  const teamOption=page.getByTestId('execution-mode').locator('option[value=team]');
+  check('local-team-option-disabled',await teamOption.evaluate(e=>e.disabled));
+  check('local-allow-policy-disabled',await page.getByTestId('policy-allow').getAttribute('aria-disabled')==='true');
+  await page.keyboard.press('Escape');
   await page.getByTestId('coding-prompt').fill('请读取 main.txt，把 before 修改为 after。');await page.getByTestId('coding-prompt').press('Enter');
   await page.getByTestId('approval-allow').waitFor();check('real-file-unchanged-before-approval',await content()==='before\n');
   await page.getByTestId('approval-allow').click();await page.getByText('本机修改完成',{exact:true}).waitFor();

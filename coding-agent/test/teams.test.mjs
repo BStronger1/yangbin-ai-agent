@@ -106,3 +106,32 @@ test('trusted parent IPC receives raw budget and approval events without double 
  const f=await fixture(t,{behavior:{parentBridge:true}});const result=await f.runtime.execute({identity,permissions,members:plan()});assert.equal(result.status,'SUCCEEDED');assert.equal(result.budget.requests,3);assert.equal(result.budget.tokens,90);assert.equal(f.networkCalls(),3);
  for(const kind of ['model_request','model_usage','approval_required','approval_resolved'])assert.ok(f.events.some(x=>x.bridgeEvent===kind),kind);
 });
+
+async function isolatedRuntimeFixture(t,executor,options={}) {
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'yangbin-teams-outcomes-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const events=[],store=new TaskStore({emit:e=>events.push(e)}),ledger=new BudgetLedger({maxRequests:10,maxTokens:10000});
+ const runtime=createTeamRuntime({store,ledger,executor,rootDirectory:root,emit:e=>events.push(e),maxCorrections:0,timeoutMs:1000,...options});
+ const members=[{id:'one',role:'worker',prompt:'Execute',permissions:[],writePaths:[],dependsOn:[]},{id:'two',role:'worker',prompt:'Dependent',permissions:[],writePaths:[],dependsOn:['one']}];
+ return {runtime,store,ledger,members,events};
+}
+test('explicit remote FAILED CANCELLED and PARTIAL outcomes never become success',async t=>{
+ for(const status of ['FAILED','CANCELLED','PARTIAL']){
+  const f=await isolatedRuntimeFixture(t,{execute:async()=>({status,error:'remote rejected',artifacts:[]})});const result=await f.runtime.execute({identity,permissions:[],members:f.members});
+  const row=result.members.find(x=>x.memberId==='one');assert.equal(row.status,status);assert.equal(f.store.get(identity,row.identity.taskId).status,status);assert.equal(row.artifacts.length,0);assert.notEqual(result.status,'SUCCEEDED');assert.equal(result.members[1].status,'BLOCKED');
+  if(status==='PARTIAL')assert.equal(result.status,'PARTIAL');
+ }
+});
+test('negative independent review with zero corrections agrees with TaskStore terminal state',async t=>{
+ const f=await fixture(t,{behavior:{alwaysBad:true},maxCorrections:0});const result=await f.runtime.execute({identity,permissions,members:plan()});const review=result.members.find(x=>x.memberId==='review');assert.equal(result.status,'PARTIAL');assert.equal(review.status,'FAILED');assert.equal(f.store.get(identity,review.identity.taskId).status,'FAILED');assert.equal(f.networkCalls(),3);
+});
+test('deadline releases host waiting when executor never resolves and ignores cancellation',async t=>{
+ let started=0;const f=await isolatedRuntimeFixture(t,{execute:()=>{started++;return new Promise(()=>{});}},{timeoutMs:20});
+ let watchdog;const result=await Promise.race([f.runtime.execute({identity,permissions:[],members:f.members}),new Promise((_,reject)=>{watchdog=setTimeout(()=>reject(new Error('runtime still pending after 200ms')),200);})]).finally(()=>clearTimeout(watchdog));
+ assert.equal(started,1);assert.equal(result.status,'CANCELLED');assert.equal(result.members[0].sideEffects,'UNKNOWN');assert.equal(result.artifacts.length,0);assert.ok(f.store.list(identity).every(x=>x.status==='CANCELLED'));
+});
+test('late executor resolution cannot publish success events or artifacts after timeout',async t=>{
+ let release,lateEmit;const f=await isolatedRuntimeFixture(t,{execute:context=>{lateEmit=context.emit;return new Promise(resolve=>{release=resolve;});}},{timeoutMs:20});
+ const result=await f.runtime.execute({identity,permissions:[],members:f.members});assert.equal(result.status,'CANCELLED');const eventCount=f.events.length;
+ lateEmit('late_external_success',{message:'untrusted completed'});release({status:'SUCCEEDED',text:'late artifact'});await new Promise(resolve=>setTimeout(resolve,30));
+ assert.equal(f.events.length,eventCount);assert.equal(result.artifacts.length,0);assert.ok(f.store.list(identity).every(x=>x.status==='CANCELLED'&&x.artifacts.length===0));
+});

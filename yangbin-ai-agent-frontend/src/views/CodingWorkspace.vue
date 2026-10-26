@@ -33,6 +33,18 @@ const executionMode = ref('auto')
 const executionModes = [{id:'auto',label:'自动选择'},{id:'direct',label:'直接回答'},{id:'react',label:'工具驱动'},{id:'plan',label:'规划与执行'},{id:'check',label:'检查与修正'},{id:'team',label:'团队执行（需服务端执行器）'}]
 const policy = ref('on-risk'), policyOpen = ref(false), historyOpen = ref(false), projectOpen = ref(false)
 const projectName = ref(''), projectBusy = ref(false), filePanel = ref(false), files = ref([]), changes = ref([]), openedFile = ref(null)
+const fileQuery = ref(''), changedOnly = ref(false), filesLoading = ref(false), filesError = ref(''), previewLoading = ref(false), previewError = ref(''), fileNotice = ref('')
+let filesSequence = 0, previewSequence = 0
+const changedPaths = computed(() => new Set(changes.value.map(item => item.path)))
+const filteredFiles = computed(() => files.value.filter(file => (!changedOnly.value || changedPaths.value.has(file.path)) && file.path.toLocaleLowerCase().includes(fileQuery.value.trim().toLocaleLowerCase())))
+const filteredChanges = computed(() => changes.value.filter(item => item.path.toLocaleLowerCase().includes(fileQuery.value.trim().toLocaleLowerCase())))
+function expandDiffs(open) { filesPanel.value?.querySelectorAll('.coding-diff').forEach(node => { node.open = open }) }
+async function copyPreview() {
+  const current = openedFile.value
+  if (!current) return
+  try { await navigator.clipboard.writeText(current.content); if (openedFile.value === current) fileNotice.value = '已复制文件内容' }
+  catch { if (openedFile.value === current) fileNotice.value = '复制未完成，可在下方选中文件内容手动复制' }
+}
 const chatId = ref(''), chatHistory = ref([])
 const conversation = ref(null), promptInput = ref(null), chatMessages = ref([]), chatEvents = ref([]), chatRunning = ref(false)
 const pending = ref(null), fileEditing = ref(false), filePath = ref(''), fileContent = ref(''), fileSaving = ref(false)
@@ -347,13 +359,17 @@ async function cancel() {
   catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { busy.value = false }
 }
 async function loadFiles() {
-  const currentId = session.value?.id, project = session.value?.projectId || projectId.value
+  const currentId = session.value?.id, project = session.value?.projectId || projectId.value, owner = ownerId(), token = ++filesSequence, directory = localDirectory.value, local = isLocal.value
   if (!project) return
+  const valid = () => !disposed && token === filesSequence && owner === ownerId() && (session.value?.projectId || projectId.value) === project && session.value?.id === currentId && (!local || localDirectory.value === directory)
+  filesLoading.value = true; filesError.value = ''
   try {
-    const results = isLocal.value ? [await localDirectory.value.files(), [...localDirectory.value.changes.values()]] : await Promise.all([codingApi.files(project), currentId ? codingApi.diff(currentId) : Promise.resolve([])])
-    if ((session.value?.projectId || projectId.value) !== project || session.value?.id !== currentId) return
+    if (local && !directory) throw new Error('本机目录尚未连接，请先重新授权目录。')
+    const results = local ? [await directory.files(), [...directory.changes.values()]] : await Promise.all([codingApi.files(project), currentId ? codingApi.diff(currentId) : Promise.resolve([])])
+    if (!valid()) return
     files.value = results[0]; changes.value = results[1]
-  } catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) }
+  } catch (e) { if (valid()) filesError.value = local ? localError(e) : errorMessage(e) }
+  finally { if (token === filesSequence) filesLoading.value = false }
 }
 async function showFiles() { if (filePanel.value) { await closeFiles(); return } filePanel.value = true; await loadFiles() }
 async function editFile(file = null) { if (!(await allowFileDiscard())) return; filePath.value = file?.path || ''; fileContent.value = file?.content || ''; fileBaseline.value = JSON.stringify([filePath.value, fileContent.value]); fileEditing.value = true }
@@ -363,7 +379,21 @@ async function saveFile() {
   try { const value = isLocal.value ? (await localDirectory.value.write(filePath.value.trim(), fileContent.value), {path:filePath.value.trim(),content:fileContent.value}) : await codingApi.putFile(project, filePath.value.trim(), fileContent.value); if ((session.value?.projectId || projectId.value) === project) { openedFile.value = value; fileEditing.value = false; await loadFiles() } }
   catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { fileSaving.value = false }
 }
-async function openFile(path) { const project = session.value?.projectId || projectId.value; try { const value = isLocal.value ? {path,content:await localDirectory.value.read(path, {observe: !workRunning.value})} : await codingApi.file(project, path); if ((session.value?.projectId || projectId.value) === project) openedFile.value = value } catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } }
+async function openFile(path) {
+  const project = session.value?.projectId || projectId.value, owner = ownerId(), token = ++previewSequence, directory = localDirectory.value, local = isLocal.value
+  const valid = () => !disposed && token === previewSequence && owner === ownerId() && (session.value?.projectId || projectId.value) === project && (!local || localDirectory.value === directory)
+  previewLoading.value = true; previewError.value = ''; fileNotice.value = ''; openedFile.value = null
+  try {
+    if (local && !directory) throw new Error('本机目录尚未连接，请先重新授权目录。')
+    const value = local ? {path,content:await directory.read(path, {observe: !workRunning.value})} : await codingApi.file(project, path)
+    if (valid()) openedFile.value = value
+  } catch (e) { if (valid()) previewError.value = local ? localError(e) : errorMessage(e) }
+  finally { if (token === previewSequence) previewLoading.value = false }
+}
+watch(() => [ownerId(), selectedProject.value?.id, session.value?.id, mode.value], () => {
+  filesSequence++; previewSequence++; filesLoading.value = false; previewLoading.value = false
+  fileQuery.value = ''; changedOnly.value = false; filesError.value = ''; previewError.value = ''; fileNotice.value = ''; files.value = []; changes.value = []; openedFile.value = null
+})
 watch(effectiveModelId, () => { modelPickerOpen.value = false; if (mode.value === 'work') refreshCapabilities() })
 watch(() => route.query.chat, value => { if (mode.value !== 'chat' || value === chatId.value) return; closeChat(); if (typeof value === 'string') openChat(value); else { generation++; chatId.value = ''; chatMessages.value = []; chatEvents.value = [] } })
 watch(() => route.query.session, value => { if (value !== session.value?.id) loadSession(typeof value === 'string' ? value : null) })
@@ -420,7 +450,23 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
           <template v-else><article v-for="message in chatMessages" :key="message.id" class="coding-turn"><div v-if="message.role === 'user'" class="coding-user-message">{{ message.text }}</div><template v-else><div class="coding-agent-label"><span class="agent-mini">✦</span> 历史智能体对话<span class="turn-model">{{ message.modelSnapshot?.model || message.modelSnapshot?.name }}</span></div><ReplyMarkdown v-if="message.text" :text="message.text" /><p v-else-if="chatRunning" class="coding-thinking"><span></span>正在思考…</p></template></article><details v-if="chatEvents.length" class="coding-tool-event"><summary>本轮工具执行记录 · {{ chatEvents.length }}</summary><pre>{{ pretty(chatEvents) }}</pre></details></template>
         </div>
       </section>
-      <aside v-if="filePanel" ref="filesPanel" aria-label="项目文件" class="coding-file-panel" data-testid="coding-file-panel"><div class="panel-heading"><h2>项目文件</h2><button class="icon-button" aria-label="关闭文件面板" @click="closeFiles"><StudioIcon name="close" :size="18" /></button></div><p class="muted">{{ selectedProject?.name }} · {{ workspaceLabel }}</p><div class="file-panel-actions"><button class="quiet-button" @click="loadFiles"><StudioIcon name="clock" :size="15" />刷新文件</button><button class="quiet-button" :disabled="workRunning" @click="editFile()" data-testid="new-file"><StudioIcon name="plus" :size="15" />新建文件</button></div><div v-if="fileEditing" ref="editorPanel" role="dialog" aria-label="编辑项目文件" class="coding-file-editor"><label>项目相对路径<input v-model="filePath" placeholder="例如 src/index.js" aria-label="文件路径" :disabled="fileSaving" /></label><label>文件内容<textarea v-model="fileContent" rows="12" aria-label="文件内容" :disabled="fileSaving"></textarea></label><footer><button class="quiet-button" :disabled="fileSaving" @click="cancelFileEdit">取消</button><button class="coding-primary" :disabled="fileSaving || !filePath.trim() || workRunning" @click="saveFile" data-testid="save-file">保存文件</button></footer></div><p v-if="!files.length" class="muted file-empty">项目中暂无文件</p><button v-for="file in files" :key="file.path" class="coding-file-row" @click="openFile(file.path)"><StudioIcon name="document" :size="16" />{{ file.path }}</button><details v-if="openedFile" class="coding-file-preview" open><summary>{{ openedFile.path }}</summary><button class="quiet-button" :disabled="workRunning" @click="editFile(openedFile)">编辑文件</button><pre>{{ openedFile.content }}</pre></details><h3>最近一轮文件变更 <span>{{ changes.length }}</span></h3><p v-if="!changes.length" class="muted">暂无已记录的文件变更</p><details v-for="change in changes" :key="change.path" class="coding-diff"><summary>{{ change.kind }} · {{ change.path }}</summary><label>修改前</label><pre>{{ change.before ?? '（文件不存在）' }}</pre><label>修改后</label><pre>{{ change.after ?? '（文件已删除）' }}</pre></details></aside>
+      <aside v-if="filePanel" ref="filesPanel" aria-label="项目文件" class="coding-file-panel" data-testid="coding-file-panel"><div class="panel-heading"><h2>项目文件</h2><button class="icon-button" aria-label="关闭文件面板" @click="closeFiles"><StudioIcon name="close" :size="18" /></button></div><p class="muted">{{ selectedProject?.name }} · {{ workspaceLabel }}</p><div class="file-panel-actions"><button class="quiet-button" :disabled="filesLoading" @click="loadFiles" data-testid="refresh-files"><StudioIcon name="clock" :size="15" />{{ filesLoading ? '正在刷新…' : '刷新文件' }}</button><button class="quiet-button" :disabled="workRunning" @click="editFile()" data-testid="new-file"><StudioIcon name="plus" :size="15" />新建文件</button></div><div v-if="fileEditing" ref="editorPanel" role="dialog" aria-label="编辑项目文件" class="coding-file-editor"><label>项目相对路径<input v-model="filePath" placeholder="例如 src/index.js" aria-label="文件路径" :disabled="fileSaving" /></label><label>文件内容<textarea v-model="fileContent" rows="12" aria-label="文件内容" :disabled="fileSaving"></textarea></label><footer><button class="quiet-button" :disabled="fileSaving" @click="cancelFileEdit">取消</button><button class="coding-primary" :disabled="fileSaving || !filePath.trim() || workRunning" @click="saveFile" data-testid="save-file">保存文件</button></footer></div><div class="file-browser-tools">
+          <label class="file-search"><StudioIcon name="search" :size="16" /><input v-model="fileQuery" type="search" aria-label="搜索项目文件" placeholder="按文件名或路径搜索" data-testid="file-search" /></label>
+          <label class="changed-filter"><input v-model="changedOnly" type="checkbox" data-testid="changed-only" />只看已改文件</label>
+          <p class="muted file-count" role="status">显示 {{ filteredFiles.length }} / {{ files.length }} 个已加载文件 · {{ changes.length }} 项改动</p>
+        </div>
+        <p v-if="filesLoading" class="muted" role="status">正在读取项目文件…</p>
+        <p v-if="filesError" class="file-panel-error" role="alert">{{ filesError }}<span v-if="files.length">（当前显示上次加载的文件列表）</span></p>
+        <p v-if="!filesLoading && !filesError && !files.length" class="muted file-empty">项目中暂无可显示的文件</p>
+        <p v-else-if="!filesLoading && files.length && !filteredFiles.length" class="muted file-empty">{{ changedOnly ? '没有符合条件的已改文件，已删除文件请查看下方变更。' : '没有匹配的文件，试试其他关键词。' }}</p>
+        <button v-for="file in filteredFiles" :key="file.path" class="coding-file-row" :class="{ active: openedFile?.path === file.path }" :title="file.path" @click="openFile(file.path)"><StudioIcon name="document" :size="16" /><span>{{ file.path }}</span><small v-if="changedPaths.has(file.path)" class="file-changed-badge">已改</small></button>
+        <p v-if="previewLoading" role="status" class="muted">正在读取文件内容…</p>
+        <p v-if="previewError" role="alert" class="file-panel-error">{{ previewError }}</p>
+        <details v-if="openedFile" class="coding-file-preview" open><summary>{{ openedFile.path }}</summary><div class="file-preview-actions"><button class="quiet-button" :disabled="workRunning" @click="editFile(openedFile)">编辑文件</button><button class="quiet-button" @click="copyPreview" data-testid="copy-file-content"><StudioIcon name="copy" :size="15" />复制内容</button></div><p v-if="fileNotice" role="status">{{ fileNotice }}</p><pre tabindex="0" aria-label="文件内容预览">{{ openedFile.content }}</pre></details>
+        <div class="file-changes-heading"><h3>{{ isLocal ? '当前页面文件变更' : '最近一轮文件变更' }} <span>{{ changes.length }}</span></h3><div v-if="filteredChanges.length"><button class="quiet-button" @click="expandDiffs(true)" data-testid="expand-diffs">展开全部</button><button class="quiet-button" @click="expandDiffs(false)" data-testid="collapse-diffs">收起全部</button></div></div>
+        <p v-if="isLocal" class="muted file-scope-note">此处只记录当前页面的改动；刷新页面后记录清空，磁盘上的修改仍保留。</p>
+        <p v-if="!changes.length" class="muted">暂无已记录的文件变更</p><p v-else-if="!filteredChanges.length" class="muted">没有匹配搜索条件的变更</p>
+        <details v-for="change in filteredChanges" :key="change.path" class="coding-diff"><summary>{{ ({created:'新增',modified:'修改',deleted:'删除',added:'新增'})[change.kind] || change.kind }} · {{ change.path }}</summary><label>修改前</label><pre tabindex="0">{{ change.before ?? '（文件不存在）' }}</pre><label>修改后</label><pre tabindex="0">{{ change.after ?? '（文件已删除）' }}</pre></details></aside>
     </div>
     <footer class="coding-composer-zone">
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>

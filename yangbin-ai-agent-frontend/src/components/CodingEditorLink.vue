@@ -1,17 +1,19 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import StudioIcon from './StudioIcon.vue'
 import { useOverlay } from '../composables/useOverlay'
 import { editorUrl, normalizeEditorPath, readEditorPath, saveEditorPath } from '../editor-link'
 const props = defineProps({ project: Object, owner: String, directoryName: String })
+const launcher = ref(null)
+let opener = null
 const open = ref(false), panel = ref(null), path = ref(''), saved = ref(''), notice = ref('')
 const local = computed(() => props.project?.source === 'local')
 const validation = computed(() => { try { return { path: normalizeEditorPath(path.value), url: editorUrl(path.value) } } catch (e) { return { error: e.message } } })
 const savedUrl = computed(() => { try { return saved.value && editorUrl(saved.value) } catch { return '' } })
-function close() { open.value = false }
-function configure() { path.value = saved.value; notice.value = ''; open.value = true }
+function close() { open.value = false; nextTick(() => { if (opener && !opener.isConnected) launcher.value?.focus() }) }
+function configure() { opener = document.activeElement; path.value = saved.value; notice.value = ''; open.value = true }
 watch(() => [props.owner, props.project?.id, props.project?.source], () => {
-  close(); saved.value = local.value ? readEditorPath(props.owner, props.project?.id) : ''; path.value = saved.value; notice.value = ''
+  open.value = false; saved.value = local.value ? readEditorPath(props.owner, props.project?.id) : ''; path.value = saved.value; notice.value = ''
 }, { immediate: true })
 useOverlay(open, panel, close)
 function saveAndOpen(event) {
@@ -28,8 +30,8 @@ function forget() {
 
 <template>
   <div class="editor-launcher">
-    <a v-if="local && savedUrl" :href="savedUrl" class="quiet-button" aria-label="用 VS Code 打开项目" title="用 VS Code 打开整个项目目录" data-testid="coding-vscode"><StudioIcon name="layout" :size="18" /><span>VS Code</span></a>
-    <button v-else class="quiet-button" aria-label="用 VS Code 打开项目" title="用 VS Code 打开项目" data-testid="coding-vscode" @click="configure"><StudioIcon name="layout" :size="18" /><span>VS Code</span></button>
+    <a ref="launcher" v-if="local && savedUrl" :href="savedUrl" class="quiet-button" aria-label="用 VS Code 打开项目" title="用 VS Code 打开整个项目目录" data-testid="coding-vscode"><StudioIcon name="layout" :size="18" /><span>VS Code</span></a>
+    <button ref="launcher" v-else class="quiet-button" aria-label="用 VS Code 打开项目" title="用 VS Code 打开项目" data-testid="coding-vscode" @click="configure"><StudioIcon name="layout" :size="18" /><span>VS Code</span></button>
     <button v-if="local && savedUrl" class="icon-button editor-settings" aria-label="设置 VS Code 项目路径" title="设置 VS Code 项目路径" data-testid="coding-vscode-settings" @click="configure">⌄</button>
   </div>
   <Teleport to="body">

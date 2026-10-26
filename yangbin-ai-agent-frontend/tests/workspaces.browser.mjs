@@ -101,7 +101,7 @@ try{
  await page.screenshot({path:path.join(out,'work-desktop.png')});
  await go('/work?session='+sid+'&project='+project.id);await page.getByTestId('coding-approval').waitFor();assert.equal(new URL(page.url()).pathname,'/coding');assert.equal(new URL(page.url()).searchParams.get('session'),sid);checks.legacyCodingLink=true;
  assert.ok((await page.locator('body').innerText()).includes('既有代码项目'));checks.projectAssociation=true;
- await page.getByTestId('approval-allow').click();await page.getByText('文件已保存',{exact:true}).waitFor();await page.getByTestId('coding-files').click();await page.getByText('added · review.txt',{exact:true}).waitFor();assert.ok(wrote);checks.codingReview=true;
+ await page.getByTestId('approval-allow').click();await page.getByText('文件已保存',{exact:true}).waitFor();await page.getByTestId('coding-files').click();await page.getByText('新增 · review.txt',{exact:true}).waitFor();assert.ok(wrote);checks.codingReview=true;
  await page.reload();await page.getByText('文件已保存',{exact:true}).waitFor();assert.equal(calls.filter(x=>x.kind==='approval').length,1);checks.codingRefreshNoReexecution=true;
  await go('/work?mode=chat');await page.getByTestId('coding-workspace').waitFor();assert.equal(new URL(page.url()).pathname,'/super-agent');checks.legacyManusPreserved=true;
  await assistant('chat');denyJobs=true;await page.getByTestId('assistant-prompt').fill('超过额度的合成请求');await page.getByTestId('assistant-send').click();await page.getByRole('alert').filter({hasText:'共享账号额度不足'}).waitFor();const denied=jobCount();await page.reload();await page.getByTestId('assistant-prompt').waitFor();assert.equal(jobCount(),denied);checks.denialNoAutomaticRetry=true;denyJobs=false;

@@ -31,6 +31,7 @@ public class ModelGovernance {
     private static class Circuit { int failures; long until; boolean probe; }
     private record Pending(Lease lease,Long input,Long output,String status) {}
     private final ObjectMapper json; private final Path root; private final Clock clock; private final Limits limits;
+    @Value("${app.coding.admin-daily-tokens:0}") private long adminDailyTokens;
     private final Map<String,Day> days=new HashMap<>(); private final Map<String,Circuit> circuits=new HashMap<>();
     private final Map<String,Pending> pending=new LinkedHashMap<>();
     private final Set<String> active=new HashSet<>(); private final Map<String,Integer> owners=new HashMap<>();
@@ -50,6 +51,8 @@ public class ModelGovernance {
     public int codingOutputLimit(int configured) { return accountLimits(configured).outputTokens(); }
     private Limits accountLimits(int outputCeiling) {
         String owner=UserContext.current().id();
+        long daily = "admin".equals(owner) && adminDailyTokens > 0 ? Math.max(limits.dailyTokens(), Math.min(adminDailyTokens, 50000000L)) : limits.dailyTokens();
+        Limits base = new Limits(limits.accountConcurrency(),limits.globalConcurrency(),limits.dailyRequests(),daily,limits.outputTokens());
         if(!UserContext.validId(owner))throw new Denied("账号额度配置不可用");
         Path directory=root.resolve(owner),file=directory.resolve("limits.json");
         try {
@@ -60,7 +63,7 @@ public class ModelGovernance {
                 if(!ownerAttributes.isDirectory())throw new IllegalStateException();
                 attributes=Files.readAttributes(file,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
             }
-            catch(NoSuchFileException absent){return new Limits(limits.accountConcurrency(),limits.globalConcurrency(),limits.dailyRequests(),limits.dailyTokens(),outputCeiling);}
+            catch(NoSuchFileException absent){return new Limits(base.accountConcurrency(),base.globalConcurrency(),base.dailyRequests(),base.dailyTokens(),outputCeiling);}
             if(!attributes.isRegularFile()||attributes.size()>4096)throw new IllegalStateException();
             byte[] policyBytes;try(var stream=Files.newInputStream(file,LinkOption.NOFOLLOW_LINKS)){policyBytes=stream.readNBytes(4097);}
             if(policyBytes.length>4096)throw new IllegalStateException();
@@ -68,8 +71,8 @@ public class ModelGovernance {
             if(policy==null||!policy.isObject())throw new IllegalStateException();
             var fields=policy.fieldNames();
             while(fields.hasNext())if(!Set.of("accountConcurrency","dailyRequests","dailyTokens","outputTokens").contains(fields.next()))throw new IllegalStateException();
-            return new Limits((int)tightened(policy,"accountConcurrency",limits.accountConcurrency()),limits.globalConcurrency(),
-                (int)tightened(policy,"dailyRequests",limits.dailyRequests()),tightened(policy,"dailyTokens",limits.dailyTokens()),
+            return new Limits((int)tightened(policy,"accountConcurrency",base.accountConcurrency()),base.globalConcurrency(),
+                (int)tightened(policy,"dailyRequests",base.dailyRequests()),tightened(policy,"dailyTokens",base.dailyTokens()),
                 (int)tightened(policy,"outputTokens",outputCeiling));
         }catch(Exception invalid){throw new Denied("账号额度配置不可用，已停止新调用");}
     }

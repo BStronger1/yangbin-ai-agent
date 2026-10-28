@@ -34,6 +34,14 @@ class ModelGovernanceTest {
    assertThat(g.codingOutputLimit(65536)).isEqualTo(128);
   }
  }
+ @Test void configuredOwnerBudgetDoesNotRaiseOtherAccounts()throws Exception {
+  var g=create(2,3,10,200000);
+  org.springframework.test.util.ReflectionTestUtils.setField(g,"adminDailyTokens",2000000L);
+  assertThat(UserContext.call(UserContext.ADMIN,()->g.accountLimits().dailyTokens())).isEqualTo(2000000);
+  assertThat(UserContext.call(a,()->g.accountLimits().dailyTokens())).isEqualTo(200000);
+  Path file=dir.resolve("admin/limits.json");Files.createDirectories(file.getParent());Files.writeString(file,"{\"dailyTokens\":10000}");
+  assertThat(UserContext.call(UserContext.ADMIN,()->g.accountLimits().dailyTokens())).isEqualTo(10000);
+ }
  @Test void boundsAccountAndGlobalConcurrencyAndReleasesOnFinish(){var g=create(1,2,10,1000);var first=UserContext.call(a,()->g.reserve("openai","fixture",100));assertThatThrownBy(()->UserContext.call(a,()->g.reserve("openai","fixture",100))).isInstanceOf(ModelGovernance.Denied.class);var second=UserContext.call(b,()->g.reserve("openai","fixture",100));assertThatThrownBy(()->UserContext.call(UserContext.ADMIN,()->g.reserve("openai","fixture",100))).isInstanceOf(ModelGovernance.Denied.class);g.finish(first,10L,20L,"SUCCEEDED");UserContext.call(a,()->g.reserve("openai","fixture",100));g.finish(second,null,null,"UNKNOWN");}
  @Test void concurrentAdmissionNeverOversubscribes()throws Exception{var g=create(2,2,100,10000);var start=new CountDownLatch(1);var winners=new CopyOnWriteArrayList<ModelGovernance.Lease>();try(var pool=Executors.newFixedThreadPool(12)){var jobs=new ArrayList<Future<?>>();for(int i=0;i<12;i++)jobs.add(pool.submit(()->{try{start.await();winners.add(UserContext.call(a,()->g.reserve("openai","fixture",100)));}catch(ModelGovernance.Denied expected){}catch(InterruptedException e){Thread.currentThread().interrupt();}}));start.countDown();for(var job:jobs)job.get();}assertThat(winners).hasSize(2);}
  @Test void knownUsageIsSeparateFromConservativeQuotaAcrossRestart(){var g=create(2,2,10,500);try(var scope=UserContext.open(a)){var one=g.reserve("openai","fixture",200);g.finish(one,10L,20L,"SUCCEEDED");var two=g.reserve("openai","fixture",200);g.finish(two,null,null,"SUCCEEDED");var restarted=create(2,2,10,500);assertThat(restarted.summary().knownTokens()).isEqualTo(30);assertThat(restarted.summary().unknownUsageRequests()).isEqualTo(1);assertThat(restarted.summary().budgetChargedTokens()).isEqualTo(400);assertThat(restarted.events().getFirst().inputTokens()).isNull();assertThatThrownBy(()->restarted.reserve("openai","fixture",300)).isInstanceOf(ModelGovernance.Denied.class);}}

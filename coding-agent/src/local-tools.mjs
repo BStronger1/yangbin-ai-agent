@@ -15,7 +15,8 @@ export class LocalToolRuntime extends ToolRuntime {
     await super.init();
     this.allowShell = false;
     this.sandbox = { available: false, reason: '本机目录通过浏览器读写，终端未开放' };
-    await this.exchange('ping', {});
+    const handshake = await this.exchange('ping', {});
+    try { const info = JSON.parse(handshake); this.localProcesses = info.localProcesses === true; this.platform = info.platform; } catch {}
   }
   cancel() {
     super.cancel();
@@ -49,8 +50,8 @@ export class LocalToolRuntime extends ToolRuntime {
   async execute(name, args, callId = randomUUID()) {
     if (name === 'recall') return super.execute(name, args, callId);
     try {
-      if (!['list', 'read', 'write', 'edit'].includes(name)) throw new Error('Tool unavailable for local directory');
-      await this.authorize(name, args, callId);
+      if (!['list', 'read', 'write', 'edit', ...(this.localProcesses ? ['start','preview','process_status','stop'] : [])].includes(name)) throw new Error('Tool unavailable for local directory');
+      await this.authorize(name, args, callId, {force: ['start','preview','stop'].includes(name)});
       this.emit({ type: 'tool_start', toolCallId: callId, toolName: name, arguments: args });
       const full = await this.exchange(name, args);
       this.signal?.throwIfAborted();

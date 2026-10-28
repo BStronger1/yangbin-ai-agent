@@ -162,3 +162,12 @@ test('truncation after a successful write preserves the file but reports failed 
   assert.equal(await fs.readFile(path.join(f.workspace,'provider.txt'),'utf8'),'saved before truncation');
   assert.equal(f.requests.length,2);assert.equal(result.events.some(x=>x.event?.type==='status'&&x.event.status==='SUCCEEDED'),false);
 });
+
+
+test('DeepSeek v4 alias through compatible gateway sends full coding budget and reasoning replay', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_request,res,n)=>n===1 ? openai(res,{role:'assistant',reasoning_content:'fixture reasoning',tool_calls:[{index:0,id:'call_v4',type:'function',function:{name:'write',arguments:JSON.stringify({path:'provider.txt',content:'v4'})}}]},'tool_calls') : openai(res,{role:'assistant',content:'done'}));
+  const result=await run(f,{CODING_MODEL_PROVIDER:'openai-compatible',CODING_MODEL_NAME:'deepseek-v4.1-flash-1017',CODING_OUTPUT_CEILING:'65536',CODING_MODEL_REASONING_EFFORT:'high'});
+  assert.equal(result.ok,true,result.stdout);
+  for(const r of f.requests){assert.equal(r.body.max_tokens,65536);assert.equal(r.body.thinking.type,'enabled');assert.equal(r.body.reasoning_effort,'high');}
+  assert.equal(f.requests[1].body.messages.find(x=>x.role==='assistant'&&x.tool_calls).reasoning_content,'fixture reasoning');
+});

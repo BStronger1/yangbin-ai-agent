@@ -145,7 +145,7 @@ public class CodingService {
         if(!"local_fs".equals(event.get("type")))return false;
         if(run.localClientId==null||!ACTIVE.contains(session(request.sessionId()).status))throw new IOException("Local file channel unavailable");
         String rid=Objects.toString(event.get("requestId"),"");uuid(rid);
-        if(!Set.of("ping","list","read","write","edit").contains(event.get("operation"))||!(event.get("arguments") instanceof Map<?,?>)||run.localRequests.size()>=80||run.localRequests.containsKey(rid)||run.localCompleted.contains(rid))throw new IOException("Invalid local file request");
+        if(!Set.of("ping","list","read","write","edit","start","preview","process_status","stop").contains(event.get("operation"))||!(event.get("arguments") instanceof Map<?,?>)||run.localRequests.size()>=80||run.localRequests.containsKey(rid)||run.localCompleted.contains(rid))throw new IOException("Invalid local file request");
         var safe=new LinkedHashMap<String,Object>();safe.put("requestId",rid);safe.put("operation",event.get("operation"));safe.put("arguments",event.get("arguments"));safe.put("turnId",session(request.sessionId()).turns.getLast().id);safe.put("expiresAt",System.currentTimeMillis()+30000);
         if(json.writeValueAsBytes(safe).length>200000)throw new IOException("Local request too large");
         run.localRequests.put(rid,safe);return true;

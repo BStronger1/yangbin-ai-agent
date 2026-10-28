@@ -17,10 +17,10 @@ public class NodeCodingRuntime implements CodingRuntime {
     private final ObjectMapper json;
     private final String node, key, baseUrl, model, provider;
     @Value("${app.coding.api:${CODING_MODEL_API:openai-completions}}") private String systemApi="openai-completions";
-    @Value("${app.coding.context-window:${CODING_CONTEXT_WINDOW:64000}}") private int contextWindow=64000;
+    @Value("${app.coding.context-window:${CODING_CONTEXT_WINDOW:0}}") private int contextWindow=0;
     @Value("${app.coding.context-policy:${CODING_CONTEXT_POLICY:layered-v1}}") private String contextPolicy="layered-v1";
     @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
-    @Value("${app.governance.output-tokens:4096}") private int outputTokens=4096;
+    @Value("${app.coding.output-tokens:${CODING_OUTPUT_TOKENS:65536}}") private int outputTokens=65536;
     @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.governance.ModelGovernance governance;
     @Value("${app.coding.mcp-config:${CODING_MCP_CONFIG:}}") private String mcpConfig="";
     @Value("${app.coding.a2a-config:${CODING_A2A_CONFIG:}}") private String a2aConfig="";
@@ -69,8 +69,8 @@ public class NodeCodingRuntime implements CodingRuntime {
         builder.environment().put("CODING_GOVERNANCE_REQUIRED","true");
         builder.environment().put("CODING_CONTEXT_POLICY",contextPolicy);
         builder.environment().put("CODING_LONG_TERM_MEMORY",longTermMemory);
-        builder.environment().put("CODING_CONTEXT_WINDOW",Integer.toString(Math.max(4096,Math.min(contextWindow,200000))));
-        builder.environment().put("CODING_OUTPUT_TOKENS",Integer.toString(Math.max(1,Math.min(governance==null?outputTokens:governance.accountLimits().outputTokens(),65536))));
+        if(contextWindow>0)builder.environment().put("CODING_CONTEXT_WINDOW",Integer.toString(contextWindow));
+        builder.environment().put("CODING_OUTPUT_CEILING",Integer.toString(Math.max(1,Math.min(governance==null?outputTokens:governance.codingOutputLimit(outputTokens),384000))));
         if(!a2aConfig.isBlank())builder.environment().put("CODING_A2A_CONFIG",a2aConfig);
         if(!mcpConfig.isBlank())builder.environment().put("CODING_MCP_CONFIG",mcpConfig);
         builder.environment().put("CODING_MODEL_API_KEY",activeKey);builder.environment().put("CODING_MODEL_BASE_URL",activeBase);

@@ -1,4 +1,5 @@
 <script setup>
+import { LocalRunner } from '../local-runner'
 import { LocalDirectory, localSupported, saveLocalHandle, restoreLocalHandle } from '../local-directory'
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -48,13 +49,23 @@ const policyLabel = computed(() => policies.find(item => item.id === policy.valu
 const selectedProject = computed(() => projects.value.find(item => item.id === (session.value?.projectId || projectId.value)))
 const isLocal = computed(() => selectedProject.value?.source === 'local')
 const localDirectory = shallowRef(null), savedLocalHandle = shallowRef(null), localConnected = ref(false), localConnecting = ref(false)
+const runner = shallowRef(null), runnerUrl = ref(''), runnerToken = ref(''), runnerBusy = ref(false), runnerJobs = ref([])
+async function connectRunner() {
+  if (running.value || !localDirectory.value) return
+  runnerBusy.value=true; error.value=''
+  const directory=localDirectory.value
+  try { const value=await new LocalRunner(runnerUrl.value.trim(), runnerToken.value.trim()).pair(directory); if(directory!==localDirectory.value){value.disconnect();return} runner.value?.disconnect(); runner.value=value; runnerToken.value=''; await refreshProcesses() }
+  catch(e){error.value=localError(e)}finally{runnerBusy.value=false}
+}
+async function refreshProcesses(){try{if(runner.value)runnerJobs.value=JSON.parse(await runner.value.execute('process_status',{}))}catch(e){error.value=localError(e)}}
+async function stopProcess(id){try{await runner.value.execute('stop',{id});await refreshProcesses()}catch(e){error.value=localError(e)}}
 const localError = e => e.response?.data?.message || e.message || '本机目录操作未完成'
 const supportsLocal = localSupported()
 const localClientId = globalThis.crypto?.randomUUID?.() || '', localReceipts = new Map()
 let localPumping = false, localRestoreGeneration = 0
 const ownerId = () => auth.user?.id || auth.user?.username
 const workspaceLabel = computed(() => isLocal.value ? '本机目录' : '服务端工作区')
-function disconnectLocal() { localDirectory.value?.disconnect(); localDirectory.value = null; localConnected.value = false; savedLocalHandle.value = null; localReceipts.clear(); localRestoreGeneration++ }
+function disconnectLocal() { runner.value?.disconnect(); runner.value=null; runnerJobs.value=[]; runnerToken.value=''; localDirectory.value?.disconnect(); localDirectory.value = null; localConnected.value = false; savedLocalHandle.value = null; localReceipts.clear(); localRestoreGeneration++ }
 async function restoreDirectory() {
   disconnectLocal(); const token = localRestoreGeneration, owner = ownerId(), project = selectedProject.value?.id
   if (!isLocal.value || !project) return
@@ -112,7 +123,7 @@ async function pumpLocalFiles() {
         if (request.claimed) throw new Error('文件操作结果未知，请停止任务并检查本机文件；不会重复执行。')
         const claimed = await codingApi.claimLocal(current, localClientId, request.requestId)
         if (!valid() || claimed.turnId !== turn || claimed.expiresAt <= Date.now()) return
-        try { const output = await directory.execute(claimed.operation, claimed.arguments, valid); result = { clientId:localClientId, requestId:request.requestId, ok:true, output } }
+        try { const output = claimed.operation === 'ping' && runner.value ? JSON.stringify({localProcesses:true,platform:runner.value.platform}) : ['start','preview','process_status','stop'].includes(claimed.operation) ? await runner.value.execute(claimed.operation, claimed.arguments, claimed.requestId) : await directory.execute(claimed.operation, claimed.arguments, valid); if(['start','preview','stop'].includes(claimed.operation))await refreshProcesses(); result = { clientId:localClientId, requestId:request.requestId, ok:true, output } }
         catch (e) { result = { clientId:localClientId, requestId:request.requestId, ok:false, output:String(e.message || '本机文件操作失败').slice(0,500) } }
         localReceipts.set(request.requestId, result)
       }
@@ -413,7 +424,21 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
     <footer class="coding-composer-zone">
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>
       <p v-if="modelsError" class="coding-service-note" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>
-      <p v-if="mode === 'work' && isLocal" class="coding-service-note" data-testid="local-status">{{ localConnected ? '已连接本机目录；修改直接写回原文件。任务期间请保持页面打开，终端与团队模式暂不可用。' : '本机目录未连接；请在原浏览器重新授权。其他设备请新建本机项目。' }}<button v-if="!localConnected && savedLocalHandle" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">重新授权目录</button></p>
+      <p v-if="mode === 'work' && isLocal" class="coding-service-note" data-testid="local-status">{{ localConnected ? '已连接本机目录；修改直接写回原文件。任务期间请保持页面打开；连接本机运行器后可以启动、预览和停止程序。' : '本机目录未连接；请在原浏览器重新授权。其他设备请新建本机项目。' }}<button v-if="!localConnected && savedLocalHandle" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">重新授权目录</button></p>
+      <details v-if="mode === 'work' && isLocal && localConnected" class="coding-service-note" data-testid="local-runner-panel">
+        <summary>{{ runner ? '本机运行器已连接 · ' + runner.workspace : '连接本机运行器，启动项目' }}</summary>
+        <p>在电脑上运行项目提供的命令：<code>node coding-agent/src/local-runner.mjs "项目完整路径"</code>，然后填写显示的地址和连接码。命令以你的电脑账号运行，可修改本机文件；每次启动命令前均会展示内容并请求确认。</p>
+        <label>本机地址<input v-model="runnerUrl" placeholder="http://127.0.0.1:端口" :disabled="running" /></label>
+        <label>连接码<input v-model="runnerToken" type="password" autocomplete="off" :disabled="running" /></label>
+        <button type="button" @click="connectRunner" :disabled="running || runnerBusy">连接运行器</button>
+        <button v-if="runner" type="button" @click="refreshProcesses">刷新运行状态</button>
+        <div v-for="job in runnerJobs" :key="job.id">
+          <span>{{ job.state }} · {{ job.command || '网页预览' }}</span>
+          <a v-if="job.url && /^http:\/\/127\.0\.0\.1:\d+\//.test(job.url)" :href="job.url" target="_blank" rel="noopener noreferrer">打开运行结果</a>
+          <button v-if="job.state === 'RUNNING'" type="button" @click="stopProcess(job.id)">停止</button>
+          <pre v-if="job.output">{{ job.output }}</pre>
+        </div>
+      </details>
       <form class="coding-composer" @submit.prevent="send" data-testid="coding-composer">
         <textarea ref="promptInput" v-model="draft" rows="2" maxlength="16000" :disabled="busy || Boolean(pending)" :placeholder="mode === 'work' ? '描述你要完成的工作，或继续当前任务…' : '给 历史智能体对话发消息…'" aria-label="消息内容" data-testid="coding-prompt" @keydown="promptKeys"></textarea>
         <div class="coding-composer-toolbar"><div class="composer-controls">

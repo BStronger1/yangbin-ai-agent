@@ -12,12 +12,12 @@ public final class ModelReasoning {
     private static final List<String> ORDER=List.of("none","minimal","low","medium","high","xhigh","max","ultra");
     public static List<String> supported(String provider,String model,JsonNode metadata){
         String id=Objects.toString(model,"").toLowerCase(Locale.ROOT);
-        if("deepseek".equals(provider)){
+        if("deepseek".equals(provider) || "openai-compatible".equals(provider) && id.matches("deepseek-(?:flash|v4(?:\\.1)?-(?:flash|pro)(?:-[a-z0-9.-]+)?)")){
             JsonNode levels=metadata==null?null:metadata.path("effort").path("supported_levels");
             if(levels!=null&&levels.isArray()){
                 var result=new ArrayList<String>();result.add("none");for(JsonNode v:levels)if(List.of("low","high","max").contains(v.asText())&&!result.contains(v.asText()))result.add(v.asText());return List.copyOf(result);
             }
-            if(id.equals("deepseek-flash")||id.equals("deepseek-v4-pro"))return List.of("none","low","high","max");
+            if(id.equals("deepseek-flash")||id.matches("deepseek-v4(?:\\.1)?-(?:flash|pro)(?:-[a-z0-9.-]+)?"))return List.of("none","low","high","max");
         }
         if("anthropic".equals(provider)){
             JsonNode effort=metadata==null?null:metadata.path("capabilities").path("effort");
@@ -41,7 +41,7 @@ public final class ModelReasoning {
     public static boolean codingSupported(String provider,String model){return !("openai".equals(provider)&&Objects.toString(model,"").matches("gpt-(6-astra|6\\.1-sol)(-.*)?"));}
     public static void apply(ObjectNode payload,ModelProfileService.Snapshot snapshot){
         String effort=snapshot.reasoningEffort();if(effort==null||effort.isBlank())return;
-        switch(snapshot.provider()){
+        switch("openai-compatible".equals(snapshot.provider()) && !supported(snapshot.provider(),snapshot.model(),null).isEmpty() ? "deepseek" : snapshot.provider()){
             case "deepseek" -> {payload.putObject("thinking").put("type","none".equals(effort)?"disabled":"enabled");if("none".equals(effort))payload.remove("reasoning_effort");else payload.put("reasoning_effort",effort);}
             case "anthropic" -> {ObjectNode output=payload.path("output_config") instanceof ObjectNode o?o:payload.putObject("output_config");output.put("effort",effort);}
             case "openai" -> payload.put("reasoning_effort",effort);

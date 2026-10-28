@@ -7,7 +7,7 @@ export function selectStrategy({mode='auto',prompt='',toolsAvailable=true,teamAv
  let chosen=mode,reason='使用你指定的执行方式。';
  if(mode==='auto'){
   if(/多智能体|多代理|多个.*[Aa]gent|agent\s*team|multi.?agent/i.test(prompt)){chosen='team';reason='任务明确要求多智能体协作。';}
-  else if(/实现|修改|修复|重构|开发|部署|文件|仓库|测试|implement|refactor|debug|file|repository|read|write|edit|create|test|fix|build/i.test(prompt)){chosen=prompt.length>350||/并且|然后|分阶段|集成|重构|规划|and then/i.test(prompt)?'plan':'react';reason=chosen==='plan'?'任务包含多步操作，先给出简短计划，再按工具证据执行。':'任务需要工具证据，按观察结果逐步执行。';}
+  else if(/实现|修改|修复|重构|开发|部署|制作|启动|运行|游戏|文件|仓库|测试|implement|refactor|debug|file|repository|read|write|edit|create|test|fix|build/i.test(prompt)){chosen=prompt.length>350||/并且|然后|分阶段|集成|重构|规划|and then/i.test(prompt)?'plan':'react';reason=chosen==='plan'?'任务包含多步操作，先给出简短计划，再按工具证据执行。':'任务需要工具证据，按观察结果逐步执行。';}
   else{chosen='direct';reason='当前任务可直接回答，无需计划或反思循环。';}
  }
  if(chosen==='team'&&!teamAvailable)throw new Error('团队执行器尚未启用，未启动任何子 Agent。');

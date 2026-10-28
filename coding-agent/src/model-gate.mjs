@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-const MAX_EVENT_CHARS=1024*1024, MAX_RESPONSE_BYTES=8*1024*1024;
+const MAX_EVENT_CHARS=1024*1024, MAX_RESPONSE_BYTES=64*1024*1024;
 
 // Admission covers every HTTP model request, including pi compaction calls.
 // SDK cost=0 and zero-filled usage defaults are never treated as billing evidence.
@@ -16,7 +16,7 @@ export class ModelGate {
     const body=typeof init?.body==='string'?init.body:'';
     let parsed; try { parsed=JSON.parse(body); } catch { throw new Error('Model request body must be JSON for quota accounting'); }
     const maxTokens=Number(parsed.max_tokens ?? parsed.max_completion_tokens ?? 8192);
-    if(!Number.isFinite(maxTokens)||maxTokens<=0||maxTokens>65536)throw new Error('Invalid model output token limit');
+    if(!Number.isFinite(maxTokens)||maxTokens<=0||maxTokens>384000)throw new Error('Invalid model output token limit');
     const requestId=randomUUID(), reservedTokens=Buffer.byteLength(body,'utf8')+Math.ceil(maxTokens);
     if(this.budget)this.reservations.set(requestId,this.budget.reserve({identity:this.identity,kind,requestId,reservedTokens,maxCostMicros}));
     let parentApproved=false;
@@ -79,7 +79,7 @@ export class ModelGate {
               const item=await reader.read();
               if(item.done){buffer+=decoder.decode();if(buffer)line(buffer);finish(terminalStatus());controller.close();return;}
               responseBytes+=item.value.byteLength;
-              if(responseBytes>MAX_RESPONSE_BYTES)throw new Error('Model response exceeds 8 MiB limit');
+              if(responseBytes>MAX_RESPONSE_BYTES)throw new Error('Model response exceeds 64 MiB limit');
               buffer+=decoder.decode(item.value,{stream:true});
               let index;while((index=buffer.indexOf('\n'))>=0){line(buffer.slice(0,index).replace(/\r$/,''));buffer=buffer.slice(index+1);}
               if(buffer.length>MAX_EVENT_CHARS)throw new Error('Model stream event exceeds limit');

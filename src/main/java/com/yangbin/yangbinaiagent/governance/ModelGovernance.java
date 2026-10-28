@@ -46,7 +46,9 @@ public class ModelGovernance {
         catch(Exception e){throw new IllegalStateException("模型用量目录不可用");}
     }
     /** Administrator-managed, tightening-only account policy; no user write API. Re-read before admission. */
-    public Limits accountLimits() {
+    public Limits accountLimits() { return accountLimits(limits.outputTokens()); }
+    public int codingOutputLimit(int configured) { return accountLimits(configured).outputTokens(); }
+    private Limits accountLimits(int outputCeiling) {
         String owner=UserContext.current().id();
         if(!UserContext.validId(owner))throw new Denied("账号额度配置不可用");
         Path directory=root.resolve(owner),file=directory.resolve("limits.json");
@@ -58,7 +60,7 @@ public class ModelGovernance {
                 if(!ownerAttributes.isDirectory())throw new IllegalStateException();
                 attributes=Files.readAttributes(file,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
             }
-            catch(NoSuchFileException absent){return limits;}
+            catch(NoSuchFileException absent){return new Limits(limits.accountConcurrency(),limits.globalConcurrency(),limits.dailyRequests(),limits.dailyTokens(),outputCeiling);}
             if(!attributes.isRegularFile()||attributes.size()>4096)throw new IllegalStateException();
             byte[] policyBytes;try(var stream=Files.newInputStream(file,LinkOption.NOFOLLOW_LINKS)){policyBytes=stream.readNBytes(4097);}
             if(policyBytes.length>4096)throw new IllegalStateException();
@@ -68,7 +70,7 @@ public class ModelGovernance {
             while(fields.hasNext())if(!Set.of("accountConcurrency","dailyRequests","dailyTokens","outputTokens").contains(fields.next()))throw new IllegalStateException();
             return new Limits((int)tightened(policy,"accountConcurrency",limits.accountConcurrency()),limits.globalConcurrency(),
                 (int)tightened(policy,"dailyRequests",limits.dailyRequests()),tightened(policy,"dailyTokens",limits.dailyTokens()),
-                (int)tightened(policy,"outputTokens",limits.outputTokens()));
+                (int)tightened(policy,"outputTokens",outputCeiling));
         }catch(Exception invalid){throw new Denied("账号额度配置不可用，已停止新调用");}
     }
     private static long tightened(com.fasterxml.jackson.databind.JsonNode policy,String name,long ceiling) {

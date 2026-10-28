@@ -44,7 +44,7 @@ input.on('line', line => {
     send({ type: 'response', id: command.id, ok: true });
   } else if (command.type === 'start' && !active) {
     active = true;
-    const timeout = setTimeout(() => abort.abort(new Error('Turn exceeded 10 minute limit')), 600000);
+    const timeout = setTimeout(() => abort.abort(new Error('Turn exceeded 15 minute limit')), 900000);
     runAgent(command, { emit, signal: abort.signal, onTools: value => { tools = value;allTools.add(value); }, onSession: value => { session = value;allSessions.add(value); }, onGate: value => { gate = value;allGates.add(value); },onTeam:value=>{team=value;} })
       .then(() => send({ type: 'response', id: command.id, ok: true }))
       .catch(error => { const status = abort.signal.aborted ? 'CANCELLED' : 'FAILED'; emit({ type: 'status', status }); emit({ type: 'error', message: redact(error.message) }); send({ type: 'response', id: command.id, ok: false, error: redact(error.message) }); })

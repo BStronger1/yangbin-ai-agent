@@ -59,6 +59,12 @@ const router = createRouter({
 
 // 全局导航守卫，设置文档标题
 router.beforeEach(async to => {
+  // Fetch public page code while session validation is in flight. Rendering and
+  // all data access still wait for the existing authentication guard below.
+  if (!auth.loaded) {
+    const component = to.matched.at(-1)?.components?.default
+    if (typeof component === 'function') void component().catch(() => {})
+  }
   try{await loadUser()}catch{if(!to.meta.public)return {path:'/login',query:{next:to.fullPath}}}
   if(!to.meta.public&&!auth.user)return {path:'/login',query:{next:to.fullPath}}
   if(to.meta.public&&auth.user)return safeNext(to.query.next)

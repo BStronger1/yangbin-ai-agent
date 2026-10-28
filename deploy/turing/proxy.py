@@ -4,6 +4,7 @@ from gateway_policy import Admission, Metrics, trace, admit, response_headers, t
 from accounts import Accounts,RateLimit,COOKIE,auth_api
 import hmac
 import os
+import re
 from urllib.parse import urlsplit
 from pathlib import Path
 from aiohttp import web, ClientSession, ClientTimeout, ClientError
@@ -138,7 +139,12 @@ async def frontend(request):
     if not target.is_file():
         if target.suffix: raise web.HTTPNotFound()
         target = root / "index.html"
-    return web.FileResponse(target, headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
+    # Only content-addressed build assets are reusable across accounts/releases.
+    # HTML and every authenticated API remain uncached.
+    versioned = target.parent == root / "assets" and re.fullmatch(
+        r".+-[A-Za-z0-9_-]{8,}\.(?:js|css|woff2?|svg|png|jpe?g|webp|ico)", target.name)
+    cache = "public, max-age=31536000, immutable" if versioned else "no-store"
+    return web.FileResponse(target, headers={"Cache-Control":cache, "X-Content-Type-Options":"nosniff"})
 
 def create_app(accounts=None):
     app=web.Application(middlewares=[trace,authenticate,admit],client_max_size=12*1024*1024)

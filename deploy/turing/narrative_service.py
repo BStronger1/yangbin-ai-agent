@@ -7,7 +7,6 @@ Agent 专用实例：来源为 ai-ppt-generator/scripts/server_service.py。
 """
 
 import argparse
-import fcntl
 import json
 import os
 import secrets
@@ -214,17 +213,37 @@ def start(migrate=False):
     raise RuntimeError("Application not healthy; inspect logs")
 
 
+def boot_launcher(root):
+    # The shared home/runtime may become available after cron's @reboot event.
+    root = Path(root)
+    command = shlex.join([str(root / "runtime/bin/python"), str(root / "narrative_service.py"), "start"])
+    return ("#!/bin/sh\numask 077\nPATH=/usr/local/bin:/usr/bin:/bin\nexport PATH\n"
+            + "ROOT=" + shlex.quote(str(root)) + "\n"
+            + 'attempt=0\nwhile [ "$attempt" -lt 60 ]; do\n'
+            + '  if [ -x "$ROOT/runtime/bin/python" ] && [ -r "$ROOT/supervisord.conf" ]; then\n'
+            + '    mkdir -p "$ROOT/run" "$ROOT/logs" || exit 1\n'
+            + '    exec 9>"$ROOT/run/boot.lock"\n    flock -n 9 || exit 0\n'
+            + '    retry=0\n    while [ "$retry" -lt 3 ]; do\n'
+            # Do not let daemonized children inherit the launcher's flock.
+            + '      if ' + command + ' 9>&- >> "$ROOT/logs/boot.log" 2>&1; then exit 0; fi\n'
+            + '      retry=$((retry + 1))\n      sleep 10\n    done\n    exit 1\n  fi\n'
+            + '  attempt=$((attempt + 1))\n  sleep 10\ndone\nexit 1\n')
+
+
+def boot_cron(launcher):
+    # This loop lives in cron, so it can wait even when the NFS script is absent.
+    path = shlex.quote(str(launcher))
+    command = 'attempt=0; while [ "$attempt" -lt 60 ]; do'
+    command += f' if [ -r {path} ]; then exec /bin/sh {path}; fi;'
+    command += ' attempt=$((attempt + 1)); sleep 10; done; exit 1'
+    return '@reboot /bin/sh -c ' + shlex.quote(command) + ' # yangbin-agent-ppt-user-service'
+
+
 def install_autostart():
     launcher = ROOT / "start.sh"
     private_write(
         launcher,
-        "#!/bin/sh\numask 077\nexec "
-        + shlex.join(
-            [str(BIN / "python"), str(ROOT / "narrative_service.py"), "start"]
-        )
-        + " >> "
-        + shlex.quote(str(ROOT / "logs/boot.log"))
-        + " 2>&1\n",
+        boot_launcher(ROOT),
     )
     launcher.chmod(0o700)
     result = subprocess.run(
@@ -235,7 +254,7 @@ def install_autostart():
     marker = "# yangbin-agent-ppt-user-service"
     existing = result.stdout
     lines = [line for line in existing.splitlines() if not line.endswith(marker)]
-    lines.append(f"@reboot /bin/sh {shlex.quote(str(launcher))} {marker}")
+    lines.append(boot_cron(launcher))
     updated = "\n".join(lines) + "\n"
     if updated != existing:
         private_write(ROOT / "crontab.before-aippt", existing)
@@ -257,8 +276,9 @@ def stop():
 
 
 def main():
+    import fcntl
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["setup", "start", "status", "stop"])
+    parser.add_argument("action", choices=["setup", "start", "status", "stop", "install-autostart"])
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=39811)
     args = parser.parse_args()
@@ -274,6 +294,8 @@ def main():
             start()
         elif args.action == "status":
             print(ctl("status", check=False).stdout)
+        elif args.action == "install-autostart":
+            install_autostart()
         else:
             stop()
 

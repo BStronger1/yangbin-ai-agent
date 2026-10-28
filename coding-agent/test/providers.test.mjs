@@ -171,3 +171,14 @@ test('DeepSeek v4 alias through compatible gateway sends full coding budget and 
   for(const r of f.requests){assert.equal(r.body.max_tokens,65536);assert.equal(r.body.thinking.type,'enabled');assert.equal(r.body.reasoning_effort,'high');}
   assert.equal(f.requests[1].body.messages.find(x=>x.role==='assistant'&&x.tool_calls).reasoning_content,'fixture reasoning');
 });
+
+test('DeepSeek production ceiling permits 256K on the wire with 1M context', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_request,res)=>openai(res,{role:'assistant',content:'Budget verified.'}));
+  const result=await run(f,{CODING_MODEL_PROVIDER:'openai-compatible',CODING_MODEL_NAME:'deepseek-v4.1-flash-1017',CODING_OUTPUT_CEILING:'256000'},'Reply with Budget verified. Do not use tools.');
+  assert.equal(result.ok,true,result.stdout);
+  assert.equal(f.requests.length,1);
+  assert.equal(f.requests[0].body.max_tokens,256000);
+  const budget=result.events.find(x=>x.event?.type==='context'&&x.event.maxOutputTokens)?.event;
+  assert.equal(budget.contextWindow,1000000);
+  assert.equal(budget.maxOutputTokens,256000);
+});

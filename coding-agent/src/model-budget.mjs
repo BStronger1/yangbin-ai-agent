@@ -9,10 +9,11 @@ export function modelBudget(env, { layered = true, memoryEnabled = false } = {})
     return n;
   };
   const contextWindow = integer('CODING_CONTEXT_WINDOW', deepseek ? 1000000 : 128000, 2000000);
-  const requested = integer('CODING_OUTPUT_TOKENS', deepseek ? 256000 : 32768, 384000);
+  if (contextWindow < 4096) throw new Error('Context window must be at least 4096');
+  const requested = integer('CODING_OUTPUT_TOKENS', deepseek ? Math.min(256000, Math.floor(contextWindow / 2)) : Math.min(32768, Math.floor(contextWindow / 4)), 384000);
   const ceiling = integer('CODING_OUTPUT_CEILING', 384000, 384000);
-  const anchors = (layered ? 2048 : 0) + (memoryEnabled ? 2048 : 0);
-  const maxOutputTokens = Math.min(requested, ceiling, contextWindow - anchors - 4096);
-  if (maxOutputTokens < 1024) throw new Error('Context window is too small for input and output headroom');
-  return { contextWindow, maxOutputTokens, reserveTokens: maxOutputTokens + anchors };
+  const anchors = (layered ? Math.min(2048, Math.floor(contextWindow / 8)) : 0) + (memoryEnabled ? Math.min(2048, Math.floor(contextWindow / 4)) : 0);
+  const maxOutputTokens = Math.min(requested, ceiling, contextWindow - anchors - Math.min(4096, Math.floor(contextWindow / 4)));
+  if (maxOutputTokens < 1) throw new Error('Context window is too small for input and output headroom');
+  return { contextWindow, maxOutputTokens, reserveTokens: Math.max(1024, maxOutputTokens) + anchors };
 }

@@ -62,6 +62,8 @@ const policyLabel = computed(() => policies.find(item => item.id === policy.valu
 const selectedProject = computed(() => projects.value.find(item => item.id === (session.value?.projectId || projectId.value)))
 const isLocal = computed(() => selectedProject.value?.source === 'local')
 const localDirectory = shallowRef(null), savedLocalHandle = shallowRef(null), localConnected = ref(false), localConnecting = ref(false)
+let incomingRunner = null
+try { if(location.hash.startsWith('#local-runner=')){ const value=location.hash.slice(14); history.replaceState(history.state,'',location.pathname+location.search); if(value.length<2048){const parsed=JSON.parse(decodeURIComponent(value)); new LocalRunner(parsed.url,parsed.token); incomingRunner=parsed} } } catch {}
 const runner = shallowRef(null), runnerUrl = ref(''), runnerToken = ref(''), runnerBusy = ref(false), runnerJobs = ref([])
 async function connectRunner() {
   if (running.value || !localDirectory.value) return
@@ -77,6 +79,7 @@ const supportsLocal = localSupported()
 const localClientId = globalThis.crypto?.randomUUID?.() || '', localReceipts = new Map()
 let localPumping = false, localRestoreGeneration = 0
 const ownerId = () => auth.user?.id || auth.user?.username
+const codingBudget = computed(() => [...(session.value?.events || [])].reverse().find(e => e.type === 'context' && e.maxOutputTokens))
 const workspaceLabel = computed(() => isLocal.value ? '本机目录' : '服务端工作区')
 function disconnectLocal() { runner.value?.disconnect(); runner.value=null; runnerJobs.value=[]; runnerToken.value=''; localDirectory.value?.disconnect(); localDirectory.value = null; localConnected.value = false; savedLocalHandle.value = null; localReceipts.clear(); localRestoreGeneration++ }
 async function restoreDirectory() {
@@ -146,6 +149,7 @@ async function pumpLocalFiles() {
   } catch (e) { if (valid()) error.value = localError(e) }
   finally { localPumping = false }
 }
+watch(localDirectory, directory => {if(directory && incomingRunner){runnerUrl.value=incomingRunner.url;runnerToken.value=incomingRunner.token;incomingRunner=null;void connectRunner()}})
 watch(() => [ownerId(), selectedProject.value?.id], restoreDirectory)
 
 const workRunning = computed(() => ['RUNNING', 'QUEUED', 'WAITING_APPROVAL', 'AWAITING_APPROVAL', 'CANCELLING'].includes(String(session.value?.status || '').toUpperCase()))
@@ -472,9 +476,10 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>
       <p v-if="modelsError" class="coding-service-note" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>
       <p v-if="mode === 'work' && isLocal" class="coding-service-note" data-testid="local-status">{{ localConnected ? '已连接本机目录；修改直接写回原文件。任务期间请保持页面打开；连接本机运行器后可以启动、预览和停止程序。' : '本机目录未连接；请在原浏览器重新授权。其他设备请新建本机项目。' }}<button v-if="!localConnected && savedLocalHandle" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">重新授权目录</button></p>
+      <p v-if="mode === 'work' && codingBudget" class="coding-service-note">本轮单次输出上限 {{ codingBudget.maxOutputTokens.toLocaleString() }} Token（含推理），上下文 {{ codingBudget.contextWindow.toLocaleString() }} Token。</p>
       <details v-if="mode === 'work' && isLocal && localConnected" class="coding-service-note" data-testid="local-runner-panel">
         <summary>{{ runner ? '本机运行器已连接 · ' + runner.workspace : '连接本机运行器，启动项目' }}</summary>
-        <p>在电脑上运行项目提供的命令：<code>node coding-agent/src/local-runner.mjs "项目完整路径"</code>，然后填写显示的地址和连接码。命令以你的电脑账号运行，可修改本机文件；每次启动命令前均会展示内容并请求确认。</p>
+        <p><a href="/downloads/yangbin-local-runner.zip" download>下载本机运行器</a>，解压后双击 start.cmd，填写项目文件夹路径并打开连接链接（需要 Node.js 22 或更新版本）。也可以在源码目录运行：<code>node coding-agent/src/local-runner.mjs "项目完整路径"</code>，然后填写显示的地址和连接码。浏览器询问访问本地网络时，请允许连接。命令以你的电脑账号运行，可修改本机文件；每次启动命令前均会展示内容并请求确认。</p>
         <label>本机地址<input v-model="runnerUrl" placeholder="http://127.0.0.1:端口" :disabled="running" /></label>
         <label>连接码<input v-model="runnerToken" type="password" autocomplete="off" :disabled="running" /></label>
         <button type="button" @click="connectRunner" :disabled="running || runnerBusy">连接运行器</button>

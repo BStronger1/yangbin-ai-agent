@@ -39,6 +39,7 @@ export class LocalProcessManager {
     job.state='STOPPED'; return this.status(id);
   }
   async preview({ path: entry = 'index.html' } = {}) {
+    if(entry==='.' || entry==='')entry='index.html';
     const file = await this.paths.resolve(entry); if (!(await fs.stat(file)).isFile()) throw new Error('Preview entry must be a file');
     if ([...this.jobs.values()].filter(j=>j.state==='RUNNING').length>=4 || this.jobs.size>=100)throw new Error('Local process limit reached');
     const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.mp3':'audio/mpeg','.wav':'audio/wav','.woff2':'font/woff2'};

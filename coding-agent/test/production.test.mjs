@@ -44,8 +44,8 @@ test('stream limits reject oversized complete lines and excessive total response
   await assert.rejects(oversized.text(),/event exceeds limit/);assert.equal(events.at(-1).status,'UNKNOWN');
   const payload=new TextEncoder().encode(('data: '+JSON.stringify({content:'x'.repeat(1024)})+'\n\n').repeat(1000));
   let chunks=0;
-  const total=await gate.wrap(async()=>new Response(new ReadableStream({pull(controller){if(++chunks<=10)controller.enqueue(payload);else controller.close();}})))('http://unused',request);
-  await assert.rejects(total.text(),/response exceeds 8 MiB/);assert.equal(events.at(-1).status,'UNKNOWN');
+  const total=await gate.wrap(async()=>new Response(new ReadableStream({pull(controller){if(++chunks<=70)controller.enqueue(payload);else controller.close();}})))('http://unused',request);
+  await assert.rejects(total.text(),/response exceeds 64 MiB/);assert.equal(events.at(-1).status,'UNKNOWN');
 });
 test('admission timeout and abort do not issue HTTP',async()=>{
   const gate=new ModelGate({required:true,timeoutMs:5});let called=false;

@@ -143,3 +143,22 @@ async function assertStoredRedaction(directory) {
     else assert.ok(!(await fs.readFile(location, 'utf8')).includes(key), entry.name);
   }
 }
+
+// Regression: a length-limited reasoning response previously emitted SUCCEEDED.
+test('truncated and empty final replies fail without automatic retry or false success', {timeout:60000}, async t=>{
+  for (const example of [{delta:{role:'assistant',reasoning_content:'fixture thought'},finish:'length'}, {delta:{role:'assistant',content:'partial text'},finish:'length'}, {delta:{role:'assistant',content:''},finish:'stop'}]) {
+    const f=await fixture(t,(_request,res)=>openai(res,example.delta,example.finish));
+    const result=await run(f);
+    assert.equal(result.ok,false,result.stdout);
+    assert.ok(result.events.some(x=>x.event?.type==='status'&&x.event.status==='FAILED'));
+    assert.equal(result.events.some(x=>x.event?.type==='status'&&x.event.status==='SUCCEEDED'),false);
+    assert.equal(f.requests.length,1,'truncation must not automatically resend paid requests');
+    assert.deepEqual(await fs.readdir(f.workspace),[]);
+  }
+});
+test('truncation after a successful write preserves the file but reports failed turn', {timeout:60000},async t=>{
+  const f=await fixture(t,(_request,res,n)=>n===1?openai(res,{role:'assistant',tool_calls:[{index:0,id:'call_saved',type:'function',function:{name:'write',arguments:JSON.stringify({path:'provider.txt',content:'saved before truncation'})}}]},'tool_calls'):openai(res,{role:'assistant',reasoning_content:'fixture thought'},'length'));
+  const result=await run(f);assert.equal(result.ok,false,result.stdout);
+  assert.equal(await fs.readFile(path.join(f.workspace,'provider.txt'),'utf8'),'saved before truncation');
+  assert.equal(f.requests.length,2);assert.equal(result.events.some(x=>x.event?.type==='status'&&x.event.status==='SUCCEEDED'),false);
+});

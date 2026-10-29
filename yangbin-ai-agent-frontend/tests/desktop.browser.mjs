@@ -9,7 +9,7 @@ const frontend=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),r
 const output=process.env.EVIDENCE_DIR || path.join(repo,'desktop/build/acceptance');await fs.mkdir(output,{recursive:true});
 const root=await fs.mkdtemp(path.join(os.tmpdir(),'yangbin-desktop-ui-')),dataDir=await fs.mkdtemp(path.join(os.tmpdir(),'yangbin-desktop-profile-'));
 await fs.writeFile(path.join(root,'index.html'),'<h1>native desktop</h1>');
-let project=null,account='desktop-owner',task=null,pending=[],turnId,clientId,previewJob;const receipts=[];const checks={},errors=[];
+let project=null,account='desktop-owner',task=null,pending=[],turnId,clientId,previewJob;const automatic=process.env.TEST_POLICY==='allow';const receipts=[];const checks={},errors=[];
 const request=(operation,args)=>({requestId:crypto.randomUUID(),operation,arguments:args,turnId,expiresAt:Date.now()+60000,claimed:false});
 function approval(toolName,args){task.status='WAITING_APPROVAL';task.events.push({type:'approval_required',turnId,approvalId:toolName,toolName,arguments:args});}
 const check=(name,value)=>{assert.ok(value,name);checks[name]=true};
@@ -24,17 +24,18 @@ const server=http.createServer(async(req,res)=>{
   return json(req.method==='POST'?project:project?[project]:[]);
  }
  if(pathname==='/api/ai/coding/sessions'){
-  if(req.method==='POST'){task={id:'desktop-session',projectId:project.id,title:JSON.parse(body).title,approvalMode:'on-risk',status:'IDLE',revision:0,turns:[],events:[]};return json(task)}return json(task?[task]:[]);
+  if(req.method==='POST'){task={id:'desktop-session',projectId:project.id,title:JSON.parse(body).title,approvalMode:JSON.parse(body).approvalMode,status:'IDLE',revision:0,turns:[],events:[]};return json(task)}return json(task?[task]:[]);
  }
  if(pathname==='/api/ai/coding/sessions/desktop-session')return json(task);
- if(pathname.endsWith('/turns')){const data=JSON.parse(body);turnId=data.requestId;clientId=data.localClientId;task.status='RUNNING';task.turns=[{id:turnId,prompt:data.prompt,status:'RUNNING'}];task.revision++;pending=[request('ping',{})];return json(task);}
+ if(pathname.endsWith('/turns')){const data=JSON.parse(body);turnId=data.requestId;clientId=data.localClientId;task.status='RUNNING';task.approvalMode=data.approvalMode;task.turns=[{id:turnId,prompt:data.prompt,approvalMode:data.approvalMode,status:'RUNNING'}];task.revision++;pending=[request('ping',{})];return json(task);}
  if(pathname.endsWith('/local-files'))return json(pending);
  if(pathname.endsWith('/local-files/claim')){const data=JSON.parse(body),item=pending.find(p=>p.requestId===data.requestId);assert.equal(data.clientId,clientId);item.claimed=true;return json(item);}
  if(pathname.endsWith('/local-files/result')){
   const data=JSON.parse(body),item=pending.find(p=>p.requestId===data.requestId);assert.equal(data.ok,true,data.output);receipts.push({op:item.operation,output:data.output});pending=[];
   if(item.operation==='ping'){assert.equal(JSON.parse(data.output).localProcesses,true);pending=[request('read',{path:'index.html'})];}
-  if(item.operation==='read')approval('edit',{path:'index.html',oldText:'written by desktop',newText:'task completed'});
-  if(item.operation==='edit')approval('preview',{path:'index.html'});
+  if(item.operation==='read'){const args={path:'index.html',oldText:'written by desktop',newText:'task completed'};if(automatic)pending=[request('edit',args)];else approval('edit',args);}
+  if(item.operation==='edit'){if(automatic)pending=[request('start',{command:"Write-Output 'automatic-task-command'"})];else approval('preview',{path:'index.html'});}
+  if(item.operation==='start')pending=[request('preview',{path:'index.html'})];
   if(item.operation==='preview'){previewJob=JSON.parse(data.output);pending=[request('process_status',{id:previewJob.id})];}
   if(item.operation==='process_status'){assert.equal(JSON.parse(data.output).state,'RUNNING');task.status='SUCCEEDED';task.turns[0].status='SUCCEEDED';task.events.push({type:'context',turnId,maxOutputTokens:256000,contextWindow:1000000},{type:'text_delta',turnId,delta:'桌面任务已完成'});}
   task.revision++;return json({ok:true});
@@ -92,11 +93,14 @@ try{
  check('native-file-panel-reads-original',await page.getByLabel('文件内容预览').textContent()==='native write');
  await page.getByRole('button',{name:'关闭文件面板'}).click();
  await page.getByTestId('coding-file-panel').waitFor({state:'detached'});
+ await client.evaluate(({dialog})=>{globalThis.taskPrompts=[];dialog.showMessageBox=async(_w,args)=>{globalThis.taskPrompts.push(args.title);return {response:1}}});
+ if(automatic){await page.getByTestId('approval-policy').click();await page.getByTestId('policy-allow').click();}
  await page.getByTestId('coding-prompt').fill('修改 index.html 并启动预览');await page.getByTestId('coding-prompt').press('Enter');
- await page.getByTestId('approval-allow').click();await page.getByTestId('approval-allow').click();
+ if(!automatic){await page.getByTestId('approval-allow').click();await page.getByTestId('approval-allow').click();}
  await page.getByText('桌面任务已完成',{exact:true}).waitFor({timeout:30000});
- check('task-rpc-uses-native-files-and-processes',receipts.map(x=>x.op).join(',')==='ping,read,edit,preview,process_status');
+ check('task-rpc-uses-native-files-and-processes',receipts.map(x=>x.op).join(',')===(automatic?'ping,read,edit,start,preview,process_status':'ping,read,edit,preview,process_status'));
  check('task-modified-original-and-preview',await fs.readFile(path.join(root,'index.html'),'utf8')==='<h1>task completed</h1>' && (await(await fetch(previewJob.url)).text()).includes('task completed'));
+ if(automatic){const prompts=await client.evaluate(()=>globalThis.taskPrompts);check('one-task-grant-no-per-tool-prompts',prompts.length===1&&prompts[0]==='本轮全部允许');await page.waitForFunction(()=>document.querySelector('[data-testid=approval-policy]').textContent.includes('按需确认'));check('automatic-policy-resets-after-completion',true);}
  const rejected=await page.evaluate(async({id,turnId})=>{try{await window.yangbinDesktop.execute(id,'write',{path:'cancelled.txt',content:'must not write'},crypto.randomUUID(),{sessionId:'desktop-session',turnId,expiresAt:Date.now()+10000});return false}catch{return true}},{id:result.id,turnId});
  check('finished-task-cannot-write-late',rejected && await fs.stat(path.join(root,'cancelled.txt')).catch(()=>null)===null);
  // Hidden Electron windows can return a stale compositor frame despite current

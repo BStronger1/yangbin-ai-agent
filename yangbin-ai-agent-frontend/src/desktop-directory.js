@@ -1,5 +1,5 @@
 import {LocalDirectory,localSupported,saveLocalHandle,restoreLocalHandle} from './local-directory'
-export const isDesktop = () => globalThis.yangbinDesktop?.version === 1
+export const isDesktop = () => [1,2].includes(globalThis.yangbinDesktop?.version)
 const native = () => globalThis.yangbinDesktop
 function decorate(value) {
   return value ? {...value,queryPermission:async()=> 'granted',requestPermission:async()=> 'granted'} : null
@@ -37,4 +37,10 @@ export const projectDirectory = handle => handle?.desktop ? new DesktopDirectory
 export function desktopProcesses(directory){
   return {desktop:true,workspace:directory.handle.path,platform:directory.handle.platform,
     execute:(operation,args,requestId,context)=>directory.execute(operation,args,()=>true,requestId,context),disconnect(){}}
+}
+
+export async function authorizeDesktopTask(directory,sessionId,turnId) {
+  if(!directory.handle.desktop)return
+  if(native().version < 2 || !native().authorizeTask)throw new Error('当前桌面版本不支持本轮自动执行，请更新到 0.2.0 或更新版本。')
+  await native().authorizeTask(directory.handle.id,sessionId,turnId)
 }

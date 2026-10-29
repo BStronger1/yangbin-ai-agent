@@ -7,7 +7,6 @@ import { boundedText } from './context-store.mjs';
 export class LocalToolRuntime extends ToolRuntime {
   constructor(options) {
     super({ ...options, allowShell: false });
-    if (this.approvalMode === 'allow') throw new Error('Local file modifications require approval');
     this.requests = new Map();
     this.requestTimeoutMs = options.localTimeoutMs || 30000;
   }
@@ -51,7 +50,7 @@ export class LocalToolRuntime extends ToolRuntime {
     if (name === 'recall') return super.execute(name, args, callId);
     try {
       if (!['list', 'read', 'write', 'edit', ...(this.localProcesses ? ['start','preview','process_status','stop'] : [])].includes(name)) throw new Error('Tool unavailable for local directory');
-      await this.authorize(name, args, callId, {force: ['start','preview','stop'].includes(name)});
+      await this.authorize(name, args, callId, {force: this.approvalMode !== 'allow' && ['start','preview','stop'].includes(name)});
       this.emit({ type: 'tool_start', toolCallId: callId, toolName: name, arguments: args });
       const full = await this.exchange(name, args);
       this.signal?.throwIfAborted();

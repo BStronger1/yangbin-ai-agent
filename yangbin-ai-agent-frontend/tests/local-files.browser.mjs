@@ -52,7 +52,7 @@ try {
   await page.getByTestId('approval-policy').click();
   const teamOption=page.getByTestId('execution-mode').locator('option[value=team]');
   check('local-team-option-disabled',await teamOption.evaluate(e=>e.disabled));
-  check('local-allow-policy-disabled',await page.getByTestId('policy-allow').getAttribute('aria-disabled')==='true');
+  await page.getByTestId('policy-allow').click();check('local-allow-policy-selectable',await page.getByTestId('approval-policy').textContent().then(t=>t.includes('全部允许')));await page.getByTestId('approval-policy').click();await page.getByTestId('policy-on-risk').click();
   await page.keyboard.press('Escape');
   await page.getByTestId('coding-prompt').fill('请读取 main.txt，把 before 修改为 after。');await page.getByTestId('coding-prompt').press('Enter');
   await page.getByTestId('approval-allow').waitFor();check('real-file-unchanged-before-approval',await content()==='before\n');

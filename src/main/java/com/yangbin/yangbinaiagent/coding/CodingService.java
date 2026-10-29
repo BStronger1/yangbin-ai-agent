@@ -110,7 +110,7 @@ public class CodingService {
     }
     public synchronized Session submit(String id,TurnInput input)throws IOException {
         if(input==null||input.prompt()==null||input.prompt().isBlank()||input.prompt().length()>24000)throw new IllegalArgumentException("请输入1–24000字的任务");uuid(input.requestId());String mode=mode(input.approvalMode());String executionMode=executionMode(input.executionMode());Session s=session(id);
-        boolean local=isLocalProject(s.projectId);if(local){uuid(input.localClientId());if("team".equals(executionMode))throw new IllegalArgumentException("本机目录暂不支持团队执行");if("allow".equals(mode))throw new IllegalArgumentException("本机目录修改需要确认，请选择按需确认或始终询问");}
+        boolean local=isLocalProject(s.projectId);if(local){uuid(input.localClientId());if("team".equals(executionMode))throw new IllegalArgumentException("本机目录暂不支持团队执行");}
         var previous=s.turns.stream().filter(t->t.id.equals(input.requestId())).findFirst();
         if(previous.isPresent()){if(!previous.get().prompt.equals(input.prompt())||!previous.get().approvalMode.equals(mode)||!executionMode(previous.get().executionMode).equals(executionMode)||!Objects.equals(Objects.toString(previous.get().requestedModelProfileId,""),Objects.toString(input.modelProfileId(),""))||!Objects.equals(effort(previous.get().requestedReasoningEffort),effort(input.reasoningEffort())))throw new IllegalStateException("请求ID已用于其他内容");return s;}
         if(s.revision!=input.revision())throw new IllegalStateException("会话已更新，请刷新后发送");

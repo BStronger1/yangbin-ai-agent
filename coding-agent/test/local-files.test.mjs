@@ -44,7 +44,26 @@ test('disconnect timeout aborts task and ignores late result; cancellation close
   assert.equal(tools.localResult({requestId:events.find(e=>e.type==='local_fs').requestId,ok:true,output:'late'}),false);
   const pending=tools.execute('read',{path:'a'});await new Promise(r=>setTimeout(r,0));abort.abort();await assert.rejects(pending,/interrupted/);
 });
-test('local shell and permissive approval are refused',async t=>{
+test('local shell remains refused',async t=>{
   const {tools}=await fixture(t);await assert.rejects(tools.execute('bash',{command:'touch x'}),/unavailable/);
-  assert.throws(()=>new LocalToolRuntime({workspace:'.',approvalMode:'allow'}),/require approval/);
+});
+
+test('explicit allow automatically dispatches files and processes without approvals',async t=>{
+ const {tools,events}=await fixture(t,{approvalMode:'allow'});tools.localProcesses=true;
+ for(const name of ['read','write','edit','start','preview','stop','process_status']){
+  const result=tools.execute(name,{path:'a',content:'x',command:'test',id:'job'});
+  await new Promise(r=>setTimeout(r,0));
+  const request=events.findLast(e=>e.type==='local_fs');assert.equal(request.operation,name);
+  tools.localResult({requestId:request.requestId,ok:true,output:'ok'});await result;
+ }
+ assert.equal(events.some(e=>e.type==='approval_required'),false);
+});
+test('ask and on-risk continue to require approval for process starts',async t=>{
+ for(const mode of ['ask','on-risk']){
+  const {tools,events}=await fixture(t,{approvalMode:mode});tools.localProcesses=true;
+  const promise=tools.execute('start',{command:'test'});
+  const event=events.find(e=>e.type==='approval_required');assert.ok(event);
+  tools.approve(event.approvalId,false);await assert.rejects(promise,/rejected/);
+  assert.equal(events.some(e=>e.type==='local_fs'),false);
+ }
 });

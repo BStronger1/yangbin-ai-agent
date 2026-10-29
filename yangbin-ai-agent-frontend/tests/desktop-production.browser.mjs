@@ -12,11 +12,11 @@ try{
  assert.equal(new URL(page.url()).origin,'https://www.yangbinai.homes');
  assert.ok(await page.getByRole('button',{name:'登录',exact:true}).isVisible());
  const packaged=await client.evaluate(({app})=>app.isPackaged);assert.equal(packaged,true);
- assert.equal(await page.evaluate(()=>window.yangbinDesktop?.version),1);
+ assert.equal(await page.evaluate(()=>window.yangbinDesktop?.version),2);
  const screenshot=await client.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
  await fs.writeFile(path.join(out,'desktop-login.png'),Buffer.from(screenshot,'base64'));
  const response=await page.request.get('https://www.yangbinai.homes/coding');assert.equal(response.status(),200);
  const text=await response.text();await fs.writeFile(path.join(out,'public-index.html'),text);
- await fs.writeFile(path.join(out,'RESULT.json'),JSON.stringify({status:'PASSED',packaged,loginVisible:true,bridgeVersion:1,publicStatus:response.status(),modelCalls:0,loginSubmitted:false},null,2));
+ await fs.writeFile(path.join(out,'RESULT.json'),JSON.stringify({status:'PASSED',packaged,loginVisible:true,bridgeVersion:2,publicStatus:response.status(),modelCalls:0,loginSubmitted:false},null,2));
  console.log(JSON.stringify({status:'PASSED',packaged,publicStatus:response.status(),loginSubmitted:false}));
 }finally{await client.close();}

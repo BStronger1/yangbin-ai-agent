@@ -59,6 +59,19 @@ handle('editor',async({id},actual)=>{
   const url='vscode://file/'+space.path.replace(/\\/g,'/').split('/').map(encodeURIComponent).join('/');
   await shell.openExternal(url);return true;
 });
+handle('authorize-task',async({id,sessionId,turnId},actual)=>{
+  const space=spaces.get(id);
+  if(!space || space.owner!==actual || !validText(sessionId) || !validText(turnId))throw new Error('本轮授权参数无效');
+  if(space.automaticTask?.sessionId===sessionId && space.automaticTask?.turnId===turnId && space.automaticTask.expiresAt>Date.now())return true;
+  const response=await window.webContents.session.fetch(origin+'/api/ai/coding/sessions/'+encodeURIComponent(sessionId),{credentials:'include',redirect:'error',cache:'no-store'});
+  if(!response.ok)throw new Error('任务身份无法核验');
+  const task=await response.json();
+  if(bindings.get(key(actual,task.projectId))!==space.path || task.turns?.some(t=>t.id===turnId))throw new Error('只能为尚未提交的新一轮任务授权');
+  const answer=await dialog.showMessageBox(window,{type:'question',title:'本轮全部允许',message:'允许本轮任务自动修改文件并运行命令？',detail:`项目：${space.path}\n本轮不再逐次确认。命令以你的电脑账号执行，可能访问项目目录以外的资源。任务完成、取消或超时后失效。`,buttons:['取消','允许本轮自动执行'],defaultId:0,cancelId:0,noLink:true});
+  if(answer.response!==1)throw new Error('用户取消了本轮自动执行授权');
+  if(await owner()!==actual)throw new Error('登录账号已切换，授权已取消');
+  space.automaticTask={sessionId,turnId,expiresAt:Date.now()+20*60*1000};return true;
+});
 handle('execute',async({id,operation,args={},requestId,context},actual)=>{
   const space=spaces.get(id);if(!space || space.owner!==actual)throw new Error('项目目录未连接');
   if(!['ping','begin_turn','files','list','read','write','edit','start','preview','process_status','stop'].includes(operation))throw new Error('不支持的本机操作');
@@ -69,21 +82,23 @@ handle('execute',async({id,operation,args={},requestId,context},actual)=>{
   }
   if(space.receipts.size>=10000)throw new Error('本机操作记录已满，请结束任务并重启客户端');
   const checkTask=async()=>{
-    if(!context)return;
+    if(!context)return false;
     if(!validText(context.sessionId)||!validText(context.turnId)||!Number.isFinite(context.expiresAt)||context.expiresAt<=Date.now())throw new Error('任务操作已过期');
     const response=await window.webContents.session.fetch(origin+'/api/ai/coding/sessions/'+encodeURIComponent(context.sessionId),{credentials:'include',redirect:'error',cache:'no-store'});
     if(!response.ok)throw new Error('任务状态无法核验');
     const task=await response.json();
     if(bindings.get(key(actual,task.projectId))!==space.path)throw new Error('任务与本机项目目录不匹配');
-    if(!['RUNNING','QUEUED','WAITING_APPROVAL','AWAITING_APPROVAL'].includes(task.status)||task.turns?.at(-1)?.id!==context.turnId||context.expiresAt<=Date.now())throw new Error('任务已停止，本机操作已取消');
+    if(!['RUNNING','QUEUED','WAITING_APPROVAL','AWAITING_APPROVAL'].includes(task.status)||task.turns?.at(-1)?.id!==context.turnId||context.expiresAt<=Date.now()){space.automaticTask=null;throw new Error('任务已停止，本机操作已取消');}
+    const grant=space.automaticTask;
+    return task.turns.at(-1).approvalMode==='allow' && grant?.sessionId===context.sessionId && grant?.turnId===context.turnId && grant.expiresAt>Date.now();
   };
   const run=async()=>{
     if(await owner()!==actual)throw new Error('登录账号已切换，操作已取消');
-    await checkTask();
-    if(operation==='begin_turn'){await space.files.beginTurn();return {output:'',changes:[]};}
+    const automatic=await checkTask();
+    if(operation==='begin_turn'){space.automaticTask=null;await space.files.beginTurn();return {output:'',changes:[]};}
     // A native confirmation protects process execution even if remote UI code
     // is compromised. File access remains scoped to the selected directory.
-    if(['start','preview','stop'].includes(operation)){
+    if(['start','preview','stop'].includes(operation) && !automatic){
       const detail=operation==='start'?String(args.command||''):operation==='preview'?`预览 ${args.path||'index.html'}`:`停止进程 ${args.id||''}`;
       const answer=await dialog.showMessageBox(window,{type:'question',title:'确认本机操作',message:detail,detail:`项目：${space.path}\n命令将以你的电脑账号运行。`,buttons:['取消','允许这次操作'],defaultId:0,cancelId:0,noLink:true});
       if(answer.response!==1)throw new Error('用户取消了本机操作');

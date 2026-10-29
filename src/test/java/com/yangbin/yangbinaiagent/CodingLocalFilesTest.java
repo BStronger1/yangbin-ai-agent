@@ -25,10 +25,16 @@ class CodingLocalFilesTest {
         assertThatThrownBy(()->service.diff(s.id)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(()->service.submit(s.id,turn(null,"auto","on-risk"))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(()->service.submit(s.id,turn(id(),"team","on-risk"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(()->service.submit(s.id,turn(id(),"auto","allow"))).isInstanceOf(IllegalArgumentException.class);
         service.submit(s.id,turn(id(),"auto","on-risk"));
         for(int i=0;i<100&&runtime.request==null;i++)Thread.sleep(10);
         assertThat(runtime.request.execution()).containsEntry("localFiles",true);assertThat(runtime.request.allowShell()).isFalse();
+    }
+    @Test void explicitAllowIsPassedToLocalRuntimeWithoutEnablingServerShell()throws Exception {
+        var s=fresh();service.submit(s.id,turn(id(),"auto","allow"));
+        for(int i=0;i<100&&runtime.request==null;i++)Thread.sleep(10);
+        assertThat(runtime.request).isNotNull();assertThat(runtime.request.approvalMode()).isEqualTo("allow");
+        assertThat(runtime.request.execution()).containsEntry("localFiles",true);assertThat(runtime.request.allowShell()).isFalse();
+        assertThat(service.session(s.id).turns.getLast().approvalMode).isEqualTo("allow");
     }
     @Test void requestsAreOwnerClientAndTurnBoundWithSingleClaimAndIdempotentReceipt()throws Exception {
         var s=fresh();String client=id(),request=id();var ready=new CountDownLatch(1);var done=new CountDownLatch(1);var release=new CountDownLatch(1);

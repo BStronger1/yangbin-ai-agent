@@ -9,7 +9,7 @@ import { useUnsavedChanges } from '../composables/useUnsavedChanges'
 import StudioIcon from '../components/StudioIcon.vue'
 import ReplyMarkdown from '../components/ReplyMarkdown.vue'
 import ReasoningEffort from '../components/ReasoningEffort.vue'
-import CodingTeam from '../components/CodingTeam.vue'
+import CodingTurn from '../components/CodingTurn.vue'
 import CodingMemory from '../components/CodingMemory.vue'
 import CodingEditorLink from '../components/CodingEditorLink.vue'
 import { modelApi } from '../api/models'
@@ -23,8 +23,8 @@ import { readWorkspace, writeWorkspace } from '../workspace-state'
 const route = useRoute(), router = useRouter()
 const mode = computed(() => route.path === '/super-agent' ? 'chat' : 'work')
 const codingDraftKey = () => 'draft:' + (session.value?.id || 'new')
-let restoringWorkspace = false, workspaceAccount = auth.user?.id || auth.user?.username, legacyPoll = null
-function saveWorkspace() { if (restoringWorkspace || loading.value || mode.value !== 'work') return; writeWorkspace('coding', codingDraftKey(), draft.value, workspaceAccount); writeWorkspace('coding', 'layout', { files: filePanel.value }, workspaceAccount); writeWorkspace('coding', 'project', projectId.value, workspaceAccount) }
+let restoringWorkspace = false, workspaceAccount = auth.user?.id || auth.user?.username, legacyPoll = null, draftTimer = null
+function saveWorkspace() { clearTimeout(draftTimer); if (restoringWorkspace || loading.value || mode.value !== 'work') return; writeWorkspace('coding', codingDraftKey(), draft.value, workspaceAccount); writeWorkspace('coding', 'layout', { files: filePanel.value }, workspaceAccount); writeWorkspace('coding', 'project', projectId.value, workspaceAccount) }
 function restoreWorkspace() { restoringWorkspace = true; draft.value = pending.value?.prompt || readWorkspace('coding', codingDraftKey(), ''); filePanel.value = readWorkspace('coding', 'layout', { files: false }).files === true; restoringWorkspace = false }
 const projects = ref([]), sessions = ref([]), session = ref(null), capabilities = ref(null)
 const memoryOpen = ref(false)
@@ -193,10 +193,20 @@ useOverlay(filePanel, filesPanel, closeFiles, { modal: false })
 useOverlay(fileEditing, editorPanel, cancelFileEdit, { modal: false })
 useOverlay(() => pendingApprovals.value.length > 0 && !approvalsHidden.value, approvalPanel, () => { approvalsHidden.value = true }, { modal: false })
 watch(() => pendingApprovals.value.map(a => a.approvalId).join(','), () => { approvalsHidden.value = false })
-const turns = computed(() => (session.value?.turns || []).map(turn => {
-  const events = (session.value.events || []).filter(event => event.turnId === turn.id)
-  return { ...turn, text: events.filter(event => event.type === 'text_delta').map(event => event.delta ?? event.text ?? '').join(''), events: events.filter(event => ['tool_start', 'tool_end', 'error'].includes(event.type)) }
-}))
+const turns = computed(() => {
+  const grouped = new Map()
+  for (const event of session.value?.events || []) {
+    if (!grouped.has(event.turnId)) grouped.set(event.turnId, { text: [], events: [], teamEvents: [] })
+    const group = grouped.get(event.turnId)
+    if (event.type === 'text_delta') group.text.push(event.delta ?? event.text ?? '')
+    else if (['tool_start', 'tool_end', 'error'].includes(event.type)) group.events.push(event)
+    else if (['task', 'team'].includes(event.type)) group.teamEvents.push(event)
+  }
+  return (session.value?.turns || []).map(turn => {
+    const group = grouped.get(turn.id)
+    return { ...turn, text: group?.text.join('') || '', events: group?.events || [], teamEvents: group?.teamEvents || [] }
+  })
+})
 const suggestions = computed(() => mode.value === 'chat' ? [
   { icon: 'bulb', title: '一起拆解一个问题', prompt: '请和我一起拆解这个问题，先帮我明确目标和需要的信息：' },
   { icon: 'notes', title: '整理思路与行动计划', prompt: '请把下面的想法整理成清晰的行动计划：' }
@@ -396,7 +406,7 @@ async function openFile(path) {
   } catch (e) { if (valid()) previewError.value = local ? localError(e) : errorMessage(e) }
   finally { if (token === previewSequence) previewLoading.value = false }
 }
-watch(() => [ownerId(), selectedProject.value?.id, session.value?.id, mode.value], () => {
+watch([ownerId, () => selectedProject.value?.id, () => session.value?.id, () => mode.value], () => {
   filesSequence++; previewSequence++; filesLoading.value = false; previewLoading.value = false
   fileQuery.value = ''; changedOnly.value = false; filesError.value = ''; previewError.value = ''; fileNotice.value = ''; files.value = []; changes.value = []; openedFile.value = null
 })
@@ -422,10 +432,12 @@ onMounted(async () => {
   else if (mode.value === 'work') { writeWorkspace('coding', 'last', null); if (filePanel.value) await loadFiles() }
   if(mode.value==='chat'&&typeof route.query.chat==='string')await openChat(route.query.chat)
 })
-watch([draft, filePanel, projectId], saveWorkspace, { flush: 'sync' })
-function warnLocalClose(event) { if (isLocal.value && workRunning.value) { event.preventDefault(); event.returnValue = '' } }
-onMounted(() => window.addEventListener('beforeunload', warnLocalClose))
-onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClose); disconnectLocal(); saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
+watch(draft, () => { clearTimeout(draftTimer); if (!restoringWorkspace && !loading.value) draftTimer = setTimeout(saveWorkspace, 300) }, { flush: 'sync' })
+watch([filePanel, projectId], saveWorkspace, { flush: 'sync' })
+function saveHiddenDraft() { if (document.visibilityState === 'hidden') saveWorkspace() }
+function warnLocalClose(event) { saveWorkspace(); if (isLocal.value && workRunning.value) { event.preventDefault(); event.returnValue = '' } }
+onMounted(() => { window.addEventListener('beforeunload', warnLocalClose); document.addEventListener('visibilitychange', saveHiddenDraft) })
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClose); document.removeEventListener('visibilitychange', saveHiddenDraft); disconnectLocal(); saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
 </script>
 
 <template>
@@ -450,7 +462,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
           <template v-if="mode === 'work'">
             <div class="thread-heading"><h1>{{ session.title || '工作任务' }}</h1><span class="status-chip" :class="{ running: workRunning }" role="status">{{ statusLabel(session.status) }}</span></div>
             <p v-if="!turns.length" class="muted">工作区已准备好，发送消息开始。</p>
-            <article v-for="turn in turns" :key="turn.id" class="coding-turn" :data-turn="turn.id"><div class="coding-user-message">{{ turn.prompt }}</div><div class="coding-agent-label"><span class="agent-mini">✦</span> Coding Agent <span class="turn-model" :title="historyModel(turn)">{{ historyModel(turn) }}</span><small>{{ statusLabel(turn.status) }}</small></div><div v-if="turn.events.length" class="coding-tool-events"><details v-for="event in turn.events" :key="event.seq" class="coding-tool-event" :class="{ 'tool-error': event.type === 'error' || event.ok === false }"><summary><StudioIcon :name="event.type === 'error' || event.ok === false ? 'close' : event.type === 'tool_end' ? 'check' : 'notes'" :size="15" /><span>{{ event.type === 'error' ? event.message : `${event.type === 'tool_start' ? '调用' : event.ok === false ? '失败' : '完成'} ${event.toolName || '工具'}` }}</span></summary><pre>{{ pretty(event.arguments ?? event.output ?? event.error ?? event.result ?? event.message) }}</pre></details></div><CodingTeam :session-id="session.id" :turn-id="turn.id" :events="session.events" :session-status="session.status" @updated="applySession"/><ReplyMarkdown v-if="turn.text" :text="turn.text" /><p v-else-if="['RUNNING','QUEUED'].includes(String(turn.status).toUpperCase())" class="coding-thinking"><span></span>正在处理任务…</p></article>
+            <CodingTurn v-for="turn in turns" :key="turn.id" :turn="turn" :session-id="session.id" :session-status="session.status" :status-text="statusLabel(turn.status)" :model-text="historyModel(turn)" @updated="applySession" />
             <button v-if="pendingApprovals.length && approvalsHidden" class="quiet-button" data-testid="reopen-approvals" @click="approvalsHidden = false">查看待审批操作（{{ pendingApprovals.length }}）</button><div v-if="pendingApprovals.length && !approvalsHidden" ref="approvalPanel" role="region" aria-label="待审批操作"><button class="quiet-button" aria-label="收起审批详情" @click="approvalsHidden = true">收起详情（任务继续等待审批）</button><section v-for="approval in pendingApprovals" :key="approval.approvalId" class="coding-approval" data-testid="coding-approval"><div><StudioIcon name="check" :size="20" /><h2>需要你的确认</h2></div><p>{{ approval.reason || '智能体请求执行以下操作。' }}</p><strong>{{ approval.toolName }}</strong><pre>{{ pretty(approval.arguments) }}</pre><footer><button class="quiet-button" :disabled="busy" @click="decide(approval.approvalId, false)" data-testid="approval-deny">拒绝</button><button class="coding-primary" :disabled="busy" @click="decide(approval.approvalId, true)" data-testid="approval-allow">允许这次操作</button></footer></section></div>
           </template>
           <template v-else><article v-for="message in chatMessages" :key="message.id" class="coding-turn"><div v-if="message.role === 'user'" class="coding-user-message">{{ message.text }}</div><template v-else><div class="coding-agent-label"><span class="agent-mini">✦</span> 历史智能体对话<span class="turn-model">{{ message.modelSnapshot?.model || message.modelSnapshot?.name }}</span></div><ReplyMarkdown v-if="message.text" :text="message.text" /><p v-else-if="chatRunning" class="coding-thinking"><span></span>正在思考…</p></template></article><details v-if="chatEvents.length" class="coding-tool-event"><summary>本轮工具执行记录 · {{ chatEvents.length }}</summary><pre>{{ pretty(chatEvents) }}</pre></details></template>

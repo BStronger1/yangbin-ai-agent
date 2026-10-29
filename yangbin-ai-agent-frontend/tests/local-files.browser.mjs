@@ -33,7 +33,7 @@ await page.route('**/*',async route=>{
       const item=pending.find(p=>p.requestId===body.requestId);assert.ok(item);assert.equal(body.ok,true,body.output);results.push({op:item.operation,output:body.output});pending=[];
       if(item.operation==='ping')pending=[request('read',{path:'main.txt'})];
       if(item.operation==='read'){assert.equal(body.output,'before\n');session.status='WAITING_APPROVAL';session.events.push({type:'approval_required',turnId,approvalId:'a1',toolName:'edit',arguments:{path:'main.txt',oldText:'before',newText:'after'}});}
-      if(item.operation==='edit'){assert.ok(approved);session.status='SUCCEEDED';session.turns[0].status='SUCCEEDED';session.events.push({type:'text_delta',turnId,delta:'本机修改完成'});}
+      if(item.operation==='edit'){assert.ok(approved);session.status='SUCCEEDED';session.turns[0].status='SUCCEEDED';session.events.push({type:'context',turnId,maxOutputTokens:256000,contextWindow:1000000});session.events.push({type:'text_delta',turnId,delta:'本机修改完成'});}
       data={ok:true};
     }
     else if(name.endsWith('/approvals/a1')){approved=true;session.status='RUNNING';session.events.push({type:'approval_resolved',turnId,approvalId:'a1',approved:true});pending=[request('edit',{path:'main.txt',oldText:'before',newText:'after'})];data=session;}
@@ -57,6 +57,12 @@ try {
   await page.getByTestId('coding-prompt').fill('请读取 main.txt，把 before 修改为 after。');await page.getByTestId('coding-prompt').press('Enter');
   await page.getByTestId('approval-allow').waitFor();check('real-file-unchanged-before-approval',await content()==='before\n');
   await page.getByTestId('approval-allow').click();await page.getByText('本机修改完成',{exact:true}).waitFor();
+  check('normal-status-is-neutral',await page.getByTestId('local-status').evaluate(e=>!e.classList.contains('coding-warning') && getComputedStyle(e).backgroundColor==='rgba(0, 0, 0, 0)'));
+  check('optional-runner-hidden',await page.getByTestId('local-runner-panel').count()===0);
+  const budget=page.getByTestId('coding-budget');check('budget-collapsed-by-default',!await budget.evaluate(e=>e.open));
+  await budget.locator('summary').click();check('budget-shows-exact-limit',await budget.textContent().then(t=>t.includes('256,000')&&t.includes('1,000,000')));await budget.locator('summary').click();
+  await page.getByTestId('run-options').click();check('web-runner-is-optional',await page.getByTestId('local-runner-panel').textContent().then(t=>t.includes('编辑代码无需安装额外程序')));await page.getByTestId('run-options').click();
+  await page.screenshot({path:path.join(out,'neutral-status-desktop.png')});
   check('actual-file-api-write-to-original-handle',await content()==='after\n');check('read-write-rpc-order',results.map(r=>r.op).join(',')==='ping,read,edit');
   check('no-server-file-copy-endpoint',!unknown.some(x=>/\/file|\/diff/.test(x)));
   await page.reload();await page.getByTestId('local-status').filter({hasText:'已连接'}).waitFor();check('indexeddb-handle-restores-after-reload',await content()==='after\n');

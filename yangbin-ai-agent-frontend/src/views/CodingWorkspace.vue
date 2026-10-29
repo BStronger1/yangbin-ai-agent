@@ -1,6 +1,6 @@
 <script setup>
 import { LocalRunner } from '../local-runner'
-import { LocalDirectory, localSupported, saveLocalHandle, restoreLocalHandle } from '../local-directory'
+import { isDesktop, supportsProjectDirectory, chooseProjectDirectory, projectDirectory, saveProjectHandle, restoreProjectHandle, desktopProcesses } from '../desktop-directory'
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
@@ -64,6 +64,7 @@ const isLocal = computed(() => selectedProject.value?.source === 'local')
 const localDirectory = shallowRef(null), savedLocalHandle = shallowRef(null), localConnected = ref(false), localConnecting = ref(false)
 let incomingRunner = null
 try { if(location.hash.startsWith('#local-runner=')){ const value=location.hash.slice(14); history.replaceState(history.state,'',location.pathname+location.search); if(value.length<2048){const parsed=JSON.parse(decodeURIComponent(value)); new LocalRunner(parsed.url,parsed.token); incomingRunner=parsed} } } catch {}
+const desktop = isDesktop(), runnerOptionsOpen = ref(false)
 const runner = shallowRef(null), runnerUrl = ref(''), runnerToken = ref(''), runnerBusy = ref(false), runnerJobs = ref([])
 async function connectRunner() {
   if (running.value || !localDirectory.value) return
@@ -75,52 +76,52 @@ async function connectRunner() {
 async function refreshProcesses(){try{if(runner.value)runnerJobs.value=JSON.parse(await runner.value.execute('process_status',{}))}catch(e){error.value=localError(e)}}
 async function stopProcess(id){try{await runner.value.execute('stop',{id});await refreshProcesses()}catch(e){error.value=localError(e)}}
 const localError = e => e.response?.data?.message || e.message || '本机目录操作未完成'
-const supportsLocal = localSupported()
+const supportsLocal = supportsProjectDirectory()
 const localClientId = globalThis.crypto?.randomUUID?.() || '', localReceipts = new Map()
 let localPumping = false, localRestoreGeneration = 0
 const ownerId = () => auth.user?.id || auth.user?.username
 const codingBudget = computed(() => [...(session.value?.events || [])].reverse().find(e => e.type === 'context' && e.maxOutputTokens))
 const workspaceLabel = computed(() => isLocal.value ? '本机目录' : '服务端工作区')
-function disconnectLocal() { runner.value?.disconnect(); runner.value=null; runnerJobs.value=[]; runnerToken.value=''; localDirectory.value?.disconnect(); localDirectory.value = null; localConnected.value = false; savedLocalHandle.value = null; localReceipts.clear(); localRestoreGeneration++ }
+function disconnectLocal() { runner.value?.disconnect(); runner.value=null; runnerJobs.value=[]; runnerToken.value=''; localDirectory.value?.disconnect(); localDirectory.value = null; localConnected.value = false; savedLocalHandle.value = null; localReceipts.clear(); runnerOptionsOpen.value=false; localRestoreGeneration++ }
 async function restoreDirectory() {
   disconnectLocal(); const token = localRestoreGeneration, owner = ownerId(), project = selectedProject.value?.id
   if (!isLocal.value || !project) return
   if (policy.value === 'allow') policy.value = 'on-risk'
   if (executionMode.value === 'team') executionMode.value = 'auto'
   try {
-    const handle = await restoreLocalHandle(owner, project)
+    const handle = await restoreProjectHandle(owner, project)
     if (token !== localRestoreGeneration || disposed || owner !== ownerId()) return
     savedLocalHandle.value = handle || null
-    if (handle && await handle.queryPermission({mode:'readwrite'}) === 'granted' && token === localRestoreGeneration && !disposed) { localDirectory.value = new LocalDirectory(handle); localConnected.value = true }
+    if (handle && await handle.queryPermission({mode:'readwrite'}) === 'granted' && token === localRestoreGeneration && !disposed) { localDirectory.value = projectDirectory(handle); localConnected.value = true }
   } catch { error.value = '本机目录授权未能恢复，请重新选择目录。' }
 }
 async function addLocalProject() {
   if (projectBusy.value || running.value || !supportsLocal) return
   projectBusy.value = true; error.value = ''; const owner = ownerId()
   try {
-    const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'yangbin-coding-project' })
+    const handle = await chooseProjectDirectory()
     if (disposed || owner !== ownerId()) return
-    const validated = new LocalDirectory(handle); await validated.ready()
+    const validated = projectDirectory(handle); await validated.ready()
     const value = await codingApi.createProject(projectName.value.trim() || handle.name.slice(0,80), 'local')
     if (disposed || owner !== ownerId()) return
-    await saveLocalHandle(owner, value.id, handle)
+    await saveProjectHandle(owner, value.id, handle)
     projects.value.push(value); projectId.value = value.id; projectName.value = ''; projectOpen.value = false
   } catch (e) { if (e.name !== 'AbortError') error.value = localError(e) }
   finally { projectBusy.value = false }
 }
 async function connectLocal() {
-  if (localConnecting.value || running.value || !isLocal.value || !supportsLocal || !savedLocalHandle.value) return
+  if (localConnecting.value || running.value || !isLocal.value || !supportsLocal || (!savedLocalHandle.value && !desktop)) return
   localConnecting.value = true; error.value = ''; const owner = ownerId(), project = selectedProject.value.id, saved = savedLocalHandle.value
   try {
     // Invoke the permission request in the click handler, before unrelated awaits.
-    const handle = saved ? (await saved.requestPermission({mode:'readwrite'}) === 'granted' ? saved : null) : await window.showDirectoryPicker({mode:'readwrite', id:'yangbin-coding-project'})
+    const handle = saved ? (await saved.requestPermission({mode:'readwrite'}) === 'granted' ? saved : null) : await chooseProjectDirectory()
     if (!handle) throw new Error('未获得目录读写授权')
     if (disposed || owner !== ownerId() || project !== selectedProject.value?.id) return
     // A missing device binding cannot establish identity by matching a directory name.
-    if (!saved) throw new Error('此浏览器没有该项目的目录绑定，请创建新的本机项目。')
-    await saveLocalHandle(owner, project, handle)
+    if (!saved && !desktop) throw new Error('此浏览器没有该项目的目录绑定，请创建新的本机项目。')
+    await saveProjectHandle(owner, project, handle)
     if (disposed || owner !== ownerId() || project !== selectedProject.value?.id) return
-    localDirectory.value = new LocalDirectory(handle); savedLocalHandle.value = handle; localConnected.value = true
+    localDirectory.value = projectDirectory(handle); savedLocalHandle.value = handle; localConnected.value = true
   } catch (e) { if (e.name !== 'AbortError') error.value = localError(e) }
   finally { localConnecting.value = false }
 }
@@ -139,7 +140,7 @@ async function pumpLocalFiles() {
         if (request.claimed) throw new Error('文件操作结果未知，请停止任务并检查本机文件；不会重复执行。')
         const claimed = await codingApi.claimLocal(current, localClientId, request.requestId)
         if (!valid() || claimed.turnId !== turn || claimed.expiresAt <= Date.now()) return
-        try { const output = claimed.operation === 'ping' && runner.value ? JSON.stringify({localProcesses:true,platform:runner.value.platform}) : ['start','preview','process_status','stop'].includes(claimed.operation) ? await runner.value.execute(claimed.operation, claimed.arguments, claimed.requestId) : await directory.execute(claimed.operation, claimed.arguments, valid); if(['start','preview','stop'].includes(claimed.operation))await refreshProcesses(); result = { clientId:localClientId, requestId:request.requestId, ok:true, output } }
+        try { const output = claimed.operation === 'ping' && runner.value ? JSON.stringify({localProcesses:true,platform:runner.value.platform}) : ['start','preview','process_status','stop'].includes(claimed.operation) ? await runner.value.execute(claimed.operation, claimed.arguments, claimed.requestId, {sessionId:current,turnId:turn,expiresAt:claimed.expiresAt}) : await directory.execute(claimed.operation, claimed.arguments, valid, claimed.requestId, {sessionId:current,turnId:turn,expiresAt:claimed.expiresAt}); if(['start','preview','stop'].includes(claimed.operation))await refreshProcesses(); result = { clientId:localClientId, requestId:request.requestId, ok:true, output } }
         catch (e) { result = { clientId:localClientId, requestId:request.requestId, ok:false, output:String(e.message || '本机文件操作失败').slice(0,500) } }
         localReceipts.set(request.requestId, result)
       }
@@ -149,7 +150,7 @@ async function pumpLocalFiles() {
   } catch (e) { if (valid()) error.value = localError(e) }
   finally { localPumping = false }
 }
-watch(localDirectory, directory => {if(directory && incomingRunner){runnerUrl.value=incomingRunner.url;runnerToken.value=incomingRunner.token;incomingRunner=null;void connectRunner()}})
+watch(localDirectory, directory => {if(directory?.handle.desktop){runner.value=desktopProcesses(directory);void refreshProcesses();return}if(directory && incomingRunner){runnerUrl.value=incomingRunner.url;runnerToken.value=incomingRunner.token;incomingRunner=null;void connectRunner()}})
 watch(() => [ownerId(), selectedProject.value?.id], restoreDirectory)
 
 const workRunning = computed(() => ['RUNNING', 'QUEUED', 'WAITING_APPROVAL', 'AWAITING_APPROVAL', 'CANCELLING'].includes(String(session.value?.status || '').toUpperCase()))
@@ -294,9 +295,9 @@ async function send() {
   if (mode.value === 'chat') { sendChat(); return }
   if (!workAvailable.value || !projectId.value) return
   if (isLocal.value && (executionMode.value === 'team' || policy.value === 'allow')) { error.value = '本机目录请选择单 Agent 模式及按需确认或始终询问。'; return }
-  if (isLocal.value && !pending.value) { localDirectory.value.observed.clear(); localDirectory.value.changes.clear(); localReceipts.clear() }
   busy.value = true; error.value = ''; const token = generation
   try {
+    if (isLocal.value && !pending.value) { await localDirectory.value.beginTurn(); localReceipts.clear(); if(token !== generation || disposed)return }
     if (!session.value) {
       const created = await codingApi.createSession({ projectId: projectId.value, title: draft.value.trim().slice(0, 60), approvalMode: policy.value })
       if (token !== generation || disposed) return
@@ -430,7 +431,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
   <main class="coding-workspace" data-testid="coding-workspace">
     <header class="coding-topbar">
       <div class="coding-location"><StudioIcon :name="mode === 'work' ? 'layout' : 'chat'" :size="19" /><strong>{{ mode === 'work' ? 'Coding Agent' : '历史智能体对话' }}</strong><span v-if="session" class="coding-project-label">/ {{ selectedProject?.name || '项目' }}</span></div>
-      <div class="coding-top-actions"><CodingEditorLink v-if="mode === 'work' && selectedProject" :project="selectedProject" :owner="ownerId()" :directory-name="savedLocalHandle?.name" /><button v-if="mode === 'work' && projectId" class="quiet-button" aria-label="项目长期记忆" title="项目长期记忆" @click="memoryOpen = true" data-testid="coding-memory-open"><StudioIcon name="notes" :size="18" /><span>项目记忆</span></button><RouterLink class="quiet-button" to="/governance" aria-label="用量与运行状态" title="用量与运行状态"><StudioIcon name="chart" :size="18" /><span>用量与运行状态</span></RouterLink><button class="quiet-button" :aria-label="mode === 'chat' ? '对话历史' : '历史任务'" title="历史记录" @click="showHistory" data-testid="coding-history"><StudioIcon name="clock" :size="18" /><span>{{ mode === 'chat' ? '对话历史' : '历史任务' }}</span></button><button v-if="mode === 'work' && (session || projectId)" class="quiet-button" aria-label="项目文件" title="项目文件" @click="showFiles" data-testid="coding-files"><StudioIcon name="folder" :size="18" /><span>项目文件</span></button><button v-if="hasContent" class="quiet-button" aria-label="新任务" title="新任务" :disabled="busy" @click="newTask()"><StudioIcon name="plus" :size="18" /><span>新任务</span></button></div>
+      <div class="coding-top-actions"><CodingEditorLink v-if="mode === 'work' && selectedProject" :project="selectedProject" :owner="ownerId()" :directory-name="savedLocalHandle?.name" :desktop-id="savedLocalHandle?.desktop ? savedLocalHandle.id : null" /><button v-if="mode === 'work' && projectId" class="quiet-button" aria-label="项目长期记忆" title="项目长期记忆" @click="memoryOpen = true" data-testid="coding-memory-open"><StudioIcon name="notes" :size="18" /><span>项目记忆</span></button><RouterLink class="quiet-button" to="/governance" aria-label="用量与运行状态" title="用量与运行状态"><StudioIcon name="chart" :size="18" /><span>用量与运行状态</span></RouterLink><button class="quiet-button" :aria-label="mode === 'chat' ? '对话历史' : '历史任务'" title="历史记录" @click="showHistory" data-testid="coding-history"><StudioIcon name="clock" :size="18" /><span>{{ mode === 'chat' ? '对话历史' : '历史任务' }}</span></button><button v-if="mode === 'work' && (session || projectId)" class="quiet-button" aria-label="项目文件" title="项目文件" @click="showFiles" data-testid="coding-files"><StudioIcon name="folder" :size="18" /><span>项目文件</span></button><button v-if="hasContent" class="quiet-button" aria-label="新任务" title="新任务" :disabled="busy" @click="newTask()"><StudioIcon name="plus" :size="18" /><span>新任务</span></button></div>
     </header>
     <CodingMemory v-if="memoryOpen && mode === 'work' && projectId" :project-id="session?.projectId || projectId" :project-name="selectedProject?.name" :source-session-id="session?.id" :source-turn-id="session?.turns?.at(-1)?.id" @close="memoryOpen = false" />
     <div v-if="historyOpen" ref="historyPanel" role="dialog" aria-label="任务历史" class="coding-history-panel" data-testid="coding-history-panel"><div class="panel-heading"><h2>{{ mode === 'chat' ? '对话历史' : '工作任务' }}</h2><button class="icon-button" aria-label="关闭历史任务" @click="historyOpen = false"><StudioIcon name="close" :size="18" /></button></div><p v-if="!(mode === 'chat' ? chatHistory : sessions).length" class="muted">开始一个任务后，可以在这里继续。</p><button v-for="item in (mode === 'chat' ? chatHistory : sessions)" :key="item.id" class="history-row" :disabled="running" @click="mode === 'chat' ? openChat(item.id) : openSession(item)"><strong>{{ item.title || '未命名任务' }}</strong><span>{{ statusLabel(item.status) }} · {{ date(item.updatedAt || item.createdAt) }}</span></button><button v-if="mode === 'chat' && chatId && !running" class="quiet-button" @click="deleteChat(chatId)">删除当前对话</button></div>
@@ -467,22 +468,33 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
         <p v-if="previewLoading" role="status" class="muted">正在读取文件内容…</p>
         <p v-if="previewError" role="alert" class="file-panel-error">{{ previewError }}</p>
         <details v-if="openedFile" class="coding-file-preview" open><summary>{{ openedFile.path }}</summary><div class="file-preview-actions"><button class="quiet-button" :disabled="workRunning" @click="editFile(openedFile)">编辑文件</button><button class="quiet-button" @click="copyPreview" data-testid="copy-file-content"><StudioIcon name="copy" :size="15" />复制内容</button></div><p v-if="fileNotice" role="status">{{ fileNotice }}</p><pre tabindex="0" aria-label="文件内容预览">{{ openedFile.content }}</pre></details>
-        <div class="file-changes-heading"><h3>{{ isLocal ? '当前页面文件变更' : '最近一轮文件变更' }} <span>{{ changes.length }}</span></h3><div v-if="filteredChanges.length"><button class="quiet-button" @click="expandDiffs(true)" data-testid="expand-diffs">展开全部</button><button class="quiet-button" @click="expandDiffs(false)" data-testid="collapse-diffs">收起全部</button></div></div>
-        <p v-if="isLocal" class="muted file-scope-note">此处只记录当前页面的改动；刷新页面后记录清空，磁盘上的修改仍保留。</p>
+        <div class="file-changes-heading"><h3>{{ isLocal ? (desktop ? '本次客户端文件变更' : '当前页面文件变更') : '最近一轮文件变更' }} <span>{{ changes.length }}</span></h3><div v-if="filteredChanges.length"><button class="quiet-button" @click="expandDiffs(true)" data-testid="expand-diffs">展开全部</button><button class="quiet-button" @click="expandDiffs(false)" data-testid="collapse-diffs">收起全部</button></div></div>
+        <p v-if="isLocal" class="muted file-scope-note">{{ desktop ? '记录本次客户端打开期间的改动；退出客户端后记录清空，磁盘上的修改仍保留。' : '此处只记录当前页面的改动；刷新页面后记录清空，磁盘上的修改仍保留。' }}</p>
         <p v-if="!changes.length" class="muted">暂无已记录的文件变更</p><p v-else-if="!filteredChanges.length" class="muted">没有匹配搜索条件的变更</p>
         <details v-for="change in filteredChanges" :key="change.path" class="coding-diff"><summary>{{ ({created:'新增',modified:'修改',deleted:'删除',added:'新增'})[change.kind] || change.kind }} · {{ change.path }}</summary><label>修改前</label><pre tabindex="0">{{ change.before ?? '（文件不存在）' }}</pre><label>修改后</label><pre tabindex="0">{{ change.after ?? '（文件已删除）' }}</pre></details></aside>
     </div>
     <footer class="coding-composer-zone">
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>
-      <p v-if="modelsError" class="coding-service-note" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>
-      <p v-if="mode === 'work' && isLocal" class="coding-service-note" data-testid="local-status">{{ localConnected ? '已连接本机目录；修改直接写回原文件。任务期间请保持页面打开；连接本机运行器后可以启动、预览和停止程序。' : '本机目录未连接；请在原浏览器重新授权。其他设备请新建本机项目。' }}<button v-if="!localConnected && savedLocalHandle" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">重新授权目录</button></p>
-      <p v-if="mode === 'work' && codingBudget" class="coding-service-note">本轮单次输出上限 {{ codingBudget.maxOutputTokens.toLocaleString() }} Token（含推理），上下文 {{ codingBudget.contextWindow.toLocaleString() }} Token。</p>
-      <details v-if="mode === 'work' && isLocal && localConnected" class="coding-service-note" data-testid="local-runner-panel">
-        <summary>{{ runner ? '本机运行器已连接 · ' + runner.workspace : '连接本机运行器，启动项目' }}</summary>
-        <p><a href="/downloads/yangbin-local-runner.zip" download>下载本机运行器</a>，解压后双击 start.cmd，填写项目文件夹路径并打开连接链接（需要 Node.js 22 或更新版本）。也可以在源码目录运行：<code>node coding-agent/src/local-runner.mjs "项目完整路径"</code>，然后填写显示的地址和连接码。浏览器询问访问本地网络时，请允许连接。命令以你的电脑账号运行，可修改本机文件；每次启动命令前均会展示内容并请求确认。</p>
+      <p v-if="modelsError" class="coding-service-note coding-warning" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note coding-warning" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>
+      <div v-if="mode === 'work'" class="coding-context-info">
+        <p v-if="isLocal" :class="localConnected ? 'coding-info-text' : 'coding-service-note coding-warning'" data-testid="local-status">
+          {{ localConnected ? '本机目录已连接 · 修改直接保存到项目' : (desktop ? '请选择此项目在电脑上的文件夹' : '本机目录未连接，请重新授权') }}
+          <button v-if="!localConnected && (savedLocalHandle || desktop)" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">{{ desktop && !savedLocalHandle ? '选择文件夹' : '重新授权目录' }}</button>
+        </p>
+        <details v-if="codingBudget" class="coding-budget" data-testid="coding-budget"><summary>模型额度</summary><p>本轮单次输出上限 {{ codingBudget.maxOutputTokens.toLocaleString() }} Token（含推理） · 上下文 {{ codingBudget.contextWindow.toLocaleString() }} Token。此处显示上限，不是已用额度。</p></details>
+        <button v-if="isLocal && localConnected" type="button" class="quiet-button coding-run-options" :aria-expanded="runnerOptionsOpen" aria-controls="coding-run-options" @click="runnerOptionsOpen = !runnerOptionsOpen" data-testid="run-options">{{ desktop || runner ? '运行状态' : '运行选项' }}</button>
+      </div>
+      <section v-if="mode === 'work' && isLocal && localConnected && runnerOptionsOpen" id="coding-run-options" class="coding-service-note coding-run-panel" aria-label="项目运行" data-testid="local-runner-panel">
+        <p v-if="desktop">本机执行已内置，可让 Agent 启动、预览或停止项目，无需额外连接。</p>
+        <template v-else>
+        <p>编辑代码无需安装额外程序。你可以自行启动项目；需要 Agent 代为运行时，可使用桌面客户端，或连接可选的本机运行器。</p>
+        <details><summary>网页版可选连接</summary>
+        <p><a href="/downloads/yangbin-local-runner.zip" download>下载本机运行器</a>，解压后双击 start.cmd，填写项目目录并打开连接链接（需要 Node.js 22 或更新版本）。命令以你的电脑账号运行，每次启动前会请求确认。</p>
         <label>本机地址<input v-model="runnerUrl" placeholder="http://127.0.0.1:端口" :disabled="running" /></label>
         <label>连接码<input v-model="runnerToken" type="password" autocomplete="off" :disabled="running" /></label>
         <button type="button" @click="connectRunner" :disabled="running || runnerBusy">连接运行器</button>
+        </details>
+        </template>
         <button v-if="runner" type="button" @click="refreshProcesses">刷新运行状态</button>
         <div v-for="job in runnerJobs" :key="job.id">
           <span>{{ job.state }} · {{ job.command || '网页预览' }}</span>
@@ -490,7 +502,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
           <button v-if="job.state === 'RUNNING'" type="button" @click="stopProcess(job.id)">停止</button>
           <pre v-if="job.output">{{ job.output }}</pre>
         </div>
-      </details>
+      </section>
       <form class="coding-composer" @submit.prevent="send" data-testid="coding-composer">
         <textarea ref="promptInput" v-model="draft" rows="2" maxlength="16000" :disabled="busy || Boolean(pending)" :placeholder="mode === 'work' ? '描述你要完成的工作，或继续当前任务…' : '给 历史智能体对话发消息…'" aria-label="消息内容" data-testid="coding-prompt" @keydown="promptKeys"></textarea>
         <div class="coding-composer-toolbar"><div class="composer-controls">
@@ -499,7 +511,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
           <div class="model-picker-control"><button type="button" class="composer-chip model-picker-trigger" :disabled="running || busy || Boolean(pending) || modelsLoading" :aria-expanded="modelPickerOpen" @click="modelPickerOpen = !modelPickerOpen" data-testid="model-picker"><StudioIcon name="spark" :size="16" /><span>{{ modelsLoading ? '加载模型…' : modelLabel }}</span><span>⌄</span></button><div v-if="modelPickerOpen" ref="modelPanel" role="dialog" aria-label="选择模型" class="composer-popover model-picker-popover"><button type="button" aria-label="关闭模型选择" @click="modelPickerOpen = false">关闭</button><p>为{{ mode === 'work' ? 'Coding Agent' : '历史对话' }}选择模型</p><button v-if="modelCatalog.systemEnabled !== false" type="button" :class="{ selected: effectiveModelId === 'system' }" @click="chooseModel('system')" data-testid="model-option-system"><span><strong>系统默认</strong><small>使用当前部署的模型配置</small></span><StudioIcon v-if="effectiveModelId === 'system'" name="check" :size="16" /></button><button v-for="profile in modelCatalog.profiles" :key="profile.id" type="button" :disabled="mode === 'work' && profile.codingSupported === false" :class="{ selected: effectiveModelId === profile.id }" @click="chooseModel(profile.id)" :data-testid="`model-option-${profile.id}`"><span><strong>{{ profile.name }}</strong><small>{{ profile.model }}</small><small v-if="mode === 'work' && profile.codingSupported === false">{{profile.codingUnavailableReason || '此模型未支持编程工具调用'}}</small></span><StudioIcon v-if="effectiveModelId === profile.id" name="check" :size="16" /></button><button type="button" class="model-manage-link" @click="openModelManager" data-testid="model-manage"><StudioIcon name="plus" :size="16" />前往总设置</button></div></div><ReasoningEffort :model-value="selectedEfforts[mode]" :levels="effortLevels" :disabled="running || busy || Boolean(pending) || modelsLoading" @update:model-value="chooseEffort"/><RouterLink to="/skills?tab=skills" class="composer-link"><StudioIcon name="layers" :size="17" />技能</RouterLink><RouterLink to="/mcp" class="composer-link"><StudioIcon name="plug" :size="17" />插件</RouterLink>
         </div><button v-if="running" type="button" class="coding-stop" :disabled="busy" aria-label="停止任务" @click="cancel" data-testid="coding-cancel"><span></span></button><button v-else type="submit" class="coding-send" :disabled="busy || modelsLoading || Boolean(modelsError) || (!pending && !selectedModelValid) || !draft.trim() || (mode === 'work' && (!workAvailable || !projectId))" :aria-label="pending ? '重试原消息' : '发送消息'" data-testid="coding-send"><StudioIcon name="arrow" :size="21" /></button></div>
       </form>
-      <p class="composer-footnote">{{ mode === 'work' ? (capabilities?.shellEnabled ? '服务端项目文件 · 隔离命令执行已启用（无网络、只读项目快照）' : '当前支持项目文件读取与编辑 · 命令执行未启用或隔离环境不可用') : '当前对话由 历史智能体对话执行 · 历史按账号保存，可从历史列表恢复' }}</p>
+      <p class="composer-footnote">{{ mode === 'work' ? (isLocal ? (desktop ? '本机项目 · 内置文件与程序操作' : '本机项目 · 任务期间请保持页面打开') : capabilities?.shellEnabled ? '服务端项目文件 · 隔离命令执行已启用（无网络、只读项目快照）' : '当前支持项目文件读取与编辑 · 命令执行未启用或隔离环境不可用') : '当前对话由 历史智能体对话执行 · 历史按账号保存，可从历史列表恢复' }}</p>
     </footer>
 
   </main>

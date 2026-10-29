@@ -24,6 +24,7 @@ export class LocalDirectory {
     if (!this.enabled || await this.handle.queryPermission({ mode: 'readwrite' }) !== 'granted') throw new Error('本机目录未连接或权限已撤销，请重新授权');
   }
   disconnect() { this.enabled = false; this.observed.clear(); this.changes.clear(); }
+  async beginTurn() { await this.ready(); this.observed.clear(); this.changes.clear(); }
   async directory(parts, create = false) { let handle = this.handle; for (const part of parts) handle = await handle.getDirectoryHandle(part, { create }); return handle; }
   async read(name, { observe = true } = {}) {
     await this.ready(); const parts = localPath(name), parent = await this.directory(parts.slice(0, -1));

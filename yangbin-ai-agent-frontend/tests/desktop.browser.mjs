@@ -99,8 +99,12 @@ try{
  check('task-modified-original-and-preview',await fs.readFile(path.join(root,'index.html'),'utf8')==='<h1>task completed</h1>' && (await(await fetch(previewJob.url)).text()).includes('task completed'));
  const rejected=await page.evaluate(async({id,turnId})=>{try{await window.yangbinDesktop.execute(id,'write',{path:'cancelled.txt',content:'must not write'},crypto.randomUUID(),{sessionId:'desktop-session',turnId,expiresAt:Date.now()+10000});return false}catch{return true}},{id:result.id,turnId});
  check('finished-task-cannot-write-late',rejected && await fs.stat(path.join(root,'cancelled.txt')).catch(()=>null)===null);
- const screenshot=await client.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
- await fs.writeFile(path.join(output,'desktop.png'),Buffer.from(screenshot,'base64'));
+ // Hidden Electron windows can return a stale compositor frame despite current
+ // DOM state. Present this test-owned window without focus for visual evidence.
+ await client.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].showInactive());
+ await page.getByText('桌面任务已完成',{exact:true}).waitFor();
+ await page.screenshot({path:path.join(output,'desktop.png')});
+ await client.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());
  check('renderer-has-no-node',await page.evaluate(()=>typeof window.require==='undefined' && typeof window.process==='undefined'));
  const preferences=await client.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences());
  check('renderer-isolation',preferences.sandbox && preferences.contextIsolation && !preferences.nodeIntegration && preferences.webSecurity);

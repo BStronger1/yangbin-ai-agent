@@ -10,4 +10,8 @@
 
 本轮验证：Java CodingLocalFilesTest + CodingServiceTest 14/14；Node local-files 7/7；网页本机文件 35/35；真实 Electron 自动授权 22/22；按需确认 20/20；Java 打包及前端构建通过。桌面测试替代原生选择器和确认对话框、使用模拟账号/API/模型步骤，真实磁盘读写、子进程与 HTTP 预览实际执行。本轮没有调用真实模型，不属于模型质量评测。
 
-部署和便携包交付证据在维护者工作区的 tmp/m039-evidence、tmp/m039-desktop-allow、tmp/m039-desktop-risk、tmp/m039-web；最终发布记录由交接文档补充，不能仅据本源码报告推定线上发布成功。
+发布结果：源码 156b2c0e 已部署为 m039-20261029-c5a9de33050f，JAR、前端及独立运行时更新；完整性 12/12，426 文件哈希、137 原数据文件及 20 账号核对通过。服务器运行时 177 项：176 通过、1 隔离前提缺失跳过、0 失败。原有 256000 输出、所有者 2000000 日额度和服务器终端关闭配置保持。回退备份 before-workspace-5b470740，保留旧前端哈希资源；无 Git 推送。
+
+Windows x64 便携 ZIP 为 yangbin-ai-agent-windows-x64-0.2.0.zip，158254589 字节，SHA256 d3cf22f74a913d872386a1eeb50254a3f192fd82eae0497fde9331a449d83fb4。成品 EXE 实际启动并显示生产登录页，bridge 2，未提交登录。原生客户端没有自动更新，需要用户解压新版后启动。
+
+部署和便携包交付证据在维护者工作区的 tmp/m039-evidence、tmp/m039-desktop-allow、tmp/m039-desktop-risk、tmp/m039-web 与 tmp/m039-packaged-production；此前 M033 评测未修改，也不以本次工程回归代替真实模型评测。

@@ -1,4 +1,4 @@
-import { constants } from 'node:fs';
+import { FileOperations, atomicReplace, fileHash } from './file-operations.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { sandboxStatus, runIsolatedCommand } from './sandbox.mjs';
@@ -6,16 +6,17 @@ import { randomUUID } from 'node:crypto';
 import { boundedText } from './context-store.mjs';
 
 const LIMIT = 64 * 1024;
-const protectedPart = part => /^(\.git|\.ssh|\.aws|\.codex|\.pi|node_modules)$/i.test(part) || /^\.env(?:\.|$)/i.test(part) || /^(credentials|auth|secrets)(?:\.|$)/i.test(part) || /\.(pem|key|p12|pfx)$/i.test(part);
+const protectedPart = part => /^\.coding-write-/i.test(part) || /^(\.git|\.ssh|\.aws|\.codex|\.pi|node_modules)$/i.test(part) || /^\.env(?:\.|$)/i.test(part) || /^(credentials|auth|secrets)(?:\.|$)/i.test(part) || /\.(pem|key|p12|pfx)$/i.test(part);
 export class ToolRuntime {
-  constructor({ workspace, approvalMode = 'on-risk', allowShell = false, emit = () => {}, signal, contextStore, onLimit = () => {}, approvalTimeoutMs = 300000 }) {
+  constructor({ workspace, approvalMode = 'on-risk', allowShell = false, emit = () => {}, signal, contextStore, onLimit = () => {}, approvalTimeoutMs = 300000, execution, fileJournal, operationCheckpoint }) {
     if (!['ask', 'on-risk', 'allow'].includes(approvalMode)) throw new Error('Invalid approval mode');
     this.workspace = path.resolve(workspace); this.approvalMode = approvalMode;
     this.contextStore = contextStore; this.allowShell = allowShell === true; this.emit = emit; this.signal = signal;
+    this.fileOperations = fileJournal || (execution?.fileJournalDir ? new FileOperations({directory:execution.fileJournalDir,identity:execution.identity,checkpoint:operationCheckpoint}) : null);
     this.pending = new Map(); this.count = 0; this.onLimit = onLimit; this.approvalTimeoutMs = Math.max(1, Math.min(approvalTimeoutMs, 300000));
     signal?.addEventListener('abort', () => this.cancel(), { once: true });
   }
-  async init() { this.workspace = await fs.realpath(this.workspace); this.sandbox = await sandboxStatus(); this.shellRequested = this.allowShell; this.allowShell = this.allowShell && this.sandbox.available; }
+  async init() { this.workspace = await fs.realpath(this.workspace); if(this.fileOperations && (this.fileOperations.directory===this.workspace || this.fileOperations.directory.startsWith(this.workspace+path.sep)))throw Error('Operation journal must be outside workspace'); this.sandbox = await sandboxStatus(); this.shellRequested = this.allowShell; this.allowShell = this.allowShell && this.sandbox.available; }
   async resolve(input, allowMissing = false) {
     if (typeof input !== 'string' || !input || input.includes('\0')) throw new Error('A relative workspace path is required');
     if (path.isAbsolute(input) || /^[a-zA-Z]:/.test(input) || input.includes(':') || input.includes('\\')) throw new Error('Only relative paths with / separators are allowed');
@@ -96,6 +97,7 @@ export class ToolRuntime {
       } else if (name === 'write' || name === 'edit') {
         const location = await this.resolve(args.path, name === 'write');
         if (location === this.workspace) throw new Error('Cannot replace workspace root');
+        const produce = async () => {
         let content = args.content;
         if (name === 'edit') {
           const stat = await fs.stat(location);
@@ -107,11 +109,15 @@ export class ToolRuntime {
           content = original.slice(0, index) + args.newText + original.slice(index + args.oldText.length);
         }
         if (typeof content !== 'string' || Buffer.byteLength(content) > LIMIT || content.includes('\0')) throw new Error('Content must be text of at most 64 KiB');
-        await fs.mkdir(path.dirname(location), { recursive: true });
-        await this.resolve(args.path, true);
-        const handle = await fs.open(location, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW || 0), 0o600);
-        try { await handle.writeFile(content, 'utf8'); } finally { await handle.close(); }
-        output = `${name === 'edit' ? 'Edited' : 'Wrote'} ${args.path} (${Buffer.byteLength(content)} bytes)`;
+        return content;
+        };
+        const resolve = () => this.resolve(args.path, true);
+        if(this.fileOperations) output = await this.fileOperations.mutate({name,args:{...args,path:path.relative(this.workspace,location).split(path.sep).join('/')},callId,location,content:produce,resolve,signal:this.signal});
+        else {
+          const beforeHash=await fileHash(location),content=await produce();
+          await atomicReplace({location,content,beforeHash,resolve,signal:this.signal});
+          output=`${name === 'edit' ? 'Edited' : 'Wrote'} ${args.path} (${Buffer.byteLength(content)} bytes)`;
+        }
       } else if (name === 'bash') output = await this.runCommand(args);
       else throw new Error('Unknown tool');
       this.signal?.throwIfAborted();
@@ -142,6 +148,7 @@ export class ToolRuntime {
       this.emit({ type: 'tool_end', toolCallId: callId, toolName: name, ok: true, output: output.slice(0, 12000) });
       return { content: [{ type: 'text', text: output }], details };
     } catch (error) {
+      if(error.recoveryRequired)this.onLimit(error);
       this.emit({ type: 'tool_end', toolCallId: callId, toolName: name, ok: false, error: error.message, ...(error.approvalId ? { approvalId: error.approvalId } : {}) });
       throw error;
     }

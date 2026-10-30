@@ -8,7 +8,7 @@ await fs.cp(path.join(root,'node_modules/electron/dist'),out,{recursive:true});
 const target=path.join(out,'resources/app');await fs.mkdir(path.join(target,'desktop'),{recursive:true});
 for(const file of ['main.mjs','preload.cjs','native-directory.mjs'])await fs.copyFile(path.join(root,file),path.join(target,'desktop',file));
 await fs.mkdir(path.join(target,'coding-agent/src'),{recursive:true});
-for(const file of ['tools.mjs','local-runner.mjs','sandbox.mjs','context-store.mjs'])await fs.copyFile(path.join(repo,'coding-agent/src',file),path.join(target,'coding-agent/src',file));
+for(const file of ['tools.mjs','file-operations.mjs','local-runner.mjs','sandbox.mjs','context-store.mjs'])await fs.copyFile(path.join(repo,'coding-agent/src',file),path.join(target,'coding-agent/src',file));
 await fs.mkdir(path.join(target,'yangbin-ai-agent-frontend/src'),{recursive:true});
 await fs.copyFile(path.join(repo,'yangbin-ai-agent-frontend/src/local-directory.js'),path.join(target,'yangbin-ai-agent-frontend/src/local-directory.js'));
 await fs.writeFile(path.join(target,'package.json'),JSON.stringify({name:'yangbin-ai-agent',productName:'yangbin AI Agent',version:'0.2.0',type:'module',main:'desktop/main.mjs'}));

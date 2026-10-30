@@ -13,6 +13,8 @@ public class CodingController {
     public record Approval(boolean approved) {}
     @GetMapping("/capabilities") public Map<String,Object> capabilities(@RequestParam(required=false) String modelProfileId)throws Exception{return service.capabilities(modelProfileId);}
     @GetMapping("/projects") public Object projects()throws Exception{return service.projects();}
+    @GetMapping("/projects/{id}/recovery") public Object recovery(@PathVariable String id)throws Exception{return service.recovery(id);}
+    @PostMapping("/projects/{id}/recovery/accept") public Object acceptRecovery(@PathVariable String id,@RequestBody CodingService.RecoveryAcceptance input)throws Exception{return service.acceptRecovery(id,input);}
     @PostMapping("/projects") public Object createProject(@RequestBody CodingService.ProjectInput input)throws Exception{return service.createProject(input);}
     @GetMapping("/projects/{id}/files") public Object files(@PathVariable String id)throws Exception{return service.files(id);}
     @GetMapping("/projects/{id}/file") public Object file(@PathVariable String id,@RequestParam String path)throws Exception{return service.file(id,path);}

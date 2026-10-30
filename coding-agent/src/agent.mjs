@@ -70,7 +70,8 @@ async function runSingleAgent(input, { emit, signal, onTools, onSession, onGate,
   modelRuntime.streamSimple = (model, context, options) => streamSimple(model, context, { ...options, fetch: applyEffort(gate.wrap(transport.fetch)), maxTokens: Math.max(1, Math.min(Number(options?.maxTokens) || maxOutputTokens, maxOutputTokens)), maxRetries: 0 });
   let mcp,session,abort;
   try {
-  const sessionManager = SessionManager.continueRecent(tools.workspace, sessionDir);
+  const sessionManager = input.execution?.recoveredFromInterruption ? SessionManager.create(tools.workspace, sessionDir) : SessionManager.continueRecent(tools.workspace, sessionDir);
+  if(input.execution?.recoveredFromInterruption)input={...input,prompt:'上轮任务中断，用户已检查并接受当前文件状态。这是新一轮任务。先读取当前文件，禁止根据旧工具调用盲目重放或假设修改未生效。\n'+input.prompt};
   let contextPolicy;
   if (layered) {
     const store = new ContextStore({ sessionDir, signal, redact: redact.text });

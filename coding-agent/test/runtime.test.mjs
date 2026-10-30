@@ -71,13 +71,17 @@ test('actual pi SDK + loopback model completes write/read/edit tool loop and res
     res.write(`data: ${JSON.stringify(chunk({}, action ? 'tool_calls' : 'stop'))}\n\n`); res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => server.close());
-  async function turn(prompt) {
+  async function turn(prompt, recoveredFromInterruption=false) {
     const child = spawn(process.execPath, ['src/main.mjs'], { cwd: path.resolve(import.meta.dirname, '..'), env: { ...process.env, CODING_MODEL_API_KEY: 'offline-test-only', CODING_MODEL_ALLOW_PRIVATE: 'true', CODING_MODEL_BASE_URL: `http://127.0.0.1:${server.address().port}/v1`, CODING_MODEL_MODEL: 'test-model' }, windowsHide: true });
     let stderr = ''; child.stderr.on('data', data => { stderr += data; });
-    const events = [];
+    const events = [];const taskId='task-'+requests.length;
     const lines = readline.createInterface({ input: child.stdout });
-    lines.on('line', line => { const event = JSON.parse(line); events.push(event); if (event.type === 'ready') child.stdin.write(JSON.stringify({ id: 'turn', type: 'start', workspace, sessionDir: path.join(root, 'session'), prompt, approvalMode: 'on-risk', allowShell: false }) + '\n'); if (event.event?.type === 'approval_required') child.stdin.write(JSON.stringify({ type: 'approve', id: 'approve', approvalId: event.event.approvalId, approved: true }) + '\n'); if (event.type === 'response' && event.id === 'turn') child.stdin.end(); });
-    const code = await new Promise(resolve => child.on('close', resolve));
+    lines.on('line', line => { const event = JSON.parse(line); events.push(event); if (event.type === 'ready') child.stdin.write(JSON.stringify({ id: 'turn', type: 'start', workspace, sessionDir: path.join(root, 'session'), prompt, approvalMode: 'on-risk', allowShell: false, execution:{mode:'react',recoveredFromInterruption,fileJournalDir:path.join(root,'operations',taskId),identity:{accountId:'owner',projectId:'project',sessionId:'session',taskId,agentId:'agent'}} }) + '\n'); if (event.event?.type === 'approval_required') child.stdin.write(JSON.stringify({ type: 'approve', id: 'approve', approvalId: event.event.approvalId, approved: true }) + '\n'); if (event.type === 'response' && event.id === 'turn') child.stdin.end(); });
+    t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL')});
+    const code = await new Promise((resolve,reject) => {
+      const deadline=setTimeout(()=>{child.kill('SIGKILL');reject(new Error('Worker timeout: '+JSON.stringify({requests:requests.length,events:events.slice(-8),stderr})))},25000);
+      child.on('close', code=>{clearTimeout(deadline);resolve(code)});
+    });
     assert.equal(code, 0, stderr); assert.equal(events.at(-1).ok, true, JSON.stringify(events));
     return events;
   }
@@ -85,11 +89,15 @@ test('actual pi SDK + loopback model completes write/read/edit tool loop and res
   assert.equal(await fs.readFile(path.join(workspace, 'hello.txt'), 'utf8'), 'hello agent');
   assert.equal(events.filter(x => x.event?.type === 'tool_end' && x.event.ok).length, 3);
   assert.equal(requests.length, 4);
+  assert.equal((await fs.readdir(path.join(root,'operations','task-0'))).filter(f=>f.endsWith('.json')).length,2);
   assert.equal(events.filter(x => x.event?.type === 'approval_required').length, 2);
   assert.deepEqual(requests[0].tools.map(x => x.function.name).sort(), ['edit', 'list', 'read', 'recall', 'write']);
   assert.ok(requests[2].messages.some(x => x.role === 'tool' && x.content.includes('hello pi')));
   await turn('What did you just do?');
   assert.ok(requests.at(-1).messages.some(x => x.role === 'user' && JSON.stringify(x.content).includes('Create hello.txt')));
+  await turn('Inspect current state, do not redo previous operations.',true);
+  assert.ok(!requests.at(-1).messages.some(x=>x.role==='user' && JSON.stringify(x.content).includes('Create hello.txt')));
+  assert.ok(requests.at(-1).messages.some(x=>x.role==='user' && JSON.stringify(x.content).includes('先读取当前文件')));
 });
 
 

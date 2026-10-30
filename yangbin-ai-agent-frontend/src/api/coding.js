@@ -4,6 +4,8 @@ const data = request => request.then(response => response.data)
 export const codingApi = {
   capabilities: modelProfileId => data(api.get(`${root}/capabilities`, { params: modelProfileId ? { modelProfileId } : {} })),
   projects: () => data(api.get(`${root}/projects`)),
+  recovery: id => data(api.get(`${root}/projects/${encodeURIComponent(id)}/recovery`)),
+  acceptRecovery: (id, token) => data(api.post(`${root}/projects/${encodeURIComponent(id)}/recovery/accept`, {token, acceptCurrentFiles:true})),
   createProject: (name, source = "server") => data(api.post(`${root}/projects`, { name, source })),
   localRequests: (id, clientId) => data(api.get(`${root}/sessions/${encodeURIComponent(id)}/local-files`, { headers: { "X-Local-Client": clientId } })),
   claimLocal: (id, clientId, requestId) => data(api.post(`${root}/sessions/${encodeURIComponent(id)}/local-files/claim`, { clientId, requestId })),

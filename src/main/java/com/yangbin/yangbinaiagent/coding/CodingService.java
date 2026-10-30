@@ -30,6 +30,8 @@ public class CodingService {
     public record Change(String path,String before,String after,String kind) {}
     public static class Turn {
         public String id,prompt,status,createdAt,approvalMode,modelProfileId,requestedModelProfileId,requestedReasoningEffort,executionMode;
+        public boolean recoveryRequired;
+        public String recoveryAcceptedToken;
         public ModelProfileService.Snapshot modelSnapshot;
         public Turn(){}
         Turn(String id,String prompt,String mode){this.id=id;this.prompt=prompt;this.status="RUNNING";this.createdAt=now();this.approvalMode=mode;}
@@ -118,13 +120,18 @@ public class CodingService {
         if(s.events.size()>19000)throw new IllegalStateException("会话事件达到上限，请新建任务");
         if(hasActiveWorker()||sessions().stream().anyMatch(x->ACTIVE.contains(x.status)))throw new IllegalStateException("请等待当前 Coding Agent 任务结束");
         if(active.size()>=Math.max(1,globalConcurrency))throw new IllegalStateException("Coding 执行容量已满，请稍后再试");
+        boolean recovered=requireRecoveryAccepted(s.projectId);
         var selected=modelProfiles==null?null:modelProfiles.resolve(input.modelProfileId(),input.reasoningEffort());
         var availability=codingAvailability(selected);if(!availability.available())throw new IllegalStateException(availability.reason());
         Path workspace=workspace(s.projectId);var baseline=snapshot(workspace);Path state=ownerRoot().resolve("runtime").resolve(s.id);Files.createDirectories(state);write(state.resolve("baseline.json"),baseline);
         Path memoryFile=memory!=null&&!"off".equals(longTermMemory)?memory.runtimeFile(s.projectId):null;
         s.approvalMode=mode;s.status="RUNNING";s.revision++;var turn=new Turn(input.requestId(),input.prompt(),mode);turn.executionMode=executionMode;turn.requestedModelProfileId=input.modelProfileId();turn.requestedReasoningEffort=effort(input.reasoningEffort());turn.modelProfileId=selected==null?ModelProfileService.SYSTEM:selected.snapshot().profileId();turn.modelSnapshot=selected==null?new ModelProfileService.Snapshot("system","系统默认","system","",availability.model(),"system"):selected.snapshot();s.turns.add(turn);s.updatedAt=now();save(s);
+        // Persist the new running turn before consuming old recovery gates. A crash at
+        // either boundary leaves a durable active turn that startup marks interrupted.
+        try {consumeRecovery(s.projectId);s=session(id);}
+        catch(IOException failure){s=session(id);finish(s,"FAILED","恢复状态未能保存；请重新核对当前文件。");save(s);throw failure;}
         var user=UserContext.current();var run=new ActiveRun();run.localClientId=local?input.localClientId():null;String key=key(id);active.put(key,run);
-        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,!local&&shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile,Map.of("identity",Map.of("accountId",user.id(),"projectId",s.projectId,"sessionId",s.id,"taskId",turn.id,"agentId",UUID.randomUUID().toString()),"mode",executionMode,"localFiles",local,"limits",Map.of("maxRequests",60,"maxTokens",1000000)));
+        var request=new CodingRuntime.Request(id,workspace,state,input.prompt(),mode,!local&&shellEnabled&&user.admin()&&Boolean.TRUE.equals(runtime.shellAvailability().get("available")),selected,memoryFile,Map.of("identity",Map.of("accountId",user.id(),"projectId",s.projectId,"sessionId",s.id,"taskId",turn.id,"agentId",UUID.randomUUID().toString()),"mode",executionMode,"localFiles",local,"recoveredFromInterruption",recovered,"fileJournalDir",state.resolve("operations").resolve(turn.id).toString(),"limits",Map.of("maxRequests",60,"maxTokens",1000000)));
         String requestTrace=org.slf4j.MDC.get("requestId");
         executor.submit(()->{try(var ignored=UserContext.open(user);var trace=org.slf4j.MDC.putCloseable("requestId",requestTrace)){execute(id,request,run);} });return s;
     }
@@ -135,7 +142,7 @@ public class CodingService {
         catch(Exception e){result="FAILED";message="Coding Agent 执行未完成，请检查已产生的文件与事件。不会自动重试。";}
         if("SUCCEEDED".equals(result)&&run.finalStatus!=null)result=run.finalStatus;
         for(var lease:run.leases.values())if(governance!=null)try{governance.finish(lease,null,null,"UNKNOWN");}catch(Exception settlementFailure){result="FAILED";message="模型账本结算暂不可用，新的模型调用已暂停；不会自动重试模型。";}
-        synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){if("SUCCEEDED".equals(result)&&memory!=null&&!"off".equals(longTermMemory)){try{int count=memory.extract(s.projectId,s.id,s.turns.getLast().id,request.prompt());if(count>0)acceptEvent(id,Map.of("type","context","status","MEMORY_SAVED","count",count));s=session(id);}catch(Exception extractionFailure){acceptEvent(id,Map.of("type","context","status","MEMORY_SKIPPED","reason","STORE_UNAVAILABLE"));s=session(id);}}finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
+        synchronized(this){try{Session s=session(id);if(ACTIVE.contains(s.status)){if("SUCCEEDED".equals(result)&&memory!=null&&!"off".equals(longTermMemory)){try{int count=memory.extract(s.projectId,s.id,s.turns.getLast().id,request.prompt());if(count>0)acceptEvent(id,Map.of("type","context","status","MEMORY_SAVED","count",count));s=session(id);}catch(Exception extractionFailure){acceptEvent(id,Map.of("type","context","status","MEMORY_SKIPPED","reason","STORE_UNAVAILABLE"));s=session(id);}}if(Files.exists(request.sessionDir().resolve("operations").resolve(s.turns.getLast().id).resolve("writer.lock"))){result="FAILED";message="文件操作需要恢复核对；不会重放旧操作。";}finish(s,result,message);save(s);}}catch(IOException ignored){}finally{active.remove(key(id),run);}}
     }
     private boolean isLocalProject(String id)throws IOException {
         workspace(id);return "local".equals(json.readValue(ownerRoot().resolve("projects").resolve(id).resolve("project.json").toFile(),Project.class).source());
@@ -254,6 +261,61 @@ public class CodingService {
             }
         });result.sort(Comparator.naturalOrder());return result;
     }
+    public record RecoveryAcceptance(String token,boolean acceptCurrentFiles) {}
+    public synchronized Map<String,Object> recovery(String projectId)throws IOException {
+        Path workspace=workspace(projectId);boolean local=isLocalProject(projectId),required=false,canAccept=!hasActiveWorker();
+        var operations=new ArrayList<Map<String,Object>>();var pendingTurns=new ArrayList<String>();var accepted=new ArrayList<String>();
+        var inspector=new FileOperationRecovery(json);var errors=new ArrayList<String>();
+        try{
+            for(Session s:sessions())if(s.projectId.equals(projectId))for(Turn t:s.turns)if(t.recoveryRequired){
+                required=true;pendingTurns.add(s.id+":"+t.id);accepted.add(t.recoveryAcceptedToken);
+                Path state=ownerRoot().resolve("runtime").resolve(s.id),journal=state.resolve("operations").resolve(t.id);
+                if(Files.exists(state.resolve("worker.json"))){
+                    if(Files.isSymbolicLink(state.resolve("worker.json"))||Files.size(state.resolve("worker.json"))>1024)throw new IOException("Invalid worker record");
+                    long pid=json.readTree(state.resolve("worker.json").toFile()).path("pid").asLong(-1);
+                    if(pid<=0||ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))canAccept=false;
+                }
+                if(!local){
+                    if(FileOperationRecovery.workerAlive(journal))canAccept=false;
+                    operations.addAll(inspector.inspect(journal,workspace,UserContext.current().id(),projectId,s.id,t.id));
+                }
+            }
+        }catch(Exception failure){canAccept=false;errors.add("操作记录不可验证，请保留文件并人工排查，不能解除重试保护。");}
+        if(operations.stream().anyMatch(op->"UNVERIFIABLE".equals(op.get("observation"))))canAccept=false;
+        operations.sort(Comparator.comparing(o->o.get("sessionId")+":"+o.get("turnId")+":"+o.get("operationId")));Collections.sort(pendingTurns);
+        // Include all current project bytes: edits after review invalidate its acknowledgement.
+        String workspaceHash="LOCAL_UNVERIFIED";
+        if(required&&!local)try{workspaceHash=recoveryWorkspaceHash(workspace);}catch(Exception e){canAccept=false;errors.add("项目文件无法完整核对。");}
+        String token;
+        try{token=FileOperationRecovery.hash(json.writeValueAsBytes(List.of(projectId,pendingTurns,operations,workspaceHash)));}catch(Exception e){throw new IOException("Recovery token unavailable",e);}
+        boolean acknowledged=required&&canAccept&&accepted.stream().allMatch(token::equals);
+        var report=new LinkedHashMap<String,Object>();report.put("required",required);report.put("accepted",acknowledged);report.put("canAccept",canAccept);report.put("token",token);report.put("operations",operations);report.put("errors",errors);
+        report.put("scope",local?"LOCAL_UNVERIFIED":"SERVER_FILE_WRITE_EDIT");report.put("message",local?"上轮任务中断。本机文件与命令结果无法由服务器核验，请在本机检查后接受当前状态。":"上轮任务未完整结束。请检查文件与操作记录；接受当前状态后才能发起新一轮，不会重放旧任务。哈希匹配仅说明当前内容一致。");
+        return report;
+    }
+    public synchronized Map<String,Object> acceptRecovery(String projectId,RecoveryAcceptance input)throws IOException {
+        var report=recovery(projectId);
+        if(input==null||!input.acceptCurrentFiles()||!Boolean.TRUE.equals(report.get("required"))||!Boolean.TRUE.equals(report.get("canAccept"))||!Objects.equals(input.token(),report.get("token")))throw new IllegalStateException("恢复核对已变化或执行进程尚未退出，请刷新核对结果");
+        for(Session s:sessions())if(s.projectId.equals(projectId)){
+            boolean changed=false;for(Turn t:s.turns)if(t.recoveryRequired){t.recoveryAcceptedToken=input.token();changed=true;}
+            if(changed){addEvent(s,"recovery_review",Map.of("token",input.token(),"action","ACCEPT_CURRENT_FILES","scope",report.get("scope")));save(s);}
+        }
+        return recovery(projectId);
+    }
+    private String recoveryWorkspaceHash(Path workspace)throws Exception {
+        var hashes=new TreeMap<String,String>();long total=0;
+        for(Path file:projectFiles(workspace)){long size=Files.size(file);total+=size;if(size>FILE_LIMIT||total>MAX_SNAPSHOT)throw new IOException("Recovery workspace exceeds bounded verification");hashes.put(relative(workspace,file),FileOperationRecovery.hash(Files.readAllBytes(file)));}
+        return FileOperationRecovery.hash(json.writeValueAsBytes(hashes));
+    }
+    private boolean requireRecoveryAccepted(String projectId)throws IOException {
+        var report=recovery(projectId);if(Boolean.TRUE.equals(report.get("required"))&&!Boolean.TRUE.equals(report.get("accepted")))throw new IllegalStateException("项目有中断任务，请先核对并接受当前文件状态；不会重新执行旧任务");return Boolean.TRUE.equals(report.get("required"));
+    }
+    private void consumeRecovery(String projectId)throws IOException {
+        for(Session s:sessions())if(s.projectId.equals(projectId)){
+            boolean changed=false;for(Turn t:s.turns)if(t.recoveryRequired){t.recoveryRequired=false;changed=true;}
+            if(changed)save(s);
+        }
+    }
     private boolean hasActiveWorker(){String prefix=UserContext.current().id()+":";return active.keySet().stream().anyMatch(k->k.startsWith(prefix));}
     private void assertProjectIdle(String projectId)throws IOException {if(hasActiveWorker()||sessions().stream().anyMatch(s->s.projectId.equals(projectId)&&ACTIVE.contains(s.status)))throw new IllegalStateException("项目正在执行，请停止任务后编辑文件");}
     private Path ownerRoot()throws IOException {Path owner=root.resolve(UserContext.current().id());if(Files.isSymbolicLink(owner))throw new IOException("Invalid owner directory");Files.createDirectories(owner);return owner;}
@@ -264,7 +326,7 @@ public class CodingService {
         Path current=workspace;for(Path part:workspace.relativize(target)){current=current.resolve(part);if(Files.isSymbolicLink(current))throw new IllegalArgumentException("不支持符号链接文件");if(Files.exists(current)&&!current.toRealPath().startsWith(workspace.toRealPath()))throw new IllegalArgumentException("文件链接越出项目范围");}
         return target;
     }
-    private static boolean allowedPath(String name){if(name==null||name.isBlank()||name.length()>500||name.contains("\\")||name.contains(":")||name.startsWith("/")||name.indexOf('\0')>=0)return false;for(String part:name.split("/")){if(part.isBlank()||part.equals(".")||part.equals("..")||DENIED_SEGMENTS.contains(part.toLowerCase(Locale.ROOT))||part.toLowerCase(Locale.ROOT).startsWith(".env.")||part.endsWith(".")||part.endsWith(" ")||part.matches("(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(\\..*)?"))return false;}return true;}
+    private static boolean allowedPath(String name){if(name!=null&&Arrays.stream(name.split("/")).anyMatch(p->p.startsWith(".coding-write-")))return false;if(name==null||name.isBlank()||name.length()>500||name.contains("\\")||name.contains(":")||name.startsWith("/")||name.indexOf('\0')>=0)return false;for(String part:name.split("/")){if(part.isBlank()||part.equals(".")||part.equals("..")||DENIED_SEGMENTS.contains(part.toLowerCase(Locale.ROOT))||part.toLowerCase(Locale.ROOT).startsWith(".env.")||part.endsWith(".")||part.endsWith(" ")||part.matches("(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(\\..*)?"))return false;}return true;}
     private static String readText(Path file)throws IOException {if(Files.size(file)>FILE_LIMIT)throw new IllegalArgumentException("文件超过256KiB");String text=Files.readString(file,StandardCharsets.UTF_8);if(text.indexOf('\0')>=0)throw new IllegalArgumentException("仅支持UTF-8文本文件");return text;}
     private static String relative(Path root,Path file){return root.relativize(file).toString().replace('\\','/');}
     private static String mode(String mode){if(mode==null)return "on-risk";if(!Set.of("ask","on-risk","allow").contains(mode))throw new IllegalArgumentException("无效审批模式");return mode;}
@@ -274,6 +336,6 @@ public class CodingService {
     private void save(Session s)throws IOException {write(sessionPath(s.id),s);}
     private void write(Path path,Object value)throws IOException {Files.createDirectories(path.getParent());Path temp=Files.createTempFile(path.getParent(),".coding-",".tmp");try{json.writeValue(temp.toFile(),value);try{Files.move(temp,path,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(AtomicMoveNotSupportedException e){Files.move(temp,path,StandardCopyOption.REPLACE_EXISTING);}}finally{Files.deleteIfExists(temp);}}
     private static void addEvent(Session s,String type,Map<String,Object> data){var e=new LinkedHashMap<String,Object>(data);e.put("seq",s.events.size()+1);e.put("type",type);e.put("turnId",s.turns.isEmpty()?"":s.turns.getLast().id);e.put("createdAt",now());s.events.add(e);s.updatedAt=now();}
-    private static void finish(Session s,String status,String message){s.status=status;if(!s.turns.isEmpty())s.turns.getLast().status=status;addEvent(s,"status",message==null?Map.of("status",status):Map.of("status",status,"message",message));}
+    private static void finish(Session s,String status,String message){s.status=status;if(!s.turns.isEmpty()){s.turns.getLast().status=status;if(Set.of("FAILED","INTERRUPTED","CANCELLED","PARTIAL").contains(status))s.turns.getLast().recoveryRequired=true;}addEvent(s,"status",message==null?Map.of("status",status):Map.of("status",status,"message",message));}
     @PreDestroy public synchronized void close(){for(var run:active.values())run.commands.offer(Map.of("type","cancel","id",UUID.randomUUID().toString()));executor.shutdown();}
 }

@@ -82,6 +82,12 @@ public class NodeCodingRuntime implements CodingRuntime {
         var timer=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"coding-timeout");t.setDaemon(true);return t;});
         timer.schedule(()->kill(process),timeoutSeconds,TimeUnit.SECONDS);
         try(var writer=new BufferedWriter(new OutputStreamWriter(process.getOutputStream(),StandardCharsets.UTF_8));var reader=new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8))) {
+            // Persist worker identity before sending start; restart recovery must not race an orphan.
+            java.nio.file.Files.createDirectories(request.sessionDir());
+            Path worker=request.sessionDir().resolve("worker.json");
+            try(var channel=java.nio.channels.FileChannel.open(worker,java.nio.file.StandardOpenOption.CREATE,java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,java.nio.file.StandardOpenOption.WRITE)){
+                channel.write(java.nio.ByteBuffer.wrap(json.writeValueAsBytes(Map.of("pid",process.pid()))));channel.force(true);
+            }
             Thread commandWriter=Thread.ofVirtual().start(()->{
                 try{while(process.isAlive()){
                     var command=commands.poll(1,TimeUnit.SECONDS);if(command==null)continue;
@@ -108,7 +114,7 @@ public class NodeCodingRuntime implements CodingRuntime {
                 }
                 if(!completed)throw new IOException("Coding runtime interrupted");
             }finally{commandWriter.interrupt();}
-        }finally{timer.shutdownNow();kill(process);}
+        }finally{timer.shutdownNow();kill(process);if(!process.waitFor(10,TimeUnit.SECONDS))throw new IOException("Coding worker termination not confirmed");}
     }
     /** Stop before allocating an unbounded child-process line. Reader buffering stays bounded too. */
     static String readBoundedLine(Reader reader,int limit)throws IOException {

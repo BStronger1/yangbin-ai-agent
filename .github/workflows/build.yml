@@ -48,6 +48,9 @@ jobs:
           sys.path.insert(0, "tools/evaluation")
           from dataset_contract import read
           from offline_report import DEFAULT_LABELS, build_report, write_outputs
+          if not DEFAULT_LABELS.exists():
+              print("Private assisted annotations not bundled; no annotated evaluation report is claimed.")
+              raise SystemExit(0)
           for path in Path("target/evaluation").glob("*/observations.json"):
               write_outputs(build_report(read(path), read(DEFAULT_LABELS)), path.parent / "report")
           PY

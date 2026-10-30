@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from dataset_contract import read, digest, DEFAULT_DATASET, ExportError
 from offline_report import DEFAULT_LABELS
+from _test_review_fixture import synthetic_assisted_review
 from source_review_report import (CONFIRMATION, EXTERNAL_DATASET, validate_confirmation, external_audit,
                                   validate_external, validate_claims, diagnostic)
 from import_ragtruth import select
@@ -12,7 +13,7 @@ from import_ragtruth import select
 
 class SourceReviewContractTest(unittest.TestCase):
     def setUp(self):
-        self.labels = read(DEFAULT_LABELS)
+        self.labels = synthetic_assisted_review()
         # Contract-only synthetic fixture. No private human statement is shipped to CI.
         self.confirmation = {
             "schemaVersion": "travel-assisted-human-confirmation-v1", "reviewerKind": "human",

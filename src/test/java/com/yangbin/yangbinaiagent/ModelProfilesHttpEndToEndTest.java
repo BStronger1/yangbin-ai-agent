@@ -32,7 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
     "app.rag.enabled=false","app.rag.cloud-enabled=false","spring.ai.mcp.client.enabled=false",
     "app.internal-api-token=byok-http-fixture-internal","app.coding.enabled=true","app.coding.shell-enabled=false",
     "app.coding.api-key=","app.coding.model=","app.coding.timeout-seconds=90","app.models.master-key=",
-    "app.tools.extended-enabled=false","app.tools.terminal-enabled=false"
+    "app.tools.extended-enabled=false","app.tools.terminal-enabled=false",
+    // Sixteen loopback requests include conservative Coding reservations; no real provider is used.
+    "app.governance.daily-tokens=500000"
 })
 @DirtiesContext(classMode=DirtiesContext.ClassMode.AFTER_CLASS)
 class ModelProfilesHttpEndToEndTest {
@@ -159,7 +161,7 @@ class ModelProfilesHttpEndToEndTest {
             var input=Map.of("conversationId",conversation,"requestId",UUID.randomUUID().toString(),"expectedRevision",0,"text","Produce a short editable report","skillId","auto","attachmentIds",List.of(),"modelProfileId",alpha);
             JsonNode page=ok(HttpMethod.POST,base+"/jobs",input);long deadline=System.nanoTime()+Duration.ofSeconds(20).toNanos();
             while("RUNNING".equals(page.path("turns").get(0).path("status").asText())&&System.nanoTime()<deadline){Thread.sleep(40);page=ok(HttpMethod.GET,base+"/conversations/"+conversation+"/page",null);}
-            var turn=page.path("turns").get(0);assertThat(turn.path("status").asText()).isEqualTo("SUCCEEDED");assertThat(turn.path("answer").asText()).contains("fixture-model-alpha");assertThat(turn.path("modelSnapshot").path("profileId").asText()).isEqualTo(alpha);
+            var turn=page.path("turns").get(0);assertThat(turn.path("status").asText()).as("partner=%s, events=%s, governance=%s",partner,turn.path("events"),ok(HttpMethod.GET,"/ai/governance",null)).isEqualTo("SUCCEEDED");assertThat(turn.path("answer").asText()).contains("fixture-model-alpha");assertThat(turn.path("modelSnapshot").path("profileId").asText()).isEqualTo(alpha);
             JsonNode word=null;for(var artifact:turn.path("artifacts"))if(artifact.path("name").asText().endsWith(".docx"))word=artifact;assertThat(word).isNotNull();
             String resource=base+"/resources/"+word.path("id").asText()+"/content";
             var bytes=http.exchange(resource,HttpMethod.GET,new HttpEntity<>(null,headers("admin")),byte[].class);assertThat(bytes.getStatusCode().is2xxSuccessful()).isTrue();

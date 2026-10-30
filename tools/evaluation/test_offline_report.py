@@ -4,12 +4,13 @@ import unittest
 from pathlib import Path
 from dataset_contract import DEFAULT_DATASET, read, validate_dataset, validate_review, ExportError
 from offline_report import (DEFAULT_LABELS, validate_assisted, build_report, write_outputs, render_html)
+from _test_review_fixture import synthetic_assisted_review
 
 
 class AssistedAndReportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.labels = read(DEFAULT_LABELS)
+        cls.labels = synthetic_assisted_review()
         cls.manifest, cls.cases, _, _ = validate_dataset(DEFAULT_DATASET)
 
     def observations(self):

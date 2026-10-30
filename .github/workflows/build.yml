@@ -31,7 +31,7 @@ jobs:
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
       - name: Install Chinese font for presentation export
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-      - run: mvn -B -ntp "-Dtest.presentation.font=Noto Sans CJK SC" -Dtest=CodingLocalFilesTest,CodingLocalFilesEndToEndTest,CodingTeamsHttpEndToEndTest,MemoryCandidatesM031Test,CodingTeamBoundaryTest,MemoryServiceM029Test,MemoryHttpEndToEndTest,MemoryProcessRecoveryTest,AssistantHttpEndToEndTest,AssistantWorkspaceTest,ManusDisconnectTest,NodeCodingRuntimeBoundaryTest,ChatModelGovernanceConfigTest,AiControllerLifecycleTest,ManusConversationsTest,ModelGovernanceTest,ContentFreeLoggingTest,DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest,ExecutionProvenanceTest,FrozenDatasetEvaluationTest,SourceClaimReviewTest,PlanRouteServiceTest,WorkServiceTest,WorkPresentationTest,PartnerChatServiceTest,PartnerWorkspaceTest,PartnerCapabilitiesTest,McpWorkbenchTest,CodingServiceTest,CodingAgentEndToEndTest,ModelProfileServiceTest,PrivateModelProtocolTest,CodingModelSelectionTest,ModelSettingsTest,ModelProfilesHttpEndToEndTest,KeylessStartupTest,MissingDashScopeKeyEnvironmentPostProcessorTest package
+      - run: mvn -B -ntp "-Dtest.presentation.font=Noto Sans CJK SC" -Dtest=CodingFileRecoveryTest,CodingLocalFilesTest,CodingLocalFilesEndToEndTest,CodingTeamsHttpEndToEndTest,MemoryCandidatesM031Test,CodingTeamBoundaryTest,MemoryServiceM029Test,MemoryHttpEndToEndTest,MemoryProcessRecoveryTest,AssistantHttpEndToEndTest,AssistantWorkspaceTest,ManusDisconnectTest,NodeCodingRuntimeBoundaryTest,ChatModelGovernanceConfigTest,AiControllerLifecycleTest,ManusConversationsTest,ModelGovernanceTest,ContentFreeLoggingTest,DeploymentSmokeTest,EnabledFeaturesTest,TerminalOperationToolUnitTest,InternalApiTokenFilterUnitTest,WorkspaceValidationTest,KnowledgeDocumentsTest,TenantToolTest,PersistentMemoryTest,PlanningEvidenceTest,MultilingualPdfTest,TaskWorkflowTest,TaskWorkflowIntegrationTest,SkillServiceTest,TaskPlanningServiceTest,TaskConfirmationTest,PlanQualityServiceTest,PlanRepairServiceTest,ExecutionProvenanceTest,FrozenDatasetEvaluationTest,SourceClaimReviewTest,PlanRouteServiceTest,WorkServiceTest,WorkPresentationTest,PartnerChatServiceTest,PartnerWorkspaceTest,PartnerCapabilitiesTest,McpWorkbenchTest,CodingServiceTest,CodingAgentEndToEndTest,ModelProfileServiceTest,PrivateModelProtocolTest,CodingModelSelectionTest,ModelSettingsTest,ModelProfilesHttpEndToEndTest,KeylessStartupTest,MissingDashScopeKeyEnvironmentPostProcessorTest package
       - name: Preserve source-rule evaluation report
         if: always()
         uses: actions/upload-artifact@v4
@@ -177,7 +177,9 @@ jobs:
         run: node --test evaluation/memory-m031-offline/*.test.mjs evaluation/m031-quality/*.test.mjs
 
       - name: Verify direct local directory browser flow without models
-        run: node tests/local-files.browser.mjs
+        run: |
+          node tests/local-files.browser.mjs
+          node tests/recovery.browser.mjs
         working-directory: yangbin-ai-agent-frontend
       - name: Preserve local directory browser evidence
         if: always()

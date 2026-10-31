@@ -39,6 +39,7 @@ const active = to => {
       <RouterLink to="/planner" :class="{ selected: active('/planner') }"><StudioIcon name="map" :size="20" /><span>约会与出行规划</span></RouterLink>
       <RouterLink to="/love-master" :class="{ selected: active('/love-master') }"><StudioIcon name="chat" :size="20" /><span>情感问答</span></RouterLink>
       <div class="nav-label">能力与设置</div>
+      <RouterLink to="/download" data-testid="desktop-download-entry"><StudioIcon name="layout" :size="20" /><span>下载客户端</span></RouterLink>
       <RouterLink to="/settings" :class="{ selected: active('/settings') }"><StudioIcon name="layers" :size="20" /><span>设置 · 模型与连接</span></RouterLink>
       <RouterLink to="/governance" :class="{ selected: active('/governance') }"><StudioIcon name="check" :size="20" /><span>用量与运行状态</span></RouterLink>
       <RouterLink to="/mcp" :class="{ selected: active('/mcp') }"><StudioIcon name="plug" :size="20" /><span>MCP 工具</span></RouterLink>

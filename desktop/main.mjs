@@ -116,7 +116,7 @@ handle('execute',async({id,operation,args={},requestId,context},actual)=>{
 
 app.whenReady().then(async()=>{
 try{for(const [k,v]of Object.entries(JSON.parse(await fs.readFile(stateFile(),'utf8'))))if(typeof v==='string')bindings.set(k,v);}catch(e){if(e.code!=='ENOENT')console.error('Project bindings could not be restored');}
-window=new BrowserWindow({width:1380,height:940,minWidth:760,minHeight:620,title:'yangbin AI Agent',show:false,webPreferences:{preload:path.join(here,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+window=new BrowserWindow({width:1380,height:940,minWidth:760,minHeight:620,title:'yangbin AI Agent',show:false,webPreferences:{preload:path.join(here,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,additionalArguments:['--yangbin-desktop-version='+app.getVersion()]}});
 window.webContents.session.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
 window.webContents.session.setPermissionCheckHandler(()=>false);
 window.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
@@ -127,7 +127,7 @@ window.webContents.setWindowOpenHandler(({url})=>{
   if(target.protocol==='https:' || previews.some(p=>new URL(p).origin===target.origin))void shell.openExternal(url);
   return {action:'deny'};
 });
-Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'应用',submenu:[{label:'重新加载',role:'reload'},{type:'separator'},{label:'退出',role:'quit'}]},{label:'编辑',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]}]));
+Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'应用',submenu:[{label:'重新加载',role:'reload'},{label:'检查更新 / 下载客户端',click:()=>void shell.openExternal(origin+'/download')},{label:'关于 yangbin AI Agent',click:()=>void dialog.showMessageBox(window,{type:'info',title:'关于 yangbin AI Agent',message:'yangbin AI Agent '+app.getVersion(),detail:'本地执行已内置。更新请从应用菜单打开下载页。'})},{type:'separator'},{label:'退出',role:'quit'}]},{label:'编辑',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]}]));
 window.once('ready-to-show',()=>{if(app.isPackaged || process.env.YANGBIN_DEV_HIDDEN!=='1')window.show();});
 window.webContents.on('did-fail-load',(_e,code,_description,_url,isMain)=>{if(isMain&&code!==-3)void dialog.showMessageBox(window,{type:'error',message:'暂时无法连接 yangbin AI Agent',detail:'请检查网络，然后从“应用”菜单重新加载。项目文件不会被删除。'});});
 await window.loadURL(origin+'/coding');

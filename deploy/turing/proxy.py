@@ -2,6 +2,7 @@
 import asyncio
 from gateway_policy import Admission, Metrics, trace, admit, response_headers, transport_settings, operations, UNTRUSTED, configure_log
 from accounts import Accounts,RateLimit,COOKIE,auth_api
+from desktop_downloads import register_downloads
 import hmac
 import os
 import re
@@ -168,6 +169,7 @@ def create_app(accounts=None):
     app.router.add_get('/api/ppt/status',ppt_status)
     app.router.add_route('*','/ppt/{path:.*}',narrative)
     app.router.add_route('*','/api/{path:.*}',api)
+    register_downloads(app, ROOT)
     app.router.add_get('/{path:.*}',frontend)
     return app
 

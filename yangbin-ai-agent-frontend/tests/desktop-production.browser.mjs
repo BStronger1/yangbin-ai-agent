@@ -13,10 +13,20 @@ try{
  assert.ok(await page.getByRole('button',{name:'登录',exact:true}).isVisible());
  const packaged=await client.evaluate(({app})=>app.isPackaged);assert.equal(packaged,true);
  assert.equal(await page.evaluate(()=>window.yangbinDesktop?.version),2);
+ const expected=JSON.parse(await fs.readFile(path.join(repo,'desktop/package.json'),'utf8')).version;
+ assert.equal(await client.evaluate(({app})=>app.getVersion()),expected);
+ assert.equal(await page.evaluate(()=>window.yangbinDesktop?.appVersion),expected);
+ assert.ok(await client.evaluate(({Menu})=>Menu.getApplicationMenu().items[0].submenu.items.some(item=>item.label==='检查更新 / 下载客户端')));
+ const updateUrl=await client.evaluate(async({Menu,shell})=>{
+  let opened;const original=shell.openExternal;shell.openExternal=async url=>{opened=url;};
+  try{await Menu.getApplicationMenu().items[0].submenu.items.find(item=>item.label==='检查更新 / 下载客户端').click();return opened;}
+  finally{shell.openExternal=original;}
+ });
+ assert.equal(updateUrl,'https://www.yangbinai.homes/download');
  const screenshot=await client.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'));
  await fs.writeFile(path.join(out,'desktop-login.png'),Buffer.from(screenshot,'base64'));
  const response=await page.request.get('https://www.yangbinai.homes/coding');assert.equal(response.status(),200);
  const text=await response.text();await fs.writeFile(path.join(out,'public-index.html'),text);
- await fs.writeFile(path.join(out,'RESULT.json'),JSON.stringify({status:'PASSED',packaged,loginVisible:true,bridgeVersion:2,publicStatus:response.status(),modelCalls:0,loginSubmitted:false},null,2));
+ await fs.writeFile(path.join(out,'RESULT.json'),JSON.stringify({status:'PASSED',packaged,appVersion:expected,updateUrl,loginVisible:true,bridgeVersion:2,publicStatus:response.status(),modelCalls:0,loginSubmitted:false},null,2));
  console.log(JSON.stringify({status:'PASSED',packaged,publicStatus:response.status(),loginSubmitted:false}));
 }finally{await client.close();}

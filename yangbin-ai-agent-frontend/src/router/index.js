@@ -4,6 +4,7 @@ import {auth,loadUser,safeNext} from '../auth'
 const legacyWork = to => ({ path: typeof to.query.session === 'string' || typeof to.query.project === 'string' || to.query.mode !== 'chat' ? '/coding' : '/super-agent', query: to.query, hash: to.hash })
 
 const routes = [
+  {path:'/download',component:()=>import('../views/Download.vue'),meta:{public:true,title:'下载客户端 · yangbin AI'}},
   {path:'/settings',component:()=>import('../views/Settings.vue'),meta:{title:'设置 · yangbin AI'}},
   {path:'/assistant',component:()=>import('../views/AssistantWorkspace.vue'),meta:{title:'通用助手 · yangbin AI'}},
   {path:'/coding',component:()=>import('../views/CodingWorkspace.vue'),meta:{title:'Coding Agent · yangbin AI'}},
@@ -67,7 +68,7 @@ router.beforeEach(async to => {
   }
   try{await loadUser()}catch{if(!to.meta.public)return {path:'/login',query:{next:to.fullPath}}}
   if(!to.meta.public&&!auth.user)return {path:'/login',query:{next:to.fullPath}}
-  if(to.meta.public&&auth.user)return safeNext(to.query.next)
+  if(['/login','/register'].includes(to.path)&&auth.user)return safeNext(to.query.next)
 })
 
 // Static route metadata does not require a head-management runtime.

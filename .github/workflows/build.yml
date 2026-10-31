@@ -181,6 +181,7 @@ jobs:
 
       - name: Verify direct local directory browser flow without models
         run: |
+          node tests/download.browser.mjs
           node tests/local-files.browser.mjs
           node tests/recovery.browser.mjs
         working-directory: yangbin-ai-agent-frontend

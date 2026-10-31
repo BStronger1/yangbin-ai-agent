@@ -12,6 +12,7 @@ Bring your own model, keep projects private, and review tool actions before they
 
 ## 能做什么
 
+- **Windows 客户端**：[下载 0.2.1](https://www.yangbinai.homes/download)，本机文件与程序执行已内置，无需单独连接运行器；支持本机项目和 VS Code 打开目录。结束旧版任务并退出后，解压新版启动，保留账号会话与目录绑定。参见[桌面说明](desktop/README.md)。
 - **通用 Chat**：直接问答、讨论与修改内容，使用文字及已解析材料，不为简单问题强制创建工作计划。
 - **通用 Work**：确认本轮目标、材料和交付物，查看实际处理进度与 Word、Markdown、数据成果；切换或刷新后恢复服务端状态。
 - **Coding Agent**：创建服务端私有项目，或在桌面 Chrome/Edge 的 HTTPS 页面选择[本机目录](docs/LOCAL-PROJECTS.md)，让 pi 按授权读取、编写、编辑原文件；查看工具事件、审批和取消。本机目录需保持页面打开，暂不支持终端及团队执行。

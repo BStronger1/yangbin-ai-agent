@@ -26,6 +26,7 @@ from ops_probe import backup_files, digest
 BACKUP = 'before-workspace-54a59912'
 LIMIT = 512 * 1024 * 1024
 DEPLOY_FILES = ('accounts.py', 'gateway_policy.py', 'proxy.py')
+OPTIONAL_DEPLOY_FILES = ('desktop_downloads.py',)
 READ_PATHS = ('/api/ai/capabilities', '/api/ai/coding/capabilities', '/api/ai/models',
               '/api/ai/manus/conversations', '/api/ai/work/runs')
 # Generated only inside the disposable copy. No model/tool POST is routable.
@@ -89,7 +90,10 @@ def inventory(root, backup_name):
     check(not (root / 'releases').is_symlink() and not backup.is_symlink())
     check(backup.resolve(strict=True).parent == root / 'releases')
     files, total = backup_files(backup, LIMIT)
-    for relative in ('app.jar', *('deploy/turing/' + name for name in DEPLOY_FILES)):
+    # Old backups predate the download module; newer proxies require their
+    # matching module. Copy only the explicitly allowlisted optional files.
+    optional = tuple(name for name in OPTIONAL_DEPLOY_FILES if (backup / 'deploy/turing' / name).exists())
+    for relative in ('app.jar', *('deploy/turing/' + name for name in DEPLOY_FILES + optional)):
         path = backup / relative
         check(path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(backup))
         check(all(not parent.is_symlink() for parent in path.parents if parent != backup and parent.is_relative_to(backup)))

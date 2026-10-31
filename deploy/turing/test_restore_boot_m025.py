@@ -33,7 +33,7 @@ INSERT INTO users VALUES('admin','originaladmin','unused-password','admin',1,0);
         (self.backup / 'secrets.json').write_text('{"private":"not-for-child"}')
         (self.backup / 'app.jar').write_bytes(b'fixture-jar')
         (self.backup / 'deploy/turing').mkdir(parents=True)
-        for name in restore.DEPLOY_FILES:
+        for name in restore.DEPLOY_FILES + restore.OPTIONAL_DEPLOY_FILES:
             shutil.copyfile(Path(__file__).parent / name, self.backup / 'deploy/turing' / name)
         (self.backup / 'data-sha256.json').write_text('{}')
         (self.root / 'run').mkdir()

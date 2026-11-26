@@ -11,7 +11,7 @@ const editing=ref(''),name=ref(''),provider=ref('openai'),baseUrl=ref(''),apiKey
 const connectionBaseline=ref(''), selectionBaseline=ref('')
 const connectionSignature=()=>JSON.stringify([editing.value,name.value,provider.value,baseUrl.value])
 const connectionDirty=computed(()=>!!connectionBaseline.value&&(connectionSignature()!==connectionBaseline.value||!!apiKey.value))
-const dirty=computed(()=>connectionDirty.value||JSON.stringify([...selected.value].sort())!==selectionBaseline.value||!!manualModel.value||!!manualName.value)
+const dirty=computed(()=>connectionDirty.value||(!!selectionBaseline.value&&JSON.stringify([...selected.value].sort())!==selectionBaseline.value)||!!manualModel.value||!!manualName.value)
 const {allowDiscard}=useUnsavedChanges(dirty,busy, () => auth.user?.id || auth.user?.username)
 const {allowDiscard:allowConnectionDiscard}=useUnsavedChanges(connectionDirty,busy, () => auth.user?.id || auth.user?.username)
 onBeforeRouteLeave(()=>allowDiscard())

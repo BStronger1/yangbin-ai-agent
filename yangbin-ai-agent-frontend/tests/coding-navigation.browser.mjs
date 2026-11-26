@@ -80,7 +80,7 @@ async function fixture(kind) {
       if (name === '/api/auth/me') data = { user: state.owner ? { id: state.owner, username: state.owner, role: 'admin', csrf: 'fixture' } : null };
       else if (name === '/api/auth/logout') { state.owner = null; data = { ok: true }; }
       else if (name === '/api/auth/login') { state.owner = 'owner-b'; data = { user: { id: state.owner, username: state.owner, role: 'admin', csrf: 'fixture-b' } }; }
-      else if (name === '/api/ai/models') data = { profiles: [], allProfiles: [], connections: [], providers: [], systemEnabled: true, defaultModelId: 'system' };
+      else if (name === '/api/ai/models') { if (state.pauseModels) await new Promise(resolve => { state.releaseModels = resolve; }); data = { profiles: [], allProfiles: [], connections: [], providers: [], systemEnabled: true, defaultModelId: 'system' }; }
       else if (name === '/api/ai/coding/capabilities') data = { available: true, shellEnabled: false };
       else if (name === '/api/ai/coding/projects') data = [project];
       else if (name === '/api/ai/coding/sessions' && method === 'GET') data = state.owner === 'owner-a' && state.session ? [record()] : [];
@@ -175,11 +175,14 @@ try {
       pause(8000).then(() => { throw new Error('Router push did not settle for ' + JSON.stringify(query) + '; current URL: ' + page.url()); }),
     ]);
     console.log('NAVIGATED ' + page.url());
+    if (query.transfer) { state.pauseModels = false; state.releaseModels(); check('settings-loading-does-not-invent-unsaved-edits'); }
     await page.waitForURL(url => url.pathname === '/coding' && url.searchParams.get('session') === sessionId && !url.searchParams.has('transfer') && !url.searchParams.has('project'));
     await page.getByTestId('coding-cancel').waitFor();
     check(query.transfer ? 'new-transfer-deep-link-preserves-active-local-task' : 'foreign-session-deep-link-preserves-active-local-task', state.sessionReads.every(id => id === sessionId));
+    if (!query.transfer) state.pauseModels = true;
     await page.getByRole('link', { name: '设置 · 模型与连接', exact: true }).click();
     await page.waitForURL('**/settings');
+    if (!query.transfer) await until(() => typeof state.releaseModels === 'function', 'settings model request was not delayed');
   }
   local.request('edit', { path: 'main.txt', oldText: 'before', newText: 'after' });
   await until(() => state.session.status === 'SUCCEEDED', 'background candidate edit stopped on Settings');

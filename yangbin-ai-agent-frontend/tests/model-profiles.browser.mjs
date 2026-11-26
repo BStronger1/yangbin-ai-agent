@@ -30,7 +30,8 @@ await page.route('**/*', async route => {
  const req = route.request(), url = new URL(req.url()), name = url.pathname, method = req.method();
  if (name.startsWith('/api/')) {
   let data = {}, status = 200;
-  if (name === '/api/auth/me') data = { user: { id: owner, username: '模型测试用户', role: 'admin', csrf: 'fixture' } };
+  if (method === 'GET' && (name === '/api/ai/coding/recent' || name === '/api/ai/work/evidence/recent-reports')) data = [];
+  else if(name === '/api/auth/me') data = { user: { id: owner, username: '模型测试用户', role: 'admin', csrf: 'fixture' } };
   else if (name === '/api/ai/models') data = catalog();
   else if (name === '/api/ai/models/connections' && method === 'POST') {const input=req.postDataJSON();profileWrites.push(input);if(failSave){failSave=false;status=400;data={message:'invalid fixture connection'}}else {connections.push({id:'connection-'+connections.length,name:input.name,provider:input.provider,baseUrl:input.baseUrl,hasKey:true});data=catalog();}}
   else if (name.match(/\/ai\/models\/connections\/[^/]+\/discover$/)) {if(failDiscovery){failDiscovery=false;status=502;data={message:'fixture discovery failed'}}else{const cid=name.split('/').at(-2);if(!profiles.some(p=>p.connectionId===cid))profiles.push(...Array.from({length:8},(_,i)=>({id:'model-'+i,connectionId:cid,name:i===0?'DeepSeek':i===1?'GPT':i===2?'不支持工具的模型':'可选模型 '+i,model:'fixture-model-'+i,provider:i===0?'deepseek':'openai',hasKey:true,reasoningEfforts:i===0?['low','high','max']:i===1?['low','medium','high']:[],codingSupported:i!==2,codingUnavailableReason:i===2?'此模型不支持编程工具调用':null})));data=catalog();}}

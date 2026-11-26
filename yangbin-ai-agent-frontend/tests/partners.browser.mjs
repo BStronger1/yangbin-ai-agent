@@ -14,7 +14,8 @@ const page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('p
 await page.route('**/*',async route=>{
  const req=route.request(),url=new URL(req.url()),name=url.pathname,method=req.method();let data={},status=200;
  if(name.startsWith('/api/')||name.startsWith('/ppt/api/')) {
-  if(name==='/api/auth/me')data={user:{id:'partner-fixture',username:'伙伴测试',role:'admin',csrf:'fixture'}};
+  if (method === 'GET' && (name === '/api/ai/coding/recent' || name === '/api/ai/work/evidence/recent-reports')) data = [];
+  else if(name === '/api/auth/me')data={user:{id:'partner-fixture',username:'伙伴测试',role:'admin',csrf:'fixture'}};
   else if(name==='/api/ai/models'){if(failModels){status=503;data={message:'unavailable'}}else data={profiles,defaultModelId:profiles[0].id,providers:[{id:'anthropic',name:'Claude',defaultBaseUrl:'https://api.anthropic.com',suggestedModels:['fixture-claude']}]};}
   else if(name==='/api/ai/capabilities')data={rag:false,mcpTools:[],tools:[]};
   else if(name==='/api/ai/work/catalog')data=catalog;

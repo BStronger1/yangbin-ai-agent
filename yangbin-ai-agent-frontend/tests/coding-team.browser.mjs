@@ -29,7 +29,8 @@ await page.route('**/*',async route=>{
  if(name.startsWith('/api/')){
   let data={},status=200
   if(method==='POST')posts.push({name,body:req.postData()})
-  if(name==='/api/auth/me')data={user:{id:'team-owner',username:'离线团队验收',role:'admin',csrf:'fixture'}}
+  if (method === 'GET' && (name === '/api/ai/coding/recent' || name === '/api/ai/work/evidence/recent-reports')) data = [];
+  else if(name === '/api/auth/me')data={user:{id:'team-owner',username:'离线团队验收',role:'admin',csrf:'fixture'}}
   else if(name==='/api/ai/models')data={profiles:[],providers:[],systemEnabled:true,defaultModelId:'system'}
   else if(name==='/api/ai/coding/capabilities')data={available:true,shellEnabled:false}
   else if(name==='/api/ai/coding/projects')data=[{id:'project-a',name:'团队项目'}]

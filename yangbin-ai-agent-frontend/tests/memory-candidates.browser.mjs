@@ -17,7 +17,8 @@ await page.route('**/*',async route=>{
  const req=route.request(),url=new URL(req.url()),name=url.pathname,method=req.method()
  if(name.startsWith('/api/')){
   let data={},status=200
-  if(name==='/api/auth/me')data={user:{id:'candidate-owner',username:'候选离线验收',role:'admin',csrf:'fixture'}}
+  if (method === 'GET' && (name === '/api/ai/coding/recent' || name === '/api/ai/work/evidence/recent-reports')) data = [];
+  else if(name === '/api/auth/me')data={user:{id:'candidate-owner',username:'候选离线验收',role:'admin',csrf:'fixture'}}
   else if(name==='/api/ai/models')data={profiles:[],providers:[],systemEnabled:true,defaultModelId:'system'}
   else if(name==='/api/ai/coding/capabilities')data={available:true,shellEnabled:false}
   else if(name==='/api/ai/coding/projects')data=[{id:'project-a',name:'项目 A'},{id:'project-b',name:'项目 B'}]

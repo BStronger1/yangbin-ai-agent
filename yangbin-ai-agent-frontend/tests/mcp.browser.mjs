@@ -32,7 +32,8 @@ await page.route('**/*',async route=>{
    const id=name.split('/')[5];const entry=mcpHistory.find(r=>r.id===id);
    if(name.endsWith('/attach')){const partner=req.postDataJSON().partnerId;data={id:crypto.randomUUID(),partnerId:partner,conversationId:null,name:'MCP结果-'+id+'.md',mime:'text/plain',kind:'upload',createdAt:stamp};files.push(data)}else data=entry;
   }
-  else if(name==='/api/auth/me')data={user:{id:'partner-fixture',username:'伙伴测试',role:'admin',csrf:'fixture'}};
+  else if (method === 'GET' && (name === '/api/ai/coding/recent' || name === '/api/ai/work/evidence/recent-reports')) data = [];
+  else if(name === '/api/auth/me')data={user:{id:'partner-fixture',username:'伙伴测试',role:'admin',csrf:'fixture'}};
   else if(name==='/api/ai/models'){if(failModels){status=503;data={message:'unavailable'}}else data={profiles,defaultModelId:profiles[0].id,providers:[{id:'anthropic',name:'Claude',defaultBaseUrl:'https://api.anthropic.com',suggestedModels:['fixture-claude']}]};}
   else if(name==='/api/ai/capabilities')data={rag:false,mcpTools:[],tools:[]};
   else if(name==='/api/ai/work/catalog')data=catalog;

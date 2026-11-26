@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';import fs from 'node:fs/promises';import path from 'node:path';import assert from 'node:assert/strict';
 const frontend=path.resolve(import.meta.dirname,'..'),out=process.env.EVIDENCE_DIR||path.join(frontend,'tmp/recovery-ui');await fs.mkdir(out,{recursive:true});
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXECUTABLE_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await chromium.launch({headless:true,...(process.env.CHROME_EXECUTABLE_PATH?{executablePath:process.env.CHROME_EXECUTABLE_PATH}:{})});
 const page=await browser.newPage();const errors=[],checks={};page.on('pageerror',e=>errors.push(String(e)));let submissions=0,accepts=0,token='first',stale=true;
 const session={id:'s1',projectId:'p1',title:'中断恢复',revision:1,status:'FAILED',approvalMode:'allow',turns:[{id:'old',prompt:'修改文件',status:'FAILED',recoveryRequired:true}],events:[]};
 const report=()=>({required:true,accepted:accepts>0,canAccept:true,token,scope:'SERVER_FILE_WRITE_EDIT',message:'检查后接受当前文件，不重放旧任务。',errors:[],operations:[{operationId:'op',sessionId:'s1',turnId:'old',path:'main.txt',state:'PREPARED',observation:'AFTER_MATCH'}]});

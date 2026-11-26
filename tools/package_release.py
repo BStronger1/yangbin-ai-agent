@@ -58,7 +58,7 @@ def main():
     # The SDK receipt test crosses runtime/native/browser boundaries. Preserve
     # its real source dependencies instead of skipping it in the server package.
     for name in ("desktop/native-directory.mjs", "yangbin-ai-agent-frontend/src/local-directory.js", "yangbin-ai-agent-frontend/package.json"):
-        files["verification/" + name] = REPO / name
+        runtime["test-support/" + name] = REPO / name
     source = {}
     for directory in (REPO / "src/main", WEB / "src", WEB / "public"):
         for path in walk(directory):

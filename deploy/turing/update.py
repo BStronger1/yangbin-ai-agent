@@ -38,10 +38,10 @@ if manifest.get("codingRuntime"):
  local=Path(tempfile.mkdtemp(prefix="yangbin-coding-install-",dir="/tmp"))
  local_source=local/"coding-agent";shutil.copytree(source,local_source)
  if (local_source/"test/mutation-receipt-sdk.test.mjs").is_file():
-  for relative in ("desktop/native-directory.mjs","yangbin-ai-agent-frontend/src/local-directory.js","yangbin-ai-agent-frontend/package.json"):
-   item=stage/"verification"/relative
-   if "verification/"+relative not in manifest.get("sha256",{}) or not item.is_file():raise SystemExit("Missing verified receipt-test dependency: "+relative)
-   target=local/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(item,target)
+  for support_name in ("desktop/native-directory.mjs","yangbin-ai-agent-frontend/src/local-directory.js","yangbin-ai-agent-frontend/package.json"):
+   item=source/"test-support"/support_name
+   if relative+"/test-support/"+support_name not in manifest.get("sha256",{}) or not item.is_file():raise SystemExit("Missing verified receipt-test dependency: "+support_name)
+   target=local/support_name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(item,target)
  install_env["npm_config_cache"]=str(local/"npm-cache")
  subprocess.run([str(node),str(npm),"ci","--ignore-scripts","--no-audit","--no-fund"],cwd=local_source,env=install_env,check=True,timeout=900)
  subprocess.run([str(node),str(local_source/"src/main.mjs"),"--check"],env=install_env,check=True,timeout=120)

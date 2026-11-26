@@ -13,7 +13,15 @@ import static org.assertj.core.api.Assertions.*;
 class CodingLocalFilesTest {
     @TempDir Path root; CodingService service; CodingServiceTest.Fake runtime; UserContext.Scope scope;
     @BeforeEach void setup()throws Exception {scope=UserContext.open(TaskWorkflowTest.A);runtime=new CodingServiceTest.Fake();service=new CodingService(new ObjectMapper(),runtime,root.toString(),true);}
-    @AfterEach void close(){service.close();scope.close();}
+    @AfterEach void close() throws InterruptedException {
+        try {
+            service.close();
+            // close signals cancellation asynchronously; wait for final persistence before
+            // JUnit removes @TempDir, otherwise the worker can recreate its sessions folder.
+            var executor=(ExecutorService)org.springframework.test.util.ReflectionTestUtils.getField(service,"executor");
+            assertThat(executor.awaitTermination(10,TimeUnit.SECONDS)).as("local file worker terminated").isTrue();
+        } finally {scope.close();}
+    }
     static String id(){return UUID.randomUUID().toString();}
     CodingService.Session fresh()throws Exception {var p=service.createProject(new CodingService.ProjectInput("local","local"));return service.createSession(new CodingService.SessionInput(p.id(),"local test","on-risk"));}
     CodingService.TurnInput turn(String client,String mode,String policy){return new CodingService.TurnInput(id(),"inspect local project",0,policy,null,null,mode,client);}

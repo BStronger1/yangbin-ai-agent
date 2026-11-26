@@ -40,6 +40,9 @@ export function createModelTransport(baseUrl, { allowPrivate = false, apiKey, re
   const base = new URL(baseUrl);
   const redactor = createRedactor(apiKey || '');
   const assertAddress = address => { if (!allowPrivate && !isPublicAddress(address)) throw new Error('Model endpoint must resolve to public IP addresses'); };
+  let transientFailure = false;
+  const transientCodes = new Set(['ECONNRESET','ETIMEDOUT','EAI_AGAIN','ECONNREFUSED',
+    'UND_ERR_SOCKET','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT']);
   const dispatcher = new Agent({ connect: {
     lookup(host, options, callback) {
       Promise.resolve(resolveHost(host, { all: true, verbatim: true })).then(addresses => {
@@ -51,13 +54,20 @@ export function createModelTransport(baseUrl, { allowPrivate = false, apiKey, re
       }).catch(error => callback(new Error(redactor.text(error.message))));
     },
   } });
-  return {
-    async fetch(input, init) {
+  function validate(input){
       const target = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
       if (target.origin !== base.origin || target.username || target.password) throw new Error('Cross-origin model requests are disabled');
       if (!allowPrivate && target.protocol !== 'https:') throw new Error('Public model endpoints require HTTPS');
       const host = target.hostname.replace(/^\[|\]$/g, '');
       if (isIP(host)) assertAddress(host);
+  }
+  return {
+    validate,
+    get transientFailure() { return transientFailure; },
+    clearFailure() { transientFailure = false; },
+    async fetch(input, init) {
+      transientFailure = false;
+      validate(input);
       try {
         const response = await providerFetch(input, { ...init, redirect: 'manual', dispatcher });
         if (response.status >= 300 && response.status < 400) { await response.body?.cancel(); throw new Error('Model redirects are disabled'); }
@@ -69,7 +79,10 @@ export function createModelTransport(baseUrl, { allowPrivate = false, apiKey, re
           return new Response(body, { status: response.status, statusText: response.statusText, headers });
         }
         return response;
-      } catch (error) { throw new Error(redactor.text(error.message)); }
+      } catch (error) {
+        transientFailure = transientCodes.has(error.code) || transientCodes.has(error.cause?.code);
+        throw new Error(redactor.text(error.message));
+      }
     },
     close: () => dispatcher.close(),
   };

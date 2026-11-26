@@ -26,7 +26,7 @@ jobs:
           cache: npm
           cache-dependency-path: coding-agent/package-lock.json
       - name: Install and verify pi coding runtime without external models
-        run: npm ci --ignore-scripts && npm test
+        run: npm ci --ignore-scripts && node --test --test-concurrency=2 test/*.test.mjs
         working-directory: coding-agent
       - run: mvn -B -ntp -f yangbin-image-search-mcp-server/pom.xml -DskipTests package
       - name: Install Chinese font for presentation export
@@ -152,6 +152,7 @@ jobs:
         run: |
           node --test tests/workspace-projection.test.mjs
           node tests/workspaces.browser.mjs
+          node tests/coding-navigation.browser.mjs
         working-directory: yangbin-ai-agent-frontend
       - name: Preserve assistant workspace evidence
         if: always()
@@ -196,4 +197,54 @@ jobs:
         with:
           name: local-directory-ui
           path: yangbin-ai-agent-frontend/tmp/local-files-ui/
+          if-no-files-found: warn
+
+      - name: Verify desktop candidate receipts without external models
+        run: node --test desktop/tests/*.test.mjs
+
+      - name: Verify Work evidence and authorized transfers
+        run: mvn -B -ntp -Dtest=WorkEvidenceTest,WorkTransferHttpEndToEndTest test
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select an available iPhone simulator
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/devices.json"
+          python3 - <<'PY'
+          import json, os
+          devices = json.load(open(os.environ['RUNNER_TEMP'] + '/devices.json'))['devices']
+          phones = [d for group in devices.values() for d in group if d['name'].startswith('iPhone') and d.get('isAvailable')]
+          assert phones, 'No available iPhone simulator'
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('IOS_SIMULATOR=' + phones[0]['udid'] + '\n')
+          PY
+      - name: Build and test the iOS client
+        run: |
+          xcodebuild -project ios/YangbinAgent.xcodeproj -scheme YangbinAgent \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR" \
+            -resultBundlePath "$RUNNER_TEMP/ios-tests.xcresult" CODE_SIGNING_ALLOWED=NO test
+      - name: Build device IPA for personal signing
+        run: |
+          xcodebuild -project ios/YangbinAgent.xcodeproj -scheme YangbinAgent \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/ios-device" CODE_SIGNING_ALLOWED=NO build
+          mkdir -p "$RUNNER_TEMP/ios-package/Payload"
+          ditto "$RUNNER_TEMP/ios-device/Build/Products/Release-iphoneos/YangbinAgent.app" "$RUNNER_TEMP/ios-package/Payload/YangbinAgent.app"
+          cd "$RUNNER_TEMP/ios-package"
+          ditto -c -k --keepParent Payload yangbin-ai-agent-ios-unsigned.ipa
+          shasum -a 256 yangbin-ai-agent-ios-unsigned.ipa > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-personal-signing
+          path: |
+            ${{ runner.temp }}/ios-package/*.ipa
+            ${{ runner.temp }}/ios-package/SHA256SUMS.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-test-results
+          path: ${{ runner.temp }}/ios-tests.xcresult
           if-no-files-found: warn

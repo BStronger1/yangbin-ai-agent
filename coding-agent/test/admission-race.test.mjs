@@ -5,5 +5,5 @@ test('truncated Anthropic start usage is not final billing evidence and retains 
  const budget=new BudgetLedger({maxRequests:2,maxTokens:10000}),events=[];
  const gate=new ModelGate({budget,identity:{accountId:'a',projectId:'p',sessionId:'s',taskId:'t',agentId:'g'},emit:e=>events.push(e)});
  const response=await gate.wrap(async()=>new Response('data: '+JSON.stringify({type:'message_start',message:{usage:{input_tokens:10,output_tokens:1}}})+'\n\n'))('https://unused.invalid',{body:JSON.stringify({max_tokens:100})});
- await response.text();const entry=[...budget.entries.values()][0];assert.equal(entry.status,'UNKNOWN');assert.equal(entry.usage,null);assert.equal(budget.snapshot().tokens,entry.reservedTokens);assert.equal(events.at(-1).inputTokens,null);assert.equal(events.at(-1).outputTokens,null);
+ await assert.rejects(response.text(),/Incomplete model stream/);const entry=[...budget.entries.values()][0];assert.equal(entry.status,'UNKNOWN');assert.equal(entry.usage,null);assert.equal(budget.snapshot().tokens,entry.reservedTokens);assert.equal(events.at(-1).inputTokens,null);assert.equal(events.at(-1).outputTokens,null);
 });

@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { LocalToolRuntime } from '../src/local-tools.mjs';
+import { RepairVerification } from '../src/repair-verification.mjs';
 
 async function fixture(t, extra = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'local-tools-'));
@@ -12,6 +13,33 @@ async function fixture(t, extra = {}) {
   t.after(async()=>{tools.cancel();await fs.rm(root,{recursive:true,force:true});});
   return { tools, root, events, abort };
 }
+
+test('native public tests require a capability and approval and preserve read-only test evidence across edits',async t=>{
+  const {tools,events}=await fixture(t);
+  tools.verification=new RepairVerification(event=>events.push(event));
+  await assert.rejects(tools.execute('verify_tests',{runner:'pytest',target:'test_public.py'}),/unavailable/);
+  const init=tools.init();
+  while(!events.find(e=>e.type==='local_fs')) await new Promise(r=>setTimeout(r,5));
+  const ping=events.findLast(e=>e.type==='local_fs');
+  tools.localResult({requestId:ping.requestId,ok:true,output:JSON.stringify({publicTests:true})});
+  await init;
+  assert.equal(tools.allowShell,false);
+  async function checked(status,snapshotHash) {
+    const pending=tools.execute('verify_tests',{runner:'pytest',target:'test_public.py'});
+    const approval=events.findLast(e=>e.type==='approval_required');
+    tools.approve(approval.approvalId,true);
+    await new Promise(r=>setTimeout(r,0));
+    const request=events.findLast(e=>e.type==='local_fs');
+    assert.equal(request.operation,'verify_tests');
+    const result={status,exitCode:status==='PASSED'?0:1,testsRun:1,snapshotHash,targetHash:'a'.repeat(64),failureKind:status==='FAILED'?'ASSERTION':null,diagnostic:'runner output'};
+    tools.localResult({requestId:request.requestId,ok:true,output:JSON.stringify(result)});
+    return pending;
+  }
+  assert.equal((await checked('FAILED','1'.repeat(64))).details.verification.status,'FAILED');
+  tools.verification.beginWrite();tools.verification.endWrite(true,'subject.py');
+  assert.equal((await checked('PASSED','2'.repeat(64))).details.verification.baselineFailed,true);
+  await assert.rejects(tools.execute('bash',{command:'id'}),/unavailable/);
+});
 test('local init pings browser; read pages remote content and never falls back to managed files', async t => {
   const {tools,root,events}=await fixture(t);
   await fs.writeFile(path.join(root,'secret.txt'),'server sentinel');

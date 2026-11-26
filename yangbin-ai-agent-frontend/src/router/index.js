@@ -22,6 +22,11 @@ const routes = [
   {path:'/register',component:()=>import('../views/Auth.vue'),meta:{public:true,title:'注册 · yangbin AI'}},
   {path:'/account',component:()=>import('../views/Account.vue'),meta:{title:'账号管理 · yangbin AI'}},
   {path:'/knowledge',component:()=>import('../views/Knowledge.vue'),meta:{title:'知识库 RAG · yangbin AI'}},
+  {path:'/blog',component:()=>import('../views/BlogIndex.vue'),meta:{title:'我的博客 · yangbin AI'}},
+  {path:'/p/:id',name:'blog-public',component:()=>import('../views/PublicPost.vue'),meta:{public:true,title:'阅读文章 · yangbin AI'}},
+  {path:'/blog/new',name:'blog-new',component:()=>import('../views/BlogPost.vue'),meta:{title:'写文章 · yangbin AI'}},
+  {path:'/blog/:id/edit',name:'blog-edit',component:()=>import('../views/BlogPost.vue'),meta:{title:'编辑文章 · yangbin AI'}},
+  {path:'/blog/:id',name:'blog-read',component:()=>import('../views/BlogPost.vue'),meta:{title:'阅读文章 · yangbin AI'}},
   {path:'/mcp',component:()=>import('../views/Mcp.vue'),meta:{title:'MCP 工具 · yangbin AI'}},
   {path:'/planner',component:()=>import('../views/Planner.vue'),meta:{title:'约会规划 · yangbin AI'}},
   {
@@ -60,6 +65,7 @@ const router = createRouter({
 
 // 全局导航守卫，设置文档标题
 router.beforeEach(async to => {
+  if (to.name === 'blog-public') return
   // Fetch public page code while session validation is in flight. Rendering and
   // all data access still wait for the existing authentication guard below.
   if (!auth.loaded) {

@@ -24,7 +24,8 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.profiles.active=prod","app.model.provider=openai","app.model.api-key=fixture-only-key",
     "app.model.name=coding-fixture","app.rag.enabled=false","app.rag.cloud-enabled=false",
     "app.internal-api-token=coding-fixture-internal","app.coding.enabled=true","app.coding.shell-enabled=false",
-    "app.coding.api-key=","app.coding.model=","app.coding.timeout-seconds=90"
+    "app.coding.api-key=","app.coding.model=","app.coding.timeout-seconds=120","app.coding.probe-timeout-seconds=90",
+    "app.governance.daily-tokens=4000000"
 })
 class CodingLocalFilesEndToEndTest {
     static final ObjectMapper JSON=new ObjectMapper();
@@ -71,6 +72,7 @@ class CodingLocalFilesEndToEndTest {
         throw new AssertionError("Timed out: "+state);
     }
     @Test void actualSdkLocalFileRelayAndNoServerCopy()throws Exception {
+        int callsBefore=CALLS.get();
         Path device=ROOT.resolve("device-fixture");Files.createDirectories(device);
         String project=ok(HttpMethod.POST,"/projects",Map.of("name","本机目录链路","source","local")).path("id").asText();
         String session=ok(HttpMethod.POST,"/sessions",Map.of("projectId",project,"approvalMode","on-risk")).path("id").asText();
@@ -104,7 +106,19 @@ class CodingLocalFilesEndToEndTest {
         assertThat(Files.readString(device.resolve("hello.txt"))).isEqualTo("hello coding\n");
         assertThat(ROOT.resolve("admin/projects/"+project+"/workspace/hello.txt")).doesNotExist();
         assertThat(call(HttpMethod.GET,"/projects/"+project+"/files",null,"admin").getStatusCode().value()).isEqualTo(409);
-        assertThat(CALLS.get()).isEqualTo(4);assertThat(replies).hasSize(4);
+        assertThat(CALLS.get()-callsBefore).isEqualTo(4);assertThat(replies).hasSize(4);
         assertThat(ok(HttpMethod.GET,"/sessions/"+session,null).toString()).contains("hello coding");
+    }
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(named="v1.desktop",matches="true")
+    @Test void candidateReceiptSurvivesDesktopReconnect()throws Exception {
+        int callsBefore=CALLS.get();
+        Path log=ROOT.resolve("desktop-reconnect.log");Files.createDirectories(ROOT);
+        var child=new ProcessBuilder(System.getProperty("coding.test.node","node"),"desktop/tests/fixtures/candidate-stack.mjs",
+            http.getRootUri(),ROOT.resolve("stack").toString()).redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try{
+            assertThat(child.waitFor(540,java.util.concurrent.TimeUnit.SECONDS)).as("desktop integration timed out: "+log).isTrue();
+            assertThat(child.exitValue()).as(Files.readString(log)).isZero();
+            assertThat(CALLS.get()-callsBefore).as("one provider request for each original task; historic receipts never start another").isEqualTo(3);
+        }finally{if(child.isAlive())child.destroyForcibly();}
     }
 }

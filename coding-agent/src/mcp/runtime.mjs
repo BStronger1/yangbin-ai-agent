@@ -110,7 +110,7 @@ export function createMcpRuntime({ identity, servers = [], authorize, reserve, s
       if (!approved || approved.hash !== tool.hash) throw new Error('MCP_DEFINITION_CHANGED');
       reservationId = await reserve({ identity, kind: 'mcp', requestId: callId, reservedTokens: 0, maxCostMicros: tool.server.config.maxCostMicros ?? null });
       if (typeof reservationId !== 'string' || !reservationId) throw new Error('MCP_BUDGET_DENIED');
-      callSignal.throwIfAborted(); sent = true;
+      callSignal.throwIfAborted(); options.onDispatch?.(); sent = true;
       event({ status: 'RUNNING', toolName: name, callId, definitionHash: tool.hash, approvalId: approval.approvalId || null });
       const result = await tool.server.client.callTool({ name: tool.raw.name, arguments: frozenArgs }, { signal: callSignal, timeout: tool.server.config.timeoutMs, resetTimeoutOnProgress: false });
       const status = result.isError ? 'FAILED' : 'SUCCEEDED';

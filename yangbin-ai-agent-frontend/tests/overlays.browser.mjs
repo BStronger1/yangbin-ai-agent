@@ -43,6 +43,7 @@ await page.route('**/*', async route => {
    data=memory.items[0]
   } else if(name.startsWith('/ai/never')) {}
   else if(name==='/api/ai/work/catalog') data={partners:[],skills:[]}
+  else if(name==='/api/ai/coding/recent'||name==='/api/ai/work/evidence/recent-reports') data=[]
   else if(name.includes('/assistant/partners/')&&name.endsWith('/conversations'))data=[]
   else {unknown.push(method+' '+name);status=404;data={message:'Unknown offline fixture'}}
   return route.fulfill({status,json:data})

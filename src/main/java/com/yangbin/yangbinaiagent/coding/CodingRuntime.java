@@ -17,6 +17,9 @@ public interface CodingRuntime {
         public Request(String sessionId,Path workspace,Path sessionDir,String prompt,String approvalMode,boolean allowShell){this(sessionId,workspace,sessionDir,prompt,approvalMode,allowShell,null);}
     }
     Availability availability();
+    default ModelProfileService.Snapshot systemDestination() {
+        throw new IllegalStateException("运行时未提供可核验的模型接收方");
+    }
     default Map<String,Object> shellAvailability(){return Map.of("available",false,"reason","Verified isolation is unavailable","workspace","read-only-snapshot","network",false);}
     default Availability availability(ModelProfileService.Resolved selected){return availability();}
     void run(Request request, Consumer<Map<String,Object>> events, BlockingQueue<Map<String,Object>> commands) throws Exception;

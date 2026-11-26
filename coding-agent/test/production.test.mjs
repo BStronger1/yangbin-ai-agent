@@ -14,7 +14,7 @@ test('governance denies before HTTP and approved requests reserve conservative b
   let called=0; const events=[];let gate;
   gate=new ModelGate({required:true,emit:e=>{events.push(e);if(e.type==='model_request')gate.permission({...e,approved:false});}});
   await assert.rejects(gate.wrap(async()=>{called++;return stream(['[DONE]']);})('http://unused',request),/denied/);assert.equal(called,0);
-  assert.equal(events[0].reservedTokens,Buffer.byteLength(request.body)+64);
+  assert.equal(events.find(e=>e.type==='model_request').reservedTokens,Buffer.byteLength(request.body)+64);
   gate=new ModelGate({required:true,emit:e=>{events.push(e);if(e.type==='model_request')gate.permission({...e,approved:true});}});
   const response=await gate.wrap(async()=>{called++;return stream([{usage:{prompt_tokens:13,completion_tokens:7}},'[DONE]']);})('http://unused',request);
   await response.text();assert.equal(called,1);assert.deepEqual({...events.at(-1),requestId:null},{type:'model_usage',requestId:null,inputTokens:13,outputTokens:7,status:'SUCCEEDED'});
@@ -24,7 +24,7 @@ test('native Claude cache usage is counted and missing usage remains unknown rat
   await (await gate.wrap(async()=>stream([{type:'message_start',message:{usage:{input_tokens:10,cache_read_input_tokens:20,cache_creation_input_tokens:3,output_tokens:0}}},{type:'message_delta',usage:{output_tokens:8}},{type:'message_stop'}]))('http://unused',request)).text();
   assert.equal(events.at(-1).inputTokens,33);assert.equal(events.at(-1).outputTokens,8);
   await (await gate.wrap(async()=>stream(['[DONE]']))('http://unused',request)).text();assert.equal(events.at(-1).inputTokens,null);assert.equal(events.at(-1).outputTokens,null);assert.equal(events.at(-1).status,'SUCCEEDED');
-  await (await gate.wrap(async()=>stream([{choices:[]}]))('http://unused',request)).text();assert.equal(events.at(-1).status,'UNKNOWN');
+  await assert.rejects((await gate.wrap(async()=>stream([{choices:[]}]))('http://unused',request)).text(),/Incomplete model stream/);assert.equal(events.at(-1).status,'UNKNOWN');
 });
 test('SDK cancellation after terminal SSE preserves success with unknown usage; early cancellation does not',async()=>{
   const events=[],gate=new ModelGate({emit:e=>events.push(e)});
@@ -35,7 +35,8 @@ test('SDK cancellation after terminal SSE preserves success with unknown usage; 
   }
   const interrupted=await gate.wrap(async()=>new Response(new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'));}})))('http://unused',request);
   const reader=interrupted.body.getReader();await reader.read();await reader.cancel();assert.equal(events.at(-1).status,'UNKNOWN');
-  const failed=await gate.wrap(async()=>stream([{type:'error',error:{message:'simulated provider error'}},'[DONE]']))('http://unused',request);
+  const separate=new ModelGate({emit:e=>events.push(e)});
+  const failed=await separate.wrap(async()=>stream([{type:'error',error:{message:'simulated provider error'}},'[DONE]']))('http://unused',request);
   await failed.text();assert.equal(events.at(-1).status,'FAILED');
 });
 test('stream limits reject oversized complete lines and excessive total responses',async()=>{
@@ -44,7 +45,7 @@ test('stream limits reject oversized complete lines and excessive total response
   await assert.rejects(oversized.text(),/event exceeds limit/);assert.equal(events.at(-1).status,'UNKNOWN');
   const payload=new TextEncoder().encode(('data: '+JSON.stringify({content:'x'.repeat(1024)})+'\n\n').repeat(1000));
   let chunks=0;
-  const total=await gate.wrap(async()=>new Response(new ReadableStream({pull(controller){if(++chunks<=70)controller.enqueue(payload);else controller.close();}})))('http://unused',request);
+  const total=await new ModelGate({emit:e=>events.push(e)}).wrap(async()=>new Response(new ReadableStream({pull(controller){if(++chunks<=70)controller.enqueue(payload);else controller.close();}})))('http://unused',request);
   await assert.rejects(total.text(),/response exceeds 64 MiB/);assert.equal(events.at(-1).status,'UNKNOWN');
 });
 test('admission timeout and abort do not issue HTTP',async()=>{

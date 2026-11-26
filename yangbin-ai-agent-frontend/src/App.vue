@@ -1,8 +1,12 @@
 <script setup>
 import WorkspaceNav from './components/WorkspaceNav.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { auth } from './auth'
 const ready = ref(false), failed = ref(false)
+// Local Coding tools are serviced by this tab, even while another page is shown.
+// Account changes destroy the cache and revoke the old device context.
+const workspaceOwner = computed(() => auth.user?.id || auth.user?.username || 'signed-out')
 useRouter().isReady().then(() => { ready.value = true }).catch(() => { failed.value = true })
 const reload = () => window.location.reload()
 </script>
@@ -11,7 +15,7 @@ const reload = () => window.location.reload()
   <main v-if="!ready" class="app-loading" role="status" aria-live="polite"><strong>yangbin AI</strong><p>{{ failed ? '页面未能加载，请重新连接。' : '正在打开工作空间…' }}</p><button v-if="failed" @click="reload">重新连接</button></main>
   <template v-else>
     <WorkspaceNav v-if="!$route.meta.public" />
-    <div :class="{ 'app-content': !$route.meta.public }"><router-view v-slot="{ Component }"><component :is="Component" :key="$route.path === '/super-agent' ? 'legacy-manus' : $route.path === '/coding' ? 'coding' : $route.matched[0]?.path" /></router-view></div>
+    <div :class="{ 'app-content': !$route.meta.public }"><router-view v-slot="{ Component }"><KeepAlive :key="workspaceOwner" include="CodingWorkspace" :max="2"><component :is="Component" :key="$route.path === '/super-agent' ? 'legacy-manus' : $route.path === '/coding' ? 'coding' : $route.matched[0]?.path" /></KeepAlive></router-view></div>
   </template>
 </template>
 

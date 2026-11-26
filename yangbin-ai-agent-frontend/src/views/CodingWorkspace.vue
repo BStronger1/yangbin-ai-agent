@@ -2,7 +2,7 @@
 import { LocalRunner } from '../local-runner'
 import { isDesktop, supportsProjectDirectory, chooseProjectDirectory, projectDirectory, saveProjectHandle, restoreProjectHandle, desktopProcesses, authorizeDesktopTask } from '../desktop-directory'
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onActivated, onDeactivated, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { useOverlay, isComposing } from '../composables/useOverlay'
 import { useUnsavedChanges } from '../composables/useUnsavedChanges'
@@ -11,9 +11,11 @@ import ReplyMarkdown from '../components/ReplyMarkdown.vue'
 import ReasoningEffort from '../components/ReasoningEffort.vue'
 import CodingTurn from '../components/CodingTurn.vue'
 import CodingRecovery from '../components/CodingRecovery.vue'
+import LocalCandidateReceipts from '../components/LocalCandidateReceipts.vue'
 import CodingMemory from '../components/CodingMemory.vue'
 import CodingEditorLink from '../components/CodingEditorLink.vue'
 import { modelApi } from '../api/models'
+import { mergeRunPage } from '../workspace-projection'
 import { codingApi } from '../api/coding'
 import { chatWithManus } from '../api'
 import { auth, checkSession } from '../auth'
@@ -21,7 +23,17 @@ import { api, errorMessage } from '../workspace-api'
 import '../coding-workspace.css'
 import { readWorkspace, writeWorkspace } from '../workspace-state'
 
-const route = useRoute(), router = useRouter()
+defineOptions({ name: 'CodingWorkspace' })
+const liveRoute = useRoute(), router = useRouter()
+const workspacePath = liveRoute.path
+// A cached workspace owns its route state. Chat/settings queries must not reset
+// its session, client ID, in-flight device operations or pending receipts.
+const route = reactive({ path: workspacePath, query: { ...liveRoute.query } })
+const pageVisible = computed(() => liveRoute.path === workspacePath)
+async function replaceWorkspaceRoute(query) {
+  if (pageVisible.value) await router.replace({ path: workspacePath, query })
+  else route.query = { ...query }
+}
 const mode = computed(() => route.path === '/super-agent' ? 'chat' : 'work')
 const codingDraftKey = () => 'draft:' + (session.value?.id || 'new')
 let restoringWorkspace = false, workspaceAccount = auth.user?.id || auth.user?.username, legacyPoll = null, draftTimer = null
@@ -30,6 +42,23 @@ function restoreWorkspace() { restoringWorkspace = true; draft.value = pending.v
 const projects = ref([]), sessions = ref([]), session = ref(null), capabilities = ref(null)
 const memoryOpen = ref(false)
 const projectId = ref(''), draft = ref(''), error = ref(''), busy = ref(false), loading = ref(true)
+const workTransfer = ref(null), analysisOnly = ref(false), requiredTestPaths = ref('')
+let grantTicket = 0
+async function loadGrant() {
+  const transfer = route.query.transfer, ticket = ++grantTicket
+  workTransfer.value = null; analysisOnly.value = false; requiredTestPaths.value = ''
+  if (typeof transfer !== 'string') return
+  try {
+    const {data} = await api.get('/ai/work/evidence/transfers/' + encodeURIComponent(transfer))
+    if (ticket !== grantTicket || disposed) return
+    if (data.revoked || Date.parse(data.expiresAt) <= Date.now()) throw new Error('这次材料授权已失效，请回到 Work 重新选择。')
+    workTransfer.value = data
+    projectId.value = data.projectId
+    selectedModels.value.work = data.destination.profileId
+    analysisOnly.value = data.purpose === 'ANALYZE'
+    if (!draft.value.trim()) draft.value = analysisOnly.value ? '请根据选定的订单行检查脚本，并给出定位依据。' : '请根据选定的订单行定位脚本问题并生成候选修复。'
+  } catch (err) { if (ticket === grantTicket) error.value = err.response ? errorMessage(err) : err.message }
+}
 const executionMode = ref('auto')
 const executionModes = [{id:'auto',label:'自动选择'},{id:'direct',label:'直接回答'},{id:'react',label:'工具驱动'},{id:'plan',label:'规划与执行'},{id:'check',label:'检查与修正'},{id:'team',label:'团队执行（需服务端执行器）'}]
 const policy = ref('on-risk'), policyOpen = ref(false), historyOpen = ref(false), projectOpen = ref(false)
@@ -53,7 +82,7 @@ const modelCatalog = ref({ profiles: [], providers: [], defaultModelId: 'system'
 const selectedEfforts = ref({work:'',chat:''})
 const modelPickerOpen = ref(false), modelsLoading = ref(true), modelsError = ref(''), capabilitiesLoading = ref(false)
 const capabilitiesModelId = ref(''), chatModelSnapshot = ref(null)
-let pollTimer = null, source = null, generation = 0, disposed = false, capabilityGeneration = 0, modelGeneration = 0
+let pollTimer = null, source = null, generation = 0, disposed = false, capabilityGeneration = 0, modelGeneration = 0, refreshInFlight = false
 const policies = [
   { id: 'ask', label: '始终询问', detail: '每次调用工具前都需要确认' },
   { id: 'on-risk', label: '按需确认', detail: '修改文件和运行命令时确认' },
@@ -81,7 +110,8 @@ async function refreshProcesses(){try{if(runner.value)runnerJobs.value=JSON.pars
 async function stopProcess(id){try{await runner.value.execute('stop',{id});await refreshProcesses()}catch(e){error.value=localError(e)}}
 const localError = e => e.response?.data?.message || e.message || '本机目录操作未完成'
 const supportsLocal = supportsProjectDirectory()
-const localClientId = globalThis.crypto?.randomUUID?.() || '', localReceipts = new Map()
+const pageClientId = globalThis.crypto?.randomUUID?.() || '', localReceipts = new Map()
+const localClientId = () => localDirectory.value?.candidateDevice || pageClientId
 let localPumping = false, localRestoreGeneration = 0
 const ownerId = () => auth.user?.id || auth.user?.username
 const codingBudget = computed(() => [...(session.value?.events || [])].reverse().find(e => e.type === 'context' && e.maxOutputTokens))
@@ -130,33 +160,50 @@ async function connectLocal() {
 }
 async function pumpLocalFiles() {
   if (!isLocal.value || !workRunning.value || localPumping || !localDirectory.value) return
-  const current = session.value.id, turn = session.value.turns.at(-1)?.id, owner = ownerId(), directory = localDirectory.value
-  // A restored page has a new client ID; old operations will never be executed again.
-  localPumping = true
-  const valid = () => !disposed && owner === ownerId() && localDirectory.value === directory && session.value?.id === current && session.value?.turns.at(-1)?.id === turn && workRunning.value
+  const current=session.value.id, turn=session.value.turns.at(-1)?.id, owner=ownerId(), directory=localDirectory.value
+  const clientId=localClientId(), durable=Boolean(directory.candidateDevice)
+  localPumping=true
+  const valid=()=>!disposed && owner===ownerId() && localDirectory.value===directory && session.value?.id===current && session.value?.turns.at(-1)?.id===turn && workRunning.value
   try {
-    const requests = await codingApi.localRequests(current, localClientId)
-    for (const request of requests) {
-      if (!valid() || request.turnId !== turn) return
-      let result = localReceipts.get(request.requestId)
-      if (!result) {
-        if (request.claimed) throw new Error('文件操作结果未知，请停止任务并检查本机文件；不会重复执行。')
-        const claimed = await codingApi.claimLocal(current, localClientId, request.requestId)
-        if (!valid() || claimed.turnId !== turn || claimed.expiresAt <= Date.now()) return
-        try { const output = claimed.operation === 'ping' && runner.value ? JSON.stringify({localProcesses:true,platform:runner.value.platform}) : ['start','preview','process_status','stop'].includes(claimed.operation) ? await runner.value.execute(claimed.operation, claimed.arguments, claimed.requestId, {sessionId:current,turnId:turn,expiresAt:claimed.expiresAt}) : await directory.execute(claimed.operation, claimed.arguments, valid, claimed.requestId, {sessionId:current,turnId:turn,expiresAt:claimed.expiresAt}); if(['start','preview','stop'].includes(claimed.operation))await refreshProcesses(); result = { clientId:localClientId, requestId:request.requestId, ok:true, output } }
-        catch (e) { result = { clientId:localClientId, requestId:request.requestId, ok:false, output:String(e.message || '本机文件操作失败').slice(0,500) } }
-        localReceipts.set(request.requestId, result)
+    for(const request of await codingApi.localRequests(current,clientId)){
+      if(!valid()||request.turnId!==turn)return
+      let result=localReceipts.get(request.requestId)
+      if(!result && request.claimed){
+        if(!durable || !['write','edit'].includes(request.operation))throw new Error('操作已领取，当前设备缺少执行回执。')
+        const receipt=await directory.receipt(current,turn,request.requestId)
+        if(receipt.phase!=='CONFIRMED' || receipt.writerAlive)continue
+        result={clientId,requestId:request.requestId,ok:true,output:'设备已确认候选，原文件未修改。',receipt}
       }
-      if (!valid()) return
-      await codingApi.completeLocal(current, result)
+      if(!result){
+        const claim=await codingApi.claimLocal(current,clientId,request.requestId,durable?1:0)
+        if(!valid() || claim.turnId!==turn || claim.expiresAt<=Date.now())return
+        const context={sessionId:current,turnId:turn,expiresAt:claim.expiresAt}
+        try{
+          if(durable){
+            const response=await directory.candidateOperation(claim,context),receipt=response.receipt
+            result={clientId,requestId:request.requestId,ok:!receipt||receipt.phase==='CONFIRMED',output:response.output,...(receipt?{receipt}:{})}
+          } else {
+            if(['write','edit','start','stop','preview','verify_tests','test_snapshot'].includes(claim.operation))throw new Error('当前设备不支持隔离候选，已保留原文件。请在支持候选的设备上运行此任务。')
+            const processOperation=['start','preview','process_status','stop'].includes(claim.operation)
+            const output=claim.operation==='ping' ? JSON.stringify({localProcesses:false,repoTools:false,publicTests:false}) : processOperation ? await runner.value.execute(claim.operation,claim.arguments,claim.requestId,context) : await directory.execute(claim.operation,claim.arguments,valid,claim.requestId,context)
+            if(['start','preview','stop'].includes(claim.operation))await refreshProcesses()
+            result={clientId,requestId:request.requestId,ok:true,output}
+          }
+        }catch(e){result={clientId,requestId:request.requestId,ok:false,output:String(e.message||'本机文件操作失败').slice(0,500),...(e.mutationReceipt?{mutationReceipt:e.mutationReceipt}:{})}}
+      }
+      localReceipts.set(request.requestId,result)
+      if(!valid())return
+      await codingApi.completeLocal(current,result)
     }
-  } catch (e) { if (valid()) error.value = localError(e) }
-  finally { localPumping = false }
+  }catch(e){if(valid())error.value=localError(e)}
+  finally{localPumping=false}
 }
 watch(localDirectory, directory => {if(directory?.handle.desktop){runner.value=desktopProcesses(directory);void refreshProcesses();return}if(directory && incomingRunner){runnerUrl.value=incomingRunner.url;runnerToken.value=incomingRunner.token;incomingRunner=null;void connectRunner()}})
 watch(() => [ownerId(), selectedProject.value?.id], restoreDirectory)
 
-const workRunning = computed(() => ['RUNNING', 'QUEUED', 'WAITING_APPROVAL', 'AWAITING_APPROVAL', 'CANCELLING'].includes(String(session.value?.status || '').toUpperCase()))
+const activeSessionStatuses = new Set(['RUNNING', 'QUEUED', 'WAITING_APPROVAL', 'AWAITING_APPROVAL', 'CANCELLING'])
+const isActiveSession = status => activeSessionStatuses.has(String(status).toUpperCase())
+const workRunning = computed(() => isActiveSession(session.value?.status))
 const running = computed(() => mode.value === 'chat' ? chatRunning.value : workRunning.value)
 const effectiveModelId = computed(() => {
   if (mode.value === 'chat') return chatRunning.value ? chatModelSnapshot.value?.profileId || 'system' : selectedModels.value.chat
@@ -166,7 +213,7 @@ const selectedProfile = computed(() => modelCatalog.value.profiles.find(profile 
 const selectedModelValid = computed(() => effectiveModelId.value === 'system' ? modelCatalog.value.systemEnabled !== false : Boolean(selectedProfile.value))
 const effortLevels = computed(() => selectedProfile.value?.reasoningEfforts || [])
 const modelLabel = computed(() => effectiveModelId.value === 'system' ? '系统默认' : selectedProfile.value?.name || session.value?.turns?.at(-1)?.modelSnapshot?.name || '模型不可用')
-const workAvailable = computed(() => (!isLocal.value || localConnected.value) && selectedModelValid.value && selectedProfile.value?.codingSupported !== false && !modelsLoading.value && !capabilitiesLoading.value && capabilitiesModelId.value === effectiveModelId.value && capabilities.value?.available)
+const workAvailable = computed(() => (!route.query.transfer || (workTransfer.value?.id === route.query.transfer && workTransfer.value.projectId === projectId.value && workTransfer.value.destination.profileId === effectiveModelId.value)) && (!isLocal.value || localConnected.value) && selectedModelValid.value && selectedProfile.value?.codingSupported !== false && !modelsLoading.value && !capabilitiesLoading.value && capabilitiesModelId.value === effectiveModelId.value && capabilities.value?.available)
 const hasContent = computed(() => mode.value === 'chat' ? chatMessages.value.length > 0 : Boolean(session.value))
 const pendingApprovals = computed(() => {
   if (!workRunning.value) return []
@@ -180,9 +227,24 @@ const approvalsHidden = ref(false), fileBaseline = ref('')
 const fileDirty = computed(() => fileEditing.value && JSON.stringify([filePath.value, fileContent.value]) !== fileBaseline.value)
 const { allowDiscard: allowFileDiscard } = useUnsavedChanges(fileDirty, fileSaving, () => auth.user?.id || auth.user?.username)
 const { allowDiscard: allowProjectDiscard } = useUnsavedChanges(computed(() => !!projectName.value), projectBusy, () => auth.user?.id || auth.user?.username)
-const allowNavigation = async () => { if (isLocal.value && workRunning.value) { error.value = '本机目录任务需要保持此页面打开，请先停止任务再离开。'; return false } return await allowFileDiscard() && await allowProjectDiscard() }
-onBeforeRouteLeave(allowNavigation)
-onBeforeRouteUpdate((to, from) => to.query.session !== from.query.session ? allowNavigation() : true)
+const allowPageNavigation = async () => {
+  if (!(await allowFileDiscard()) || !(await allowProjectDiscard())) return false
+  fileEditing.value = false; projectName.value = ''
+  saveWorkspace()
+  return true
+}
+const allowNavigation = async () => { if (isLocal.value && workRunning.value) { error.value = '本机任务仍在运行，可以切到其他页面；切换任务前请先停止当前任务。'; return false } return allowPageNavigation() }
+const sameTaskScope = query => query.session === session.value?.id &&
+  (!query.project || query.project === session.value?.projectId) &&
+  (!query.transfer || query.transfer === route.query.transfer)
+onBeforeRouteLeave(allowPageNavigation)
+onBeforeRouteUpdate((to, from) => {
+  if (isLocal.value && workRunning.value && !sameTaskScope(to.query)) return allowNavigation()
+  if (to.query.session === from.query.session) return true
+  // Returning from another page may correct a bare/stale URL to this live task.
+  if (to.query.session === session.value?.id && to.query.project === route.query.project && to.query.transfer === route.query.transfer) return true
+  return allowNavigation()
+})
 async function closeProject() { if (await allowProjectDiscard()) { projectName.value = ''; projectOpen.value = false } }
 async function closeFiles() { if (await allowFileDiscard()) { fileEditing.value = false; filePanel.value = false } }
 async function cancelFileEdit() { if (await allowFileDiscard()) fileEditing.value = false }
@@ -205,10 +267,17 @@ const turns = computed(() => {
     if (event.type === 'text_delta') group.text.push(event.delta ?? event.text ?? '')
     else if (['tool_start', 'tool_end', 'error'].includes(event.type)) group.events.push(event)
     else if (['task', 'team'].includes(event.type)) group.teamEvents.push(event)
+    else if (event.type === 'repair_verification') group.verification = event
+    else if (event.type === 'model_attempt') {
+      if (event.phase === 'LOCAL_REJECTED') group.attemptMessage = event.reason === 'BUDGET_LIMIT'
+        ? '当前预算不足，本次模型请求尚未发送。' : '本次模型请求未获准，尚未发送。请核对账号额度及授权。'
+      else if (['STREAM_INTERRUPTED','DELIVERY_UNKNOWN'].includes(event.phase)) group.attemptMessage = '模型连接中断，本次请求已发出，用量待核对。'
+      else if (event.phase === 'SETTLED' && event.status === 'SUCCEEDED') group.attemptMessage = ''
+    }
   }
   return (session.value?.turns || []).map(turn => {
     const group = grouped.get(turn.id)
-    return { ...turn, text: group?.text.join('') || '', events: group?.events || [], teamEvents: group?.teamEvents || [] }
+    return { ...turn, text: group?.text.join('') || '', events: group?.events || [], teamEvents: group?.teamEvents || [], verification: group?.verification, attemptMessage:group?.attemptMessage }
   })
 })
 const suggestions = computed(() => mode.value === 'chat' ? [
@@ -262,16 +331,38 @@ function rememberPending() { if (session.value) { if (pending.value) sessionStor
 function clearPendingIfAccepted() {
   if (pending.value && session.value?.turns?.some(turn => turn.id === pending.value.requestId || turn.requestId === pending.value.requestId)) { pending.value = null; rememberPending(); writeWorkspace('coding', codingDraftKey(), '', workspaceAccount); draft.value = '' }
 }
-async function scrollBottom(force = false) { const area = conversation.value; const near = !area || area.scrollHeight - area.scrollTop - area.clientHeight < 130; await nextTick(); if (conversation.value && (force || near)) conversation.value.scrollTop = conversation.value.scrollHeight }
-function applySession(value) { session.value = value; writeWorkspace('coding', 'last', { session: value.id }); projectId.value = value.projectId; policy.value = pending.value?.approvalMode || (['RUNNING','QUEUED','WAITING_APPROVAL','AWAITING_APPROVAL','CANCELLING'].includes(String(value.status).toUpperCase()) ? value.approvalMode : (value.approvalMode === 'allow' ? 'on-risk' : value.approvalMode)) || policy.value; clearPendingIfAccepted(); scrollBottom() }
+async function scrollBottom(force = false) { const area = conversation.value; const near = !area || area.scrollHeight - area.scrollTop - area.clientHeight < 130; await nextTick(); if (pageVisible.value && conversation.value && (force || near)) conversation.value.scrollTop = conversation.value.scrollHeight }
+function applySession(value) {
+  session.value = value
+  writeWorkspace('coding', 'last', { session: value.id })
+  projectId.value = value.projectId
+  const resetApproval = !isActiveSession(value.status) && value.approvalMode === 'allow'
+  policy.value = pending.value?.approvalMode || (resetApproval ? 'on-risk' : value.approvalMode) || policy.value
+  clearPendingIfAccepted()
+  if (typeof route.query.transfer === 'string' && value.turns?.some(turn => turn.transferId === route.query.transfer)) {
+    void replaceWorkspaceRoute({session:value.id})
+  }
+  scrollBottom()
+}
 function stopPoll() { clearTimeout(pollTimer); pollTimer = null }
 function schedulePoll() { stopPoll(); if (!disposed && session.value && workRunning.value) pollTimer = setTimeout(refreshSession, 1200) }
 async function refreshSession() {
   const current = session.value?.id, token = generation
-  if (!current) return
-  try { const value = await codingApi.session(current); if (disposed || token !== generation || session.value?.id !== current) return; applySession(value); error.value = ''; await pumpLocalFiles(); if (!workRunning.value) { await loadHistory(); if (filePanel.value) await loadFiles() } }
+  if (!current || refreshInFlight) return
+  refreshInFlight = true
+  try {
+    const prior=session.value, after=prior.events?.at(-1)?.seq || 0
+    let value
+    try {
+      const {data}=await api.get('/ai/coding/sessions/'+encodeURIComponent(current)+'/events',{params:{after}})
+      value=mergeRunPage(prior,data)
+    } catch(err) { if (![400,404,405].includes(err.response?.status)) throw err }
+    if (!value) value=await codingApi.session(current)
+    if (disposed || token !== generation || session.value?.id !== current) return;
+    if ((value.events?.at(-1)?.seq || 0) < (session.value.events?.at(-1)?.seq || 0)) return
+    applySession(value); error.value = ''; await pumpLocalFiles(); if (!workRunning.value) { await loadHistory(); if (filePanel.value) await loadFiles() } }
   catch (e) { if (token === generation) error.value = '状态更新暂时中断，正在重连；不会自动重复提交任务。' }
-  finally { if (token === generation) schedulePoll() }
+  finally { refreshInFlight = false; schedulePoll() }
 }
 async function loadHistory() { const owner = auth.user?.id || auth.user?.username; const value = await codingApi.sessions(); if (!disposed && owner === (auth.user?.id || auth.user?.username)) sessions.value = value }
 async function loadSession(sessionId) {
@@ -288,10 +379,31 @@ async function loadSession(sessionId) {
   finally { if (token === generation) { loading.value = false; restoreWorkspace(); if (filePanel.value) loadFiles() } }
 }
 function closeChat() { source?.close(); source = null; clearTimeout(legacyPoll); legacyPoll = null; chatRunning.value = false }
+function applyChatHistory(turns, { showRunningStatus }) {
+  chatMessages.value = turns.flatMap(turn => {
+    const waitingForAnswer = turn.status === 'RUNNING' && !showRunningStatus
+    const answer = turn.answer || (waitingForAnswer ? '' : '任务状态：' + statusLabel(turn.status))
+    return [
+      { id: turn.id + 'u', role: 'user', text: turn.prompt },
+      { id: turn.id + 'a', role: 'assistant', text: answer }
+    ]
+  })
+  chatRunning.value = turns.at(-1)?.status === 'RUNNING'
+  error.value = chatRunning.value ? '任务仍在服务端执行，正在同步状态。' : ''
+}
 async function recoverChat(cid = chatId.value) {
   if (!cid || disposed || mode.value !== 'chat') return
-  const token = generation, owner = auth.user?.id || auth.user?.username
-  try { const {data} = await api.get('/ai/manus/conversations/' + encodeURIComponent(cid)); if (disposed || token !== generation || cid !== chatId.value || owner !== (auth.user?.id || auth.user?.username)) return; chatMessages.value = data.turns.flatMap(t => [{id:t.id+'u',role:'user',text:t.prompt},{id:t.id+'a',role:'assistant',text:t.answer || (t.status === 'RUNNING' ? '' : '任务状态：' + statusLabel(t.status))}]); chatRunning.value = data.turns.at(-1)?.status === 'RUNNING'; error.value = chatRunning.value ? '任务仍在服务端执行，正在同步状态。' : ''; if (chatRunning.value) legacyPoll = setTimeout(() => recoverChat(cid), 2000) } catch { if (!disposed && token === generation) { error.value = '历史状态暂时不可用，正在重连；不会重新提交。'; legacyPoll = setTimeout(() => recoverChat(cid), 2500) } }
+  const token = generation, owner = ownerId()
+  try {
+    const { data } = await api.get('/ai/manus/conversations/' + encodeURIComponent(cid))
+    if (disposed || token !== generation || cid !== chatId.value || owner !== ownerId()) return
+    applyChatHistory(data.turns, { showRunningStatus: false })
+    if (chatRunning.value) legacyPoll = setTimeout(() => recoverChat(cid), 2000)
+  } catch {
+    if (disposed || token !== generation) return
+    error.value = '历史状态暂时不可用，正在重连；不会重新提交。'
+    legacyPoll = setTimeout(() => recoverChat(cid), 2500)
+  }
 }
 async function newTask(nextMode = mode.value) { if (busy.value || running.value || !(await allowNavigation())) return; fileEditing.value = false; policy.value = 'on-risk'; projectName.value = ''; closeChat(); chatId.value = ''; chatHistory.value = []; chatMessages.value = []; chatEvents.value = []; draft.value = ''; error.value = ''; historyOpen.value = false; router.push({ path: nextMode === 'chat' ? '/super-agent' : '/coding', query: {} }) }
 function selectMode(nextMode) { if (nextMode !== mode.value) newTask(nextMode) }
@@ -308,6 +420,7 @@ async function send() {
   if (mode.value === 'chat') { sendChat(); return }
   if (!workAvailable.value || !projectId.value || (recoveryNeeded.value && !recoveryReady.value)) return
   if (isLocal.value && executionMode.value === 'team') { error.value = '本机目录暂不支持团队执行，请选择单 Agent 模式。'; return }
+  const grant = workTransfer.value
   busy.value = true; error.value = ''; const token = generation, requestedPolicy=policy.value
   try {
     if (isLocal.value && !pending.value) { await localDirectory.value.beginTurn(); localReceipts.clear(); if(token !== generation || disposed)return }
@@ -315,15 +428,15 @@ async function send() {
       const created = await codingApi.createSession({ projectId: projectId.value, title: draft.value.trim().slice(0, 60), approvalMode: requestedPolicy })
       if (token !== generation || disposed) return
       const selectedPolicy=policy.value; applySession(created); policy.value=selectedPolicy; writeWorkspace('coding', 'draft:new', '', workspaceAccount)
-      await router.replace({ path: '/coding', query: { session: created.id } })
+      await replaceWorkspaceRoute({ session: created.id, ...(grant ? {transfer:grant.id} : {}) })
     }
     const currentId = session.value.id
-    if (!pending.value) pending.value = { requestId: id(), prompt: draft.value.trim(), executionMode: executionMode.value, ...(isLocal.value ? {localClientId} : {}), revision: session.value.revision, approvalMode: requestedPolicy, modelProfileId: effectiveModelId.value, reasoningEffort: selectedEfforts.value.work || null }
-    if(isLocal.value && pending.value.approvalMode === 'allow') await authorizeDesktopTask(localDirectory.value,currentId,pending.value.requestId)
+    if (!pending.value) pending.value = { requestId: id(), prompt: draft.value.trim(), executionMode: executionMode.value, ...(analysisOnly.value ? {analysisOnly:true} : {}), ...(grant ? {transferId:grant.id,analysisOnly:analysisOnly.value,requiredTests:grant.allowTests && !analysisOnly.value ? requiredTestPaths.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(target=>({target,runner:target.endsWith('.py')?'pytest':'node'})) : []} : {}), ...(isLocal.value ? {localClientId:localClientId()} : {}), revision: session.value.revision, approvalMode: requestedPolicy, modelProfileId: effectiveModelId.value, reasoningEffort: selectedEfforts.value.work || null }
+    if(isLocal.value && !localDirectory.value?.candidateDevice && pending.value.approvalMode === 'allow') await authorizeDesktopTask(localDirectory.value,currentId,pending.value.requestId)
     rememberPending()
     const value = await codingApi.turn(currentId, { ...pending.value })
     if (disposed || session.value?.id !== currentId) return
-    applySession(value); pending.value = null; rememberPending(); draft.value = ''; await loadHistory(); scrollBottom(true); schedulePoll()
+    applySession(value); pending.value = null; rememberPending(); draft.value = ''; if (grant) await replaceWorkspaceRoute({session:currentId}); await loadHistory(); scrollBottom(true); schedulePoll()
   } catch (e) {
     if (e.response?.status >= 400 && e.response?.status < 500) { pending.value = null; rememberPending(); error.value = isLocal.value ? localError(e) : errorMessage(e) }
     else if (!e.response && /当前桌面版本|用户取消/.test(e.message || '')) { pending.value=null; error.value=e.message; rememberPending() }
@@ -341,12 +454,22 @@ async function showHistory() {
 }
 async function openChat(cid) {
   if (chatRunning.value || busy.value) return
-  const owner=auth.user?.id || auth.user?.username, token=++generation
-  try { const {data}=await api.get('/ai/manus/conversations/'+cid); if(disposed||token!==generation||owner!==(auth.user?.id || auth.user?.username))return
-    chatId.value=cid; chatMessages.value=data.turns.flatMap(t=>[{id:t.id+'u',role:'user',text:t.prompt},{id:t.id+'a',role:'assistant',text:t.answer || '任务状态：'+statusLabel(t.status)}]);historyOpen.value=false
-    chatRunning.value = data.turns.at(-1)?.status === 'RUNNING'; error.value=chatRunning.value?'任务仍在服务端执行，正在同步状态。':''; if(chatRunning.value) { clearTimeout(legacyPoll); legacyPoll=setTimeout(()=>recoverChat(cid),1500) }
-    router.replace({path:'/super-agent',query:{chat:cid}});scrollBottom(true)
-  }catch(e){error.value=errorMessage(e)}
+  const owner = ownerId(), token = ++generation
+  try {
+    const { data } = await api.get('/ai/manus/conversations/' + cid)
+    if (disposed || token !== generation || owner !== ownerId()) return
+    chatId.value = cid
+    applyChatHistory(data.turns, { showRunningStatus: true })
+    historyOpen.value = false
+    if (chatRunning.value) {
+      clearTimeout(legacyPoll)
+      legacyPoll = setTimeout(() => recoverChat(cid), 1500)
+    }
+    void replaceWorkspaceRoute({ chat: cid })
+    scrollBottom(true)
+  } catch (e) {
+    error.value = errorMessage(e)
+  }
 }
 async function deleteChat(cid) {
   if(chatRunning.value||!confirm('删除此对话历史？已创建的文件不会删除。'))return
@@ -357,7 +480,7 @@ function sendChat() {
   chatMessages.value.push({ id: id(), role: 'user', text: prompt }, { id: id(), role: 'assistant', text: '', modelSnapshot: { ...chatModelSnapshot.value } })
   const response = chatMessages.value[chatMessages.value.length - 1]
   if (!chatId.value) chatId.value = id();
-  router.replace({path:'/super-agent',query:{chat:chatId.value}});
+  void replaceWorkspaceRoute({chat:chatId.value});
   chatRunning.value = true; source = chatWithManus(prompt, profileId, chatId.value, id(), selectedEfforts.value.chat || null); const connection = source
   connection.onmessage = event => { if (source !== connection) return; if (event.data === '[DONE]') closeChat(); else { response.text += (response.text ? '\n\n' : '') + event.data; scrollBottom() } }
   connection.addEventListener('trace', event => { if (source !== connection) return; try { const value = JSON.parse(event.data); const index = chatEvents.value.findIndex(item => item.id === value.id); if (index < 0) chatEvents.value.push(value); else chatEvents.value[index] = value } catch { /* Non-JSON trace cannot be rendered. */ } })
@@ -415,6 +538,22 @@ watch([ownerId, () => selectedProject.value?.id, () => session.value?.id, () => 
   fileQuery.value = ''; changedOnly.value = false; filesError.value = ''; previewError.value = ''; fileNotice.value = ''; files.value = []; changes.value = []; openedFile.value = null
 })
 watch(effectiveModelId, () => { modelPickerOpen.value = false; if (mode.value === 'work') refreshCapabilities() })
+watch(() => [liveRoute.path, liveRoute.query], ([path, query], [previousPath]) => {
+  if (path !== workspacePath) return
+  const bareReturn = !query.session && !query.project && !query.transfer
+  if (previousPath !== workspacePath && mode.value === 'work' && session.value &&
+      ((isLocal.value && workRunning.value && !sameTaskScope(query)) || (bareReturn && (workRunning.value || busy.value || pending.value)))) {
+    const current = session.value.id, owner = ownerId(), destination = { ...route.query, session: current }
+    // Let the entering navigation finish before correcting its URL. A synchronous
+    // replace here can race Router finalization; never redirect a newer navigation.
+    void nextTick().then(() => {
+      if (disposed || !pageVisible.value || liveRoute.query !== query || owner !== ownerId() || session.value?.id !== current) return
+      return replaceWorkspaceRoute(destination)
+    })
+    return
+  }
+  route.query = { ...query }
+}, { flush: 'sync' })
 watch(() => route.query.chat, value => { if (mode.value !== 'chat' || value === chatId.value) return; closeChat(); if (typeof value === 'string') openChat(value); else { generation++; chatId.value = ''; chatMessages.value = []; chatEvents.value = [] } })
 watch(() => route.query.session, value => { if (value !== session.value?.id) loadSession(typeof value === 'string' ? value : null) })
 watch(() => mode.value, () => { modelPickerOpen.value = false; generation++; closeChat(); chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; draft.value = ''; policyOpen.value = false; error.value = ''; filePanel.value = false; if (mode.value === 'chat') { stopPoll(); session.value = null; pending.value = null } else refreshCapabilities() })
@@ -434,12 +573,25 @@ onMounted(async () => {
   restoreWorkspace()
   if (typeof route.query.session === 'string') await loadSession(route.query.session)
   else if (mode.value === 'work') { writeWorkspace('coding', 'last', null); if (filePanel.value) await loadFiles() }
+  if (route.query.transfer) await loadGrant()
   if(mode.value==='chat'&&typeof route.query.chat==='string')await openChat(route.query.chat)
 })
+watch(() => [route.query.transfer, ownerId()], () => { if (!loading.value) loadGrant() })
 watch(draft, () => { clearTimeout(draftTimer); if (!restoringWorkspace && !loading.value) draftTimer = setTimeout(saveWorkspace, 300) }, { flush: 'sync' })
 watch([filePanel, projectId], saveWorkspace, { flush: 'sync' })
 function saveHiddenDraft() { if (document.visibilityState === 'hidden') saveWorkspace() }
 function warnLocalClose(event) { saveWorkspace(); if (isLocal.value && workRunning.value) { event.preventDefault(); event.returnValue = '' } }
+onDeactivated(() => {
+  saveWorkspace()
+  memoryOpen.value = false; historyOpen.value = false; projectOpen.value = false
+  policyOpen.value = false; modelPickerOpen.value = false; runnerOptionsOpen.value = false
+})
+onActivated(() => {
+  if (loading.value || disposed) return
+  void reloadModels()
+  if (mode.value === 'work' && session.value) void refreshSession()
+  if (mode.value === 'chat' && chatRunning.value && !source) void recoverChat()
+})
 onMounted(() => { window.addEventListener('beforeunload', warnLocalClose); document.addEventListener('visibilitychange', saveHiddenDraft) })
 onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClose); document.removeEventListener('visibilitychange', saveHiddenDraft); disconnectLocal(); saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
 </script>
@@ -464,9 +616,10 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
         </div>
         <div v-else class="coding-thread">
           <template v-if="mode === 'work'">
-            <div class="thread-heading"><h1>{{ session.title || '工作任务' }}</h1><span class="status-chip" :class="{ running: workRunning }" role="status">{{ statusLabel(session.status) }}</span></div>
+            <div class="thread-heading"><h1>{{ session.title || '工作任务' }}</h1><span class="status-chip" :class="{ running: workRunning }" role="status">{{ session.status === 'SUCCEEDED' && turns.at(-1)?.verification ? '本轮已结束' : statusLabel(session.status) }}</span></div>
             <p v-if="!turns.length" class="muted">工作区已准备好，发送消息开始。</p>
-            <CodingTurn v-for="turn in turns" :key="turn.id" :turn="turn" :session-id="session.id" :session-status="session.status" :status-text="statusLabel(turn.status)" :model-text="historyModel(turn)" @updated="applySession" />
+            <CodingTurn v-for="turn in turns" :key="turn.id" :turn="turn" :local-project="isLocal" :session-id="session.id" :session-status="session.status" :status-text="statusLabel(turn.status)" :model-text="historyModel(turn)" @updated="applySession" />
+            <LocalCandidateReceipts v-if="isLocal" :key="session.id" :session-id="session.id" :directory="localDirectory" :running="workRunning" />
             <button v-if="pendingApprovals.length && approvalsHidden" class="quiet-button" data-testid="reopen-approvals" @click="approvalsHidden = false">查看待审批操作（{{ pendingApprovals.length }}）</button><div v-if="pendingApprovals.length && !approvalsHidden" ref="approvalPanel" role="region" aria-label="待审批操作"><button class="quiet-button" aria-label="收起审批详情" @click="approvalsHidden = true">收起详情（任务继续等待审批）</button><section v-for="approval in pendingApprovals" :key="approval.approvalId" class="coding-approval" data-testid="coding-approval"><div><StudioIcon name="check" :size="20" /><h2>需要你的确认</h2></div><p>{{ approval.reason || '智能体请求执行以下操作。' }}</p><strong>{{ approval.toolName }}</strong><pre>{{ pretty(approval.arguments) }}</pre><footer><button class="quiet-button" :disabled="busy" @click="decide(approval.approvalId, false)" data-testid="approval-deny">拒绝</button><button class="coding-primary" :disabled="busy" @click="decide(approval.approvalId, true)" data-testid="approval-allow">允许这次操作</button></footer></section></div>
           </template>
           <template v-else><article v-for="message in chatMessages" :key="message.id" class="coding-turn"><div v-if="message.role === 'user'" class="coding-user-message">{{ message.text }}</div><template v-else><div class="coding-agent-label"><span class="agent-mini">✦</span> 历史智能体对话<span class="turn-model">{{ message.modelSnapshot?.model || message.modelSnapshot?.name }}</span></div><ReplyMarkdown v-if="message.text" :text="message.text" /><p v-else-if="chatRunning" class="coding-thinking"><span></span>正在思考…</p></template></article><details v-if="chatEvents.length" class="coding-tool-event"><summary>本轮工具执行记录 · {{ chatEvents.length }}</summary><pre>{{ pretty(chatEvents) }}</pre></details></template>
@@ -491,26 +644,27 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
         <details v-for="change in filteredChanges" :key="change.path" class="coding-diff"><summary>{{ ({created:'新增',modified:'修改',deleted:'删除',added:'新增'})[change.kind] || change.kind }} · {{ change.path }}</summary><label>修改前</label><pre tabindex="0">{{ change.before ?? '（文件不存在）' }}</pre><label>修改后</label><pre tabindex="0">{{ change.after ?? '（文件已删除）' }}</pre></details></aside>
     </div>
     <footer class="coding-composer-zone">
+      <section v-if="workTransfer" class="coding-service-note" aria-label="本轮材料授权"><strong>来自 Work 的固定版本 · {{workTransfer.rows.length}} 行</strong>
+        <p>{{ workTransfer.destination.model }} · {{workTransfer.destination.baseUrl}} · {{ workTransfer.purpose==='ANALYZE'?'只分析':'可生成候选修复' }}</p>
+        <label v-if="workTransfer.purpose==='PROPOSE_PATCH'"><input v-model="analysisOnly" type="checkbox" :disabled="busy || running"/>本轮只分析</label>
+        <label v-if="workTransfer.allowTests && !analysisOnly">必验测试文件（每行一个，可选）<textarea v-model="requiredTestPaths" rows="2" placeholder="tests/test_orders.py"/></label>
+        <button type="button" @click="api.post('/ai/work/evidence/transfers/'+workTransfer.id+'/revoke').then(loadGrant).catch(e=>error=errorMessage(e))">撤销授权</button>
+      </section>
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>
       <p v-if="modelsError" class="coding-service-note coding-warning" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note coding-warning" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>
       <div v-if="mode === 'work'" class="coding-context-info">
+        <label v-if="!workTransfer" class="coding-info-text"><input v-model="analysisOnly" type="checkbox" :disabled="running || busy || !!pending"/>本轮只读分析</label>
         <p v-if="isLocal" :class="localConnected ? 'coding-info-text' : 'coding-service-note coding-warning'" data-testid="local-status">
-          {{ localConnected ? '本机目录已连接 · 修改直接保存到项目' : (desktop ? '请选择此项目在电脑上的文件夹' : '本机目录未连接，请重新授权') }}
+          {{ localConnected ? (localDirectory?.candidateDevice ? '本机目录已连接 · 修改保存在独立候选中' : '本机目录已连接 · 此设备仅支持任务读取') : (desktop ? '请选择此项目在电脑上的文件夹' : '本机目录未连接，请重新授权') }}
           <button v-if="!localConnected && (savedLocalHandle || desktop)" type="button" :disabled="running || localConnecting" @click="connectLocal" data-testid="connect-local">{{ desktop && !savedLocalHandle ? '选择文件夹' : '重新授权目录' }}</button>
         </p>
         <details v-if="codingBudget" class="coding-budget" data-testid="coding-budget"><summary>模型额度</summary><p>本轮单次输出上限 {{ codingBudget.maxOutputTokens.toLocaleString() }} Token（含推理） · 上下文 {{ codingBudget.contextWindow.toLocaleString() }} Token。此处显示上限，不是已用额度。</p></details>
         <button v-if="isLocal && localConnected" type="button" class="quiet-button coding-run-options" :aria-expanded="runnerOptionsOpen" aria-controls="coding-run-options" @click="runnerOptionsOpen = !runnerOptionsOpen" data-testid="run-options">{{ desktop || runner ? '运行状态' : '运行选项' }}</button>
       </div>
       <section v-if="mode === 'work' && isLocal && localConnected && runnerOptionsOpen" id="coding-run-options" class="coding-service-note coding-run-panel" aria-label="项目运行" data-testid="local-runner-panel">
-        <p v-if="desktop">本机执行已内置，可让 Agent 启动、预览或停止项目，无需额外连接。</p>
+        <p v-if="desktop">当前任务使用独立候选，原项目文件保持不变。可审阅并下载候选后自行合并；候选模式暂不启动本机程序。</p>
         <template v-else>
-        <p>编辑代码无需安装额外程序。你可以自行启动项目；需要 Agent 代为运行时，可使用桌面客户端，或连接可选的本机运行器。</p>
-        <details><summary>网页版可选连接</summary>
-        <p><a href="/downloads/yangbin-local-runner.zip" download>下载本机运行器</a>，解压后双击 start.cmd，填写项目目录并打开连接链接（需要 Node.js 22 或更新版本）。命令以你的电脑账号运行，每次启动前会请求确认。</p>
-        <label>本机地址<input v-model="runnerUrl" placeholder="http://127.0.0.1:端口" :disabled="running" /></label>
-        <label>连接码<input v-model="runnerToken" type="password" autocomplete="off" :disabled="running" /></label>
-        <button type="button" @click="connectRunner" :disabled="running || runnerBusy">连接运行器</button>
-        </details>
+        <p>此浏览器仅支持读取本机项目，不直接写入原文件。生成可审阅的独立候选请使用 <a href="/download">0.4.0 或更新的桌面客户端</a>，或选择服务端项目。</p>
         </template>
         <button v-if="runner" type="button" @click="refreshProcesses">刷新运行状态</button>
         <div v-for="job in runnerJobs" :key="job.id">
@@ -524,12 +678,12 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
       <form class="coding-composer" @submit.prevent="send" data-testid="coding-composer">
         <textarea ref="promptInput" v-model="draft" rows="2" maxlength="16000" :disabled="busy || Boolean(pending)" :placeholder="mode === 'work' ? '描述你要完成的工作，或继续当前任务…' : '给 历史智能体对话发消息…'" aria-label="消息内容" data-testid="coding-prompt" @keydown="promptKeys"></textarea>
         <div class="coding-composer-toolbar"><div class="composer-controls">
-          <template v-if="mode === 'work'"><span class="composer-chip environment-chip" title="文件操作限定所选项目；本机目录需要保持页面打开"><StudioIcon name="layout" :size="17" />{{ workspaceLabel }}</span><div class="project-control"><button type="button" class="composer-chip project-chip" :disabled="Boolean(session) || busy" :aria-expanded="projectOpen" @click="projectOpen ? closeProject() : projectOpen = true" data-testid="project-picker"><StudioIcon name="folder" :size="17" /><span>{{ selectedProject?.name || '选择项目' }}</span><span>⌄</span></button><div v-if="projectOpen" ref="projectPanel" role="dialog" aria-label="选择项目" class="composer-popover project-popover"><h2>选择项目</h2><button type="button" aria-label="关闭项目选择" @click="closeProject">关闭</button><button v-for="project in projects" :key="project.id" type="button" @click="chooseProject(project.id)"><StudioIcon name="folder" :size="17" />{{ project.name }}{{ project.source === 'local' ? ' · 本机' : '' }}<StudioIcon v-if="projectId === project.id" name="check" :size="16" /></button><p v-if="!projects.length" class="muted">创建项目后即可开始编码</p><div class="create-project"><input v-model="projectName" maxlength="80" placeholder="新项目名称" aria-label="新项目名称" @keydown="projectKeys" /><button type="button" :disabled="!projectName.trim() || projectBusy" @click="createProject" data-testid="create-project">创建</button></div><small>新建空白项目，文件保存在服务端。</small><button type="button" :disabled="projectBusy || !supportsLocal" @click="addLocalProject" data-testid="add-local-project"><StudioIcon name="folder" :size="17" />添加本机文件夹</button><small>直接读写电脑上的原目录；仅把任务读取的内容发送到服务端和模型。需要保持页面打开。</small><small v-if="!supportsLocal">当前浏览器不支持目录授权，请用桌面 Chrome/Edge 通过 HTTPS 打开。</small></div></div><div class="policy-control"><button type="button" class="composer-chip" :disabled="running || busy || Boolean(pending)" :aria-expanded="policyOpen" @click="policyOpen = !policyOpen" data-testid="approval-policy"><StudioIcon name="check" :size="17" />{{ policyLabel }}<span>⌄</span></button><div v-if="policyOpen" ref="policyPanel" role="dialog" aria-label="审批策略" class="composer-popover policy-popover"><label style="display:block;padding:12px">执行方式<select v-model="executionMode" :disabled="running || busy || Boolean(pending)" aria-label="执行方式" data-testid="execution-mode" style="display:block;width:100%;margin-top:8px"><option v-for="item in executionModes" :key="item.id" :value="item.id" :disabled="isLocal && item.id === 'team'">{{ item.label }}</option></select><small>服务端按权限和剩余预算执行；团队需可用执行器。审批规则独立设置。</small></label><button type="button" aria-label="关闭审批策略" @click="policyOpen = false">关闭</button><button v-for="item in policies" :key="item.id" type="button" :disabled="running || busy || Boolean(pending)" :class="{ selected: item.id === policy }" @click="policy = item.id; policyOpen = false" :data-testid="`policy-${item.id}`"><StudioIcon :name="item.id === 'ask' ? 'person' : item.id === 'allow' ? 'spark' : 'check'" :size="19" /><span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span><StudioIcon v-if="item.id === policy" name="check" :size="18" /></button></div></div></template>
+          <template v-if="mode === 'work'"><span class="composer-chip environment-chip" title="文件操作限定所选项目；本机目录需要保持页面打开"><StudioIcon name="layout" :size="17" />{{ workspaceLabel }}</span><div class="project-control"><button type="button" class="composer-chip project-chip" :disabled="Boolean(session) || busy" :aria-expanded="projectOpen" @click="projectOpen ? closeProject() : projectOpen = true" data-testid="project-picker"><StudioIcon name="folder" :size="17" /><span>{{ selectedProject?.name || '选择项目' }}</span><span>⌄</span></button><div v-if="projectOpen" ref="projectPanel" role="dialog" aria-label="选择项目" class="composer-popover project-popover"><h2>选择项目</h2><button type="button" aria-label="关闭项目选择" @click="closeProject">关闭</button><button v-for="project in projects" :key="project.id" type="button" @click="chooseProject(project.id)"><StudioIcon name="folder" :size="17" />{{ project.name }}{{ project.source === 'local' ? ' · 本机' : '' }}<StudioIcon v-if="projectId === project.id" name="check" :size="16" /></button><p v-if="!projects.length" class="muted">创建项目后即可开始编码</p><div class="create-project"><input v-model="projectName" maxlength="80" placeholder="新项目名称" aria-label="新项目名称" @keydown="projectKeys" /><button type="button" :disabled="!projectName.trim() || projectBusy" @click="createProject" data-testid="create-project">创建</button></div><small>新建空白项目，文件保存在服务端。</small><button type="button" :disabled="projectBusy || !supportsLocal" @click="addLocalProject" data-testid="add-local-project"><StudioIcon name="folder" :size="17" />添加本机文件夹</button><small>绑定所选目录后，支持候选的桌面执行器会保留原文件。</small><small v-if="!supportsLocal">当前浏览器不支持目录授权，请用桌面 Chrome/Edge 通过 HTTPS 打开。</small></div></div><div class="policy-control"><button type="button" class="composer-chip" :disabled="running || busy || Boolean(pending)" :aria-expanded="policyOpen" @click="policyOpen = !policyOpen" data-testid="approval-policy"><StudioIcon name="check" :size="17" />{{ policyLabel }}<span>⌄</span></button><div v-if="policyOpen" ref="policyPanel" role="dialog" aria-label="审批策略" class="composer-popover policy-popover"><label style="display:block;padding:12px">执行方式<select v-model="executionMode" :disabled="running || busy || Boolean(pending)" aria-label="执行方式" data-testid="execution-mode" style="display:block;width:100%;margin-top:8px"><option v-for="item in executionModes" :key="item.id" :value="item.id" :disabled="isLocal && item.id === 'team'">{{ item.label }}</option></select><small>服务端按权限和剩余预算执行；团队需可用执行器。审批规则独立设置。</small></label><button type="button" aria-label="关闭审批策略" @click="policyOpen = false">关闭</button><button v-for="item in policies" :key="item.id" type="button" :disabled="running || busy || Boolean(pending)" :class="{ selected: item.id === policy }" @click="policy = item.id; policyOpen = false" :data-testid="`policy-${item.id}`"><StudioIcon :name="item.id === 'ask' ? 'person' : item.id === 'allow' ? 'spark' : 'check'" :size="19" /><span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span><StudioIcon v-if="item.id === policy" name="check" :size="18" /></button></div></div></template>
           <span v-else class="composer-chip"><StudioIcon name="spark" :size="17" />历史智能体对话</span>
           <div class="model-picker-control"><button type="button" class="composer-chip model-picker-trigger" :disabled="running || busy || Boolean(pending) || modelsLoading" :aria-expanded="modelPickerOpen" @click="modelPickerOpen = !modelPickerOpen" data-testid="model-picker"><StudioIcon name="spark" :size="16" /><span>{{ modelsLoading ? '加载模型…' : modelLabel }}</span><span>⌄</span></button><div v-if="modelPickerOpen" ref="modelPanel" role="dialog" aria-label="选择模型" class="composer-popover model-picker-popover"><button type="button" aria-label="关闭模型选择" @click="modelPickerOpen = false">关闭</button><p>为{{ mode === 'work' ? 'Coding Agent' : '历史对话' }}选择模型</p><button v-if="modelCatalog.systemEnabled !== false" type="button" :class="{ selected: effectiveModelId === 'system' }" @click="chooseModel('system')" data-testid="model-option-system"><span><strong>系统默认</strong><small>使用当前部署的模型配置</small></span><StudioIcon v-if="effectiveModelId === 'system'" name="check" :size="16" /></button><button v-for="profile in modelCatalog.profiles" :key="profile.id" type="button" :disabled="mode === 'work' && profile.codingSupported === false" :class="{ selected: effectiveModelId === profile.id }" @click="chooseModel(profile.id)" :data-testid="`model-option-${profile.id}`"><span><strong>{{ profile.name }}</strong><small>{{ profile.model }}</small><small v-if="mode === 'work' && profile.codingSupported === false">{{profile.codingUnavailableReason || '此模型未支持编程工具调用'}}</small></span><StudioIcon v-if="effectiveModelId === profile.id" name="check" :size="16" /></button><button type="button" class="model-manage-link" @click="openModelManager" data-testid="model-manage"><StudioIcon name="plus" :size="16" />前往总设置</button></div></div><ReasoningEffort :model-value="selectedEfforts[mode]" :levels="effortLevels" :disabled="running || busy || Boolean(pending) || modelsLoading" @update:model-value="chooseEffort"/><RouterLink to="/skills?tab=skills" class="composer-link"><StudioIcon name="layers" :size="17" />技能</RouterLink><RouterLink to="/mcp" class="composer-link"><StudioIcon name="plug" :size="17" />插件</RouterLink>
         </div><button v-if="running" type="button" class="coding-stop" :disabled="busy" aria-label="停止任务" @click="cancel" data-testid="coding-cancel"><span></span></button><button v-else type="submit" class="coding-send" :disabled="busy || (recoveryNeeded && !recoveryReady) || modelsLoading || Boolean(modelsError) || (!pending && !selectedModelValid) || !draft.trim() || (mode === 'work' && (!workAvailable || !projectId))" :aria-label="pending ? '重试原消息' : '发送消息'" data-testid="coding-send"><StudioIcon name="arrow" :size="21" /></button></div>
       </form>
-      <p class="composer-footnote">{{ mode === 'work' ? (isLocal ? (desktop ? '本机项目 · 内置文件与程序操作' : '本机项目 · 任务期间请保持页面打开') : capabilities?.shellEnabled ? '服务端项目文件 · 隔离命令执行已启用（无网络、只读项目快照）' : '当前支持项目文件读取与编辑 · 命令执行未启用或隔离环境不可用') : '当前对话由 历史智能体对话执行 · 历史按账号保存，可从历史列表恢复' }}</p>
+      <p class="composer-footnote">{{ mode === 'work' ? (isLocal ? (desktop ? '本机项目 · 独立候选与持久回执' : '本机项目 · 只读分析，请保持页面打开') : capabilities?.shellEnabled ? '服务端项目文件 · 隔离命令执行已启用（无网络、只读项目快照）' : '当前支持项目文件读取与编辑 · 命令执行未启用或隔离环境不可用') : '当前对话由 历史智能体对话执行 · 历史按账号保存，可从历史列表恢复' }}</p>
     </footer>
 
   </main>

@@ -27,7 +27,14 @@ async function run(f, overrides = {}, prompt = 'Please create provider.txt with 
   let stderr = '', stdout = ''; const events=[];
   child.stderr.on('data', x => { stderr += x; }); child.stdout.on('data', x => { stdout += x; });
   const lines = readline.createInterface({input:child.stdout});
-  lines.on('line', line => { const e=JSON.parse(line); events.push(e); if(e.type==='ready') child.stdin.write(JSON.stringify({type:'start',id:'turn',workspace:f.workspace,sessionDir:path.join(f.root,'session'),prompt,approvalMode:'allow',allowShell:false})+'\n'); if(e.event?.type==='model_request') child.stdin.write(JSON.stringify({type:'model_permission',requestId:e.event.requestId,approved:f.allowModel!==false})+'\n'); if(e.type==='response'&&e.id==='turn') child.stdin.end(); });
+  lines.on('line', line => {
+    const e=JSON.parse(line); events.push(e);
+    const send=command=>child.stdin.write(JSON.stringify(command)+'\n');
+    if(e.type==='ready')send({type:'start',id:'turn',workspace:f.workspace,sessionDir:path.join(f.root,'session'),prompt,approvalMode:'allow',allowShell:false,execution:f.execution});
+    if(e.event?.type==='model_request')send({type:'model_permission',requestId:e.event.requestId,approved:f.allowModel!==false});
+    if(e.event?.type==='work_permission_required')send({type:'work_permission',requestId:e.event.requestId,approved:f.workDecision===true});
+    if(e.type==='response'&&e.id==='turn')child.stdin.end();
+  });
   const timer = setTimeout(() => child.kill(), 30000);
   const code = await new Promise(resolve => child.once('close',resolve)); clearTimeout(timer);
   assert.equal(code,0,stderr); assert.ok(events.some(x=>x.type==='response'&&x.id==='turn'),stdout);
@@ -53,6 +60,84 @@ function anthropic(res, action) {
   send('message_delta',{delta:{stop_reason:action?'tool_use':'end_turn',stop_sequence:null},usage:{output_tokens:8}});
   send('message_stop',{}); res.end();
 }
+test('transfer purpose limits SDK tool exposure and rechecks grants before each actual action', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_req,res,n)=>{
+    if(n===1)openai(res,{role:'assistant',tool_calls:[{index:0,id:'read-transfer',type:'function',function:{name:'read',arguments:'{"path":"source.txt"}'}}]},'tool_calls');
+    else openai(res,{role:'assistant',content:'complete'});
+  });
+  await fs.writeFile(path.join(f.workspace,'source.txt'),'selected');
+  f.execution={mode:'react',workTransferPurpose:'ANALYZE',authorizeWorkTools:true};
+  f.workDecision=false;
+  const stopped=await run(f);assert.equal(stopped.ok,false);assert.equal(f.requests.length,1);
+  assert.deepEqual(f.requests[0].body.tools.map(item=>item.function.name).sort(),['list','read']);
+  assert.deepEqual(stopped.events.map(row=>row.event).filter(row=>row?.type==='work_permission_required').map(row=>row.action),['READ']);
+  assert.ok(!stopped.events.some(row=>row.event?.type==='tool_start'));
+  const g=await fixture(t,(_req,res,n)=>n===1?openai(res,{role:'assistant',tool_calls:[{index:0,id:'write-transfer',type:'function',function:{name:'write',arguments:'{"path":"new.txt","content":"candidate"}'}}]},'tool_calls'):openai(res,{role:'assistant',content:'done'}));
+  g.execution={mode:'react',workTransferPurpose:'PROPOSE_PATCH',authorizeWorkTools:true,allowWorkTests:true};
+  g.workDecision=true;
+  const ok=await run(g);assert.equal(ok.ok,true,ok.stdout);
+  assert.equal(await fs.readFile(path.join(g.workspace,'new.txt'),'utf8'),'candidate');
+  assert.deepEqual(g.requests[0].body.tools.map(item=>item.function.name).sort(),['edit','list','read','write']);
+  assert.deepEqual(ok.events.map(row=>row.event).filter(row=>row?.type==='work_permission_required').map(row=>row.action),['PROPOSE_PATCH']);
+});
+test('a real SDK tool throw settles exactly once, and local admission denial sends no request', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_req,res,n)=>n===1?openai(res,{role:'assistant',tool_calls:[{index:0,id:'missing',type:'function',function:{name:'read',arguments:'{"path":"missing.js"}'}}]},'tool_calls'):openai(res,{role:'assistant',content:'No file found.'}));
+  const first=await run(f);
+  assert.equal(first.ok,true);
+  const settled=first.events.map(row=>row.event).filter(row=>row?.type==='tool_settlement');
+  assert.equal(settled.length,1);assert.equal(settled[0].outcome,'NO_EFFECT');assert.equal(settled[0].errorClass,'PATH_NOT_FOUND');
+  f.allowModel=false;const before=f.requests.length;
+  const denied=await run(f,{CODING_GOVERNANCE_REQUIRED:'true'});
+  assert.equal(denied.ok,false);assert.equal(f.requests.length,before);
+  const attempts=denied.events.map(row=>row.event).filter(row=>row?.type==='model_attempt');
+  assert.deepEqual(attempts.map(row=>row.phase),['CREATED','LOCAL_REJECTED']);
+  assert.equal(attempts[0].attemptId,attempts[1].attemptId);assert.equal(attempts[1].sent,false);
+});
+
+test('a truncated SDK tool stream preserves unknown billing and cannot dispatch a partial instruction or another request', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_req,res)=>{
+    res.writeHead(200,{'Content-Type':'text/event-stream'});
+    const delta={tool_calls:[{index:0,id:'partial',type:'function',function:{name:'write',arguments:'{"path":"provider.txt","content":"forbidden"}'}}]};
+    res.write('data: '+JSON.stringify({choices:[{index:0,delta,finish_reason:null}]})+'\n\n');
+    setTimeout(()=>res.destroy(),60);
+  });
+  const result=await run(f);
+  assert.equal(result.ok,false);assert.equal(f.requests.length,1);
+  await assert.rejects(fs.stat(path.join(f.workspace,'provider.txt')),{code:'ENOENT'});
+  const events=result.events.map(row=>row.event).filter(Boolean);
+  assert.deepEqual(events.filter(row=>row.type==='model_attempt').map(row=>row.phase),['CREATED','DISPATCHED','RESPONSE_HEADERS','STREAM_INTERRUPTED']);
+  assert.ok(events.some(row=>row.type==='model_usage'&&row.status==='UNKNOWN'&&row.inputTokens===null));
+  assert.ok(!events.some(row=>row.type==='tool_start'));
+});
+
+test('root attempt budget rejects the next pi request before dispatch while retaining a confirmed write', {timeout:60000}, async t=>{
+  const f=await fixture(t,(_req,res)=>openai(res,{role:'assistant',tool_calls:[{index:0,id:'one',type:'function',function:{name:'write',arguments:'{"path":"saved.txt","content":"saved"}'}}]},'tool_calls'));
+  f.execution={mode:'react',identity:{accountId:'owner',projectId:'project',sessionId:'session',taskId:'attempt',agentId:'agent'},limits:{maxRequests:1,maxTokens:1000000}};
+  const result=await run(f);
+  assert.equal(result.ok,false);assert.equal(f.requests.length,1);
+  assert.equal(await fs.readFile(path.join(f.workspace,'saved.txt'),'utf8'),'saved');
+  const rows=result.events.map(row=>row.event).filter(Boolean);
+  const attempts=rows.filter(row=>row.type==='model_attempt');
+  assert.equal(new Set(attempts.map(row=>row.attemptId)).size,2);
+  assert.equal(attempts.at(-1).phase,'LOCAL_REJECTED');
+  assert.equal(attempts.at(-1).reason,'BUDGET_LIMIT');
+  assert.equal(rows.filter(row=>row.type==='tool_settlement'&&row.outcome==='CONFIRMED').length,1);
+});
+
+test('declared checks remain unverified after a normal final reply without fix wording or tool calls', {timeout:60000}, async t=>{
+  for(const mode of ['auto','direct']){
+    const f=await fixture(t,(_req,res)=>openai(res,{role:'assistant',content:'The estimate is available.'}));
+    f.execution={mode,verificationObligations:[{runner:'pytest',target:'test_total.py',role:'required'}]};
+    const runResult=await run(f,{},'请给我结论。');
+    assert.equal(runResult.ok,true,runResult.stdout);
+    const evidence=runResult.events.map(row=>row.event).filter(row=>row?.type==='repair_verification').at(-1);
+    assert.equal(evidence.scope,'declared_obligations');
+    assert.equal(evidence.status,'UNVERIFIED');
+    assert.deepEqual(evidence.obligations.map(row=>[row.target,row.status]),[['test_total.py','UNVERIFIED']]);
+    assert.equal(f.requests.length,1);
+  }
+});
+
 test('native Anthropic Messages SDK tool loop, SSE and persisted conversation', {timeout:60000}, async t=>{
   const f=await fixture(t,(_request,res,n)=>anthropic(res,n===1));
   const first=await run(f,{CODING_MODEL_API:'anthropic-messages'});

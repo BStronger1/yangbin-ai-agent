@@ -35,7 +35,7 @@ public class KnowledgeDocuments {
         for(var doc:loader.loadMarkdowns()) groups.computeIfAbsent(doc.getMetadata().get("filename").toString(),k->new StringBuilder()).append(doc.getText()).append("\n");
         groups.forEach((name,text)->entries.put("builtin-"+name,new Entry("builtin-"+name,name,text.toString(),"READY",counts.get(name),true,"","public")));
         try(var files=Files.list(root)) {
-            for(Path file:files.filter(p->p.getFileName().toString().matches("[a-f0-9-]{36}\\.json")).toList()) {
+            for(Path file:files.filter(p->p.getFileName().toString().matches("(?:blog-)?[a-f0-9-]{36}\\.json")).toList()) {
                 Entry e=json.readValue(file.toFile(),Entry.class);
                 try { index(e); } catch(Exception ex) { entries.put(e.id(),new Entry(e.id(),e.filename(),e.text(),"FAILED",0,false,"索引失败，请重试",e.owner())); }
             }
@@ -46,7 +46,7 @@ public class KnowledgeDocuments {
     public Entry detail(String id){var e=entries.get(id);if(e==null||!visible(e))throw new IllegalArgumentException("文档不存在");return e;}
     public synchronized Entry upload(MultipartFile file) throws IOException {
         if(file.isEmpty()||file.getSize()>1024*1024)throw new IllegalArgumentException("请选择不超过 1 MB 的文档");
-        if(entries.values().stream().filter(e->!e.builtin()&&visible(e)).count()>=100)throw new IllegalArgumentException("最多保存 100 个上传文档");
+        checkQuota();
         String name=Optional.ofNullable(file.getOriginalFilename()).orElse("");
         if(name.length()>120||name.contains("/")||name.contains("\\")||name.chars().anyMatch(Character::isISOControl))throw new IllegalArgumentException("无效文件名");
         String lower=name.toLowerCase(Locale.ROOT),text;
@@ -75,9 +75,48 @@ public class KnowledgeDocuments {
         for(int start=0;start<text.length();start+=520){out.add(new Document(id+"-"+start,text.substring(start,Math.min(start+600,text.length())),Map.of("filename",name,"documentId",id,"offset",start)));if(start+600>=text.length())break;}
         return out;
     }
-    private List<String> chunkIds(Entry e){return chunks(e.id(),e.filename(),e.text()).stream().map(Document::getId).toList();}
+    private void checkQuota() {
+        if(entries.values().stream().filter(e->!e.builtin()&&visible(e)).count()>=100)throw new IllegalArgumentException("最多保存 100 个上传文档");
+    }
+
+    /** Stable owner-scoped document ID. Stage new chunks under separate IDs so failed embeddings preserve the prior article. */
+    public synchronized Entry importBlog(String postId, String title, String markdown) throws IOException {
+        String owner = UserContext.current().id();
+        String id = "blog-" + UUID.nameUUIDFromBytes((owner + "/" + postId).getBytes(StandardCharsets.UTF_8));
+        String filename = title.replace('/', '／').replace('\\', '＼') + ".md";
+        Entry before = entries.get(id);
+        if (before == null) checkQuota();
+        if (before != null && before.state().equals("READY") && before.filename().equals(filename) && before.text().equals(markdown)) return before;
+        Entry input = new Entry(id, filename, markdown, "INDEXING", 0, false, "", owner);
+        var staged = indexedChunks(input);
+        Entry ready = new Entry(id, filename, markdown, "READY", staged.size(), false, "", owner);
+        synchronized (store) {
+            try {
+                store.add(staged);
+                save(ready);
+            } catch (Exception failure) {
+                store.delete(staged.stream().map(Document::getId).toList());
+                throw new IOException("文章索引未完成，请稍后重试", failure);
+            }
+            if (before != null && (!before.filename().equals(filename) || !before.text().equals(markdown))) store.delete(chunkIds(before));
+            entries.put(id, ready);
+        }
+        return ready;
+    }
+
+    private List<Document> indexedChunks(Entry e) {
+        String version = e.id().startsWith("blog-")
+                ? "-" + UUID.nameUUIDFromBytes((e.filename() + "\0" + e.text()).getBytes(StandardCharsets.UTF_8))
+                : "";
+        return chunks(e.id(),e.filename(),e.text()).stream().map(d -> {
+            var metadata = new HashMap<>(d.getMetadata());
+            metadata.put("owner",e.owner());
+            return new Document(d.getId() + version,d.getText(),metadata);
+        }).toList();
+    }
+    private List<String> chunkIds(Entry e){return indexedChunks(e).stream().map(Document::getId).toList();}
     private void index(Entry e){
-        var docs=chunks(e.id(),e.filename(),e.text()).stream().map(d->{var metadata=new HashMap<>(d.getMetadata());metadata.put("owner",e.owner());return new Document(d.getId(),d.getText(),metadata);}).toList();
+        var docs=indexedChunks(e);
         entries.put(e.id(),new Entry(e.id(),e.filename(),e.text(),"INDEXING",docs.size(),false,"",e.owner()));
         synchronized(store){store.add(docs);}
         entries.put(e.id(),new Entry(e.id(),e.filename(),e.text(),"READY",docs.size(),false,"",e.owner()));

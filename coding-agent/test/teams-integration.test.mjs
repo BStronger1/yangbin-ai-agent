@@ -17,7 +17,15 @@ async function fixture(t,deny=false){
  return {input,env,options,requests,events,root};
 }
 test('actual pi teams: independent sessions, parent IPC, shared budget and reviewed staged files',{timeout:60000},async t=>{const f=await fixture(t);await runAgent(f.input,f.options,f.env);const result=f.events.find(e=>e.type==='team'&&e.event==='result');assert.equal(result.status,'SUCCEEDED',JSON.stringify(f.events.filter(e=>e.type==='team'&&['member_failed','completed'].includes(e.event))));assert.equal(new Set(f.events.filter(e=>e.type==='task'&&e.identity.parentTaskId).map(e=>e.identity.taskId)).size,3);assert.ok(f.requests.length>=6);assert.equal(result.budget.requests,f.requests.length);assert.equal(result.budget.tokens,f.requests.length*50);assert.equal(result.budget.costMicros,'UNKNOWN');assert.ok(result.artifacts.some(a=>a.name==='result.md'));assert.equal(JSON.stringify(result).includes('internalPath'),false);assert.deepEqual(await fs.readdir(f.input.workspace),[]);const stored=JSON.parse(await fs.readFile(path.join(f.input.sessionDir,'team-results-root-task.json'),'utf8'));assert.ok(stored.members.find(m=>m.memberId==='reviewer').review.passed);assert.ok(f.events.filter(e=>e.type==='approval_required').length>=4);});
-test('parent governance denial prevents every child provider request',{timeout:60000},async t=>{const f=await fixture(t,true);await runAgent(f.input,f.options,f.env);assert.equal(f.requests.length,0);const result=f.events.find(e=>e.type==='team'&&e.event==='result');assert.equal(result.status,'FAILED');assert.equal(result.budget.tokens,0);});
+test('auto-routed team respects parent governance denial before any child provider request', {timeout: 60000}, async t => {
+ const f = await fixture(t, true);
+ f.input.execution.mode = 'auto';
+ await runAgent(f.input, f.options, f.env);
+ assert.equal(f.requests.length, 0);
+ const result = f.events.find(e => e.type === 'team' && e.event === 'result');
+ assert.equal(result.status, 'FAILED');
+ assert.equal(result.budget.tokens, 0);
+});
 
 
 test('explicit parallel team creates two independent branches, aggregate and real reading reviewer',{timeout:60000},async t=>{

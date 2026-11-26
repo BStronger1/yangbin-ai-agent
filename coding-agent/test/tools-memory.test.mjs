@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { ToolRuntime } from '../src/tools.mjs';
+import { ToolRuntime, readPage } from '../src/tools.mjs';
 import { ContextStore } from '../src/context-store.mjs';
 async function fixture(t, options = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tools-memory-'));
@@ -39,6 +39,31 @@ test('line pagination and very long single-line resume do not silently drop tail
   assert.equal(first.details.page.nextOffset, 0); assert.equal(first.details.page.nextCharOffset, 7800);
   const second = await tools.execute('read', { path: 'single.txt', offset: 0, charOffset: 7800 });
   assert.match(second.content[0].text, /THE_END/); assert.equal(second.details.page.nextOffset, null);
+});
+test('overshooting a read returns the nearest line with usable coordinates and original content', async t => {
+  const { tools, workspace } = await fixture(t);
+  await fs.writeFile(path.join(workspace, 'lines.txt'), 'first\r\nlast');
+  const { content, details } = await tools.execute('read', { path:'lines.txt', offset:900, charOffset:50 });
+  assert.match(content[0].text, /2 lines, numbered 0\.\.1.*offset=1 charOffset=0\.\]\nlast$/);
+  assert.deepEqual(details.page, {offset:1, charOffset:0, totalLines:2, nextOffset:null, nextCharOffset:null,
+    adjustedFrom:{offset:900,charOffset:50}});
+});
+test('recovered reads page through a long line and keep explicit EOF and invalid arguments distinct', () => {
+  const firstLine = '文'.repeat(4000) + '\r\n';
+  const text = firstLine + 'end';
+  const result = readPage(text, {offset:0, charOffset:9999, limit:1});
+  const nextChar = result.page.nextCharOffset;
+  assert.match(result.text, /charOffset=0\.\.4002/);
+  assert.equal(result.page.nextOffset,0);
+  assert.ok(nextChar > 0);
+  assert.ok(result.text.includes(firstLine.slice(0,nextChar)));
+  assert.ok(Buffer.byteLength(result.text) < 8192);
+  assert.equal(readPage(text,{offset:0,charOffset:nextChar}).text,firstLine.slice(nextChar)+'end');
+  assert.equal(readPage(text,{offset:2}).text,'');
+  const empty = readPage('',{offset:10});
+  assert.match(empty.text,/Empty file.*offset=0 charOffset=0/);
+  assert.deepEqual([empty.page.totalLines,empty.page.nextOffset],[0,null]);
+  assert.throws(()=>readPage(text,{limit:0}),/Invalid read pagination/);
 });
 test('recall restores immutable old output after workspace changes and does not rearchive', async t => {
   const { tools, workspace, store } = await fixture(t);
@@ -87,7 +112,7 @@ test('recall preserves approval, tool-count, cancellation and disabled-shell bou
 test('invalid read pagination and protected paths remain rejected', async t => {
   const { tools, workspace } = await fixture(t);
   await fs.writeFile(path.join(workspace, 'a.txt'), 'line');
-  for (const args of [{ offset: -1 }, { limit: 0 }, { limit: 2001 }, { charOffset: 9 }, { offset: 0.5 }]) await assert.rejects(tools.execute('read', { path: 'a.txt', ...args }));
+  for (const args of [{ offset: -1 }, { limit: 0 }, { limit: 2001 }, { charOffset: -1 }, { offset: 0.5 }]) await assert.rejects(tools.execute('read', { path: 'a.txt', ...args }));
   await assert.rejects(tools.execute('read', { path: '../session/context-artifacts' }), /Protected/);
   await assert.rejects(tools.execute('recall', { id: '../session' }), /Invalid context reference/);
 });

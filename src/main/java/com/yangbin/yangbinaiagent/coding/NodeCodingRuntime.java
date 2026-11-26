@@ -20,6 +20,8 @@ public class NodeCodingRuntime implements CodingRuntime {
     @Value("${app.coding.context-window:${CODING_CONTEXT_WINDOW:0}}") private int contextWindow=0;
     @Value("${app.coding.context-policy:${CODING_CONTEXT_POLICY:layered-v1}}") private String contextPolicy="layered-v1";
     @Value("${app.coding.long-term-memory:${CODING_LONG_TERM_MEMORY:on}}") private String longTermMemory="on";
+    @Value("${app.coding.mutation-receipts-fix:${CODING_MUTATION_RECEIPTS_FIX:on}}") private String mutationReceiptsFix="on";
+    @Value("${app.coding.test-lifecycle-fix:${CODING_TEST_LIFECYCLE_FIX:on}}") private String testLifecycleFix="on";
     @Value("${app.coding.output-tokens:${CODING_OUTPUT_TOKENS:65536}}") private int outputTokens=65536;
     @org.springframework.beans.factory.annotation.Autowired(required=false) private com.yangbin.yangbinaiagent.governance.ModelGovernance governance;
     @Value("${app.coding.mcp-config:${CODING_MCP_CONFIG:}}") private String mcpConfig="";
@@ -28,6 +30,7 @@ public class NodeCodingRuntime implements CodingRuntime {
     private final boolean enabled;
     private final long timeoutSeconds;
     private volatile Map<String,Object> sandbox=Map.of("available",false,"reason","Verified isolation has not been checked");
+    @Value("${app.coding.probe-timeout-seconds:45}") private int probeTimeoutSeconds=45;
     private volatile long checkedAt; private volatile String runtimeProblem="";
     public NodeCodingRuntime(ObjectMapper json,
         @Value("${app.coding.enabled:${CODING_ENABLED:false}}") boolean enabled,
@@ -46,6 +49,13 @@ public class NodeCodingRuntime implements CodingRuntime {
         String selectedBase=(baseUrl.isBlank()?sharedBaseUrl:baseUrl).strip();
         this.baseUrl=selectedBase.replaceAll("/+$","");this.model=(model.isBlank()?sharedModel:model).strip();this.provider=provider;this.timeoutSeconds=Math.max(10,Math.min(timeoutSeconds,3600));
     }
+    @Override public ModelProfileService.Snapshot systemDestination() {
+        if (baseUrl.isBlank() || model.isBlank()) throw new IllegalStateException("系统模型接收方尚未配置");
+        var endpoint = java.net.URI.create(baseUrl);
+        if (endpoint.getHost() == null || endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null)
+            throw new IllegalStateException("系统模型地址无法安全展示");
+        return new ModelProfileService.Snapshot("system","系统默认",provider,baseUrl,model,systemApi);
+    }
     public Availability availability(){return availability(null);}
     public Availability availability(ModelProfileService.Resolved selected) {
         String effectiveKey=selected==null?key:selected.apiKey(),effectiveBase=selected==null?baseUrl:selected.snapshot().baseUrl(),effectiveModel=selected==null?model:selected.snapshot().model();
@@ -55,11 +65,11 @@ public class NodeCodingRuntime implements CodingRuntime {
     }
     public Map<String,Object> shellAvailability(){if(!enabled)return Map.of("available",false,"reason","Coding runtime is disabled");probeRuntime();return sandbox;}
     private synchronized String probeRuntime(){
-        long now=System.currentTimeMillis();if(now-checkedAt<30000)return runtimeProblem;
+        long now=System.currentTimeMillis();if(now-checkedAt<(runtimeProblem.isEmpty()?300000:10000))return runtimeProblem;
         Process process=null;sandbox=Map.of("available",false,"reason","Verified isolation is unavailable");runtimeProblem="Coding Agent 运行时检查失败，请检查 Node 版本和依赖";
         try{var probe=new ProcessBuilder(node,entry.toString(),"--check").directory(entry.getParent().getParent().toFile()).redirectError(ProcessBuilder.Redirect.DISCARD);restrictEnvironment(probe);process=probe.start();
-            if(process.waitFor(10,TimeUnit.SECONDS)&&process.exitValue()==0){String output=new String(process.getInputStream().readNBytes(4096),StandardCharsets.UTF_8);var result=json.readTree(output);if(result.path("ok").asBoolean()){runtimeProblem="";if(result.path("sandbox").isObject())sandbox=json.convertValue(result.path("sandbox"),new TypeReference<Map<String,Object>>(){});}}
-        }catch(Exception ignored){}finally{if(process!=null)kill(process);checkedAt=now;}return runtimeProblem;
+            if(process.waitFor(Math.clamp(probeTimeoutSeconds,5,90),TimeUnit.SECONDS)&&process.exitValue()==0){String output=new String(process.getInputStream().readNBytes(4096),StandardCharsets.UTF_8);var result=json.readTree(output);if(result.path("ok").asBoolean()){runtimeProblem="";if(result.path("sandbox").isObject())sandbox=json.convertValue(result.path("sandbox"),new TypeReference<Map<String,Object>>(){});}}
+        }catch(Exception ignored){}finally{if(process!=null)kill(process);checkedAt=System.currentTimeMillis();}return runtimeProblem;
     }
     public void run(Request request,Consumer<Map<String,Object>> sink,BlockingQueue<Map<String,Object>> commands)throws Exception {
         var selected=request.model();if(!availability(selected).available())throw new IllegalStateException("Coding runtime unavailable");
@@ -69,6 +79,9 @@ public class NodeCodingRuntime implements CodingRuntime {
         builder.environment().put("CODING_GOVERNANCE_REQUIRED","true");
         builder.environment().put("CODING_CONTEXT_POLICY",contextPolicy);
         builder.environment().put("CODING_LONG_TERM_MEMORY",longTermMemory);
+        if(!Set.of("on","off").contains(mutationReceiptsFix)||!Set.of("on","off").contains(testLifecycleFix))throw new IllegalArgumentException("Invalid Coding repair fix switch");
+        builder.environment().put("CODING_MUTATION_RECEIPTS_FIX",mutationReceiptsFix);
+        builder.environment().put("CODING_TEST_LIFECYCLE_FIX",testLifecycleFix);
         if(contextWindow>0)builder.environment().put("CODING_CONTEXT_WINDOW",Integer.toString(contextWindow));
         builder.environment().put("CODING_OUTPUT_CEILING",Integer.toString(Math.max(1,Math.min(governance==null?outputTokens:governance.codingOutputLimit(outputTokens),384000))));
         if(!a2aConfig.isBlank())builder.environment().put("CODING_A2A_CONFIG",a2aConfig);

@@ -19,6 +19,8 @@ public class CodingController {
     @GetMapping("/projects/{id}/files") public Object files(@PathVariable String id)throws Exception{return service.files(id);}
     @GetMapping("/projects/{id}/file") public Object file(@PathVariable String id,@RequestParam String path)throws Exception{return service.file(id,path);}
     @PutMapping("/projects/{id}/file") public Object putFile(@PathVariable String id,@RequestBody CodingService.FileInput input)throws Exception{return service.putFile(id,input);}
+    @GetMapping("/recent") public Object recent()throws Exception{return service.recent();}
+    @GetMapping("/sessions/{id}/events") public Object events(@PathVariable String id,@RequestParam int after)throws Exception{return service.updates(id,after);}
     @GetMapping("/sessions") public Object sessions()throws Exception{return service.sessions();}
     @PostMapping("/sessions") public Object createSession(@RequestBody CodingService.SessionInput input)throws Exception{return service.createSession(input);}
     @GetMapping("/sessions/{id}") public Object session(@PathVariable String id)throws Exception{return service.session(id);}
@@ -27,10 +29,16 @@ public class CodingController {
     @PostMapping("/sessions/{id}/cancel") public Object cancel(@PathVariable String id)throws Exception{return service.cancel(id);}
     @PostMapping("/sessions/{id}/children/{taskId}/cancel") public Object cancelChild(@PathVariable String id,@PathVariable String taskId)throws Exception{return service.cancelChild(id,taskId);}
     @GetMapping("/sessions/{id}/turns/{turnId}/artifacts/{artifactId}") public Object artifact(@PathVariable String id,@PathVariable String turnId,@PathVariable String artifactId)throws Exception{return service.teamArtifact(id,turnId,artifactId);}
-    public record LocalClaim(String clientId,String requestId) {}
+    public record LocalClaim(String clientId,String requestId,int protocol) {}
     @GetMapping("/sessions/{id}/local-files") public Object localRequests(@PathVariable String id,@RequestHeader("X-Local-Client") String clientId)throws Exception{return service.localRequests(id,clientId);}
-    @PostMapping("/sessions/{id}/local-files/claim") public Object claimLocal(@PathVariable String id,@RequestBody LocalClaim input)throws Exception{return service.claimLocal(id,input.clientId(),input.requestId());}
+    @PostMapping("/sessions/{id}/local-files/claim") public Object claimLocal(@PathVariable String id,@RequestBody LocalClaim input)throws Exception{return service.claimLocal(id,input.clientId(),input.requestId(),input.protocol());}
+    @GetMapping("/sessions/{id}/local-receipts") public Object localReceipts(@PathVariable String id,@RequestHeader(value="X-Local-Client",required=false) String device)throws Exception{return service.localReceiptList(id,device);}
+    @PostMapping("/sessions/{id}/local-receipts") public Object reconcileLocal(@PathVariable String id,@RequestBody CodingService.LocalResult result)throws Exception{return Map.of("confirmed",service.observeLocal(id,result));}
+    @GetMapping("/sessions/{id}/local-receipts/{operation}/candidate") public Object candidate(@PathVariable String id,@PathVariable String operation)throws Exception{return service.localCandidate(id,operation);}
     @PostMapping("/sessions/{id}/local-files/result") public Object completeLocal(@PathVariable String id,@RequestBody CodingService.LocalResult input)throws Exception{service.completeLocal(id,input);return Map.of("ok",true);}
+    @GetMapping("/sessions/{id}/turns/{turnId}/applications") public Object applications(@PathVariable String id,@PathVariable String turnId)throws Exception{return service.applications(id,turnId);}
+    @PostMapping("/sessions/{id}/turns/{turnId}/applications") public Object applyCandidate(@PathVariable String id,@PathVariable String turnId,@RequestBody CodingService.ApplyCandidate input)throws Exception{return service.applyCandidate(id,turnId,input);}
+    @GetMapping("/sessions/{id}/turns/{turnId}/candidate") public Object serverCandidate(@PathVariable String id,@PathVariable String turnId)throws Exception{return service.candidate(id,turnId);}
     @GetMapping("/sessions/{id}/diff") public Object diff(@PathVariable String id)throws Exception{return service.diff(id);}
     @ExceptionHandler(IllegalArgumentException.class) public ResponseEntity<?> invalid(IllegalArgumentException e){return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()));}
     @ExceptionHandler(IllegalStateException.class) public ResponseEntity<?> conflict(IllegalStateException e){return ResponseEntity.status(409).body(Map.of("message",e.getMessage()));}

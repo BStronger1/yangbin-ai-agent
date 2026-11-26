@@ -1,0 +1,83 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {nativeDirectory} from '../native-directory.mjs';
+import {TurnCheckpoint,resumeTransport} from '../../coding-agent/src/turn-checkpoint.mjs';
+
+test('search continuation finds large-file hits without reading protected files; chunk edits enforce a snapshot',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'repo-pages-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const file=path.join(root,'source.py');
+  const prefix='示例\n'.repeat(14000);
+  await fs.writeFile(file,prefix+'needle0\nneedle1\nneedle2\nneedle3\nneedle4\nlast\n');
+  await fs.writeFile(path.join(root,'.env'),'needle-secret');
+  const directory=await nativeDirectory(root);
+  const search=async args=>JSON.parse(await directory.execute('search',{query:'needle',...args}));
+  const first=await search({});
+  assert.equal(first.matches.length,4);
+  const second=await search(first.next);
+  assert.deepEqual(second.matches.map(m=>[m.path,m.offset]),[['source.py',14004]]);
+  assert.equal(second.next,null);
+  const args={path:'source.py',paged:true,offset:14004,limit:1};
+  assert.match(JSON.parse(await directory.execute('read',args)).text,/^needle4/);
+  const edit={path:'source.py',oldText:'needle4',newText:'changed'};
+  await directory.execute('edit',edit);
+  assert.ok((await fs.readFile(file,'utf8')).endsWith('needle3\nchanged\nlast\n'));
+  await directory.execute('edit',{path:'source.py',oldText:'needle',newText:'local',offset:14002,charOffset:0});
+  assert.match(await fs.readFile(file,'utf8'),/needle1\nlocal2\nneedle3/);
+  await assert.rejects(directory.execute('edit',{path:'source.py',oldText:'local',newText:'bad',offset:14001}),/differs/);
+  await fs.appendFile(file,'external');
+  await assert.rejects(directory.execute('edit',{...edit,oldText:'last'}),/changed/);
+  await assert.rejects(directory.execute('read',{...args,path:'.env'}));
+});
+
+test('single-file search paginates literal matches and stays within the selected path',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'search-file-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  await fs.mkdir(path.join(root,'src'));
+  const file='src/main.py';
+  await fs.writeFile(path.join(root,file),'skip\n'+'needle '.repeat(2)+'\n'+'x needle\n'.repeat(4));
+  await fs.writeFile(path.join(root,'src/sibling.py'),'needle outside file');
+  const directory=await nativeDirectory(root);
+  const search=async args=>JSON.parse(await directory.execute('search',{query:'needle',path:file,...args}));
+  const first=await search({});
+  assert.deepEqual(first.matches.map(m=>[m.path,m.offset]),[1,2,3,4].map(i=>[file,i]));
+  assert.match(first.matches[1].excerpt,/x needle/);
+  assert.deepEqual(first.next,{cursor:file,line:5});
+  const second=await search(first.next);
+  assert.deepEqual(second.matches.map(m=>[m.path,m.offset]),[[file,5]]);
+  assert.equal(second.next,null);
+  assert.deepEqual(await search({query:'absent'}),{matches:[],next:null});
+  await assert.rejects(search({cursor:'src/sibling.py'}),/cursor/);
+  await assert.rejects(search({path:'../outside'}));
+  await assert.rejects(search({path:'.env'}));
+  await fs.link(path.join(root,file),path.join(root,'linked.py'));
+  await assert.rejects(search({path:'linked.py'}),/Linked paths/);
+  await fs.writeFile(path.join(root,'binary.bin'),Buffer.from([0,1,2]));
+  await assert.rejects(search({path:'binary.bin'}),/Binary file/);
+  await fs.writeFile(path.join(root,'oversize.txt'),'');
+  await fs.truncate(path.join(root,'oversize.txt'),8*1024*1024+1);
+  await assert.rejects(search({path:'oversize.txt'}),/8 MiB/);
+});
+
+test('reopening retains confirmed and uncertain effects; only eligible model transport failures continue',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'checkpoints-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const first=new TurnCheckpoint(root);
+  await first.open(false,'original issue');
+  await first.begin('one','edit',{path:'a'}); await first.finish('one','CONFIRMED');
+  await first.begin('two','write',{path:'b'});
+  const next=new TurnCheckpoint(root);
+  const restored=JSON.parse(await next.open(true));
+  assert.equal(restored.originalPrompt,'original issue');
+  assert.deepEqual(restored.operations.map(x=>x.status),['confirmed','unconfirmed']);
+  let message={stopReason:'error',errorMessage:'Connection error.'},count=0;
+  const args={current:()=>message,signal:new AbortController().signal,wait:async()=>{},
+    canResume:()=>false,resume:async()=>{count++;message={stopReason:'stop'};}};
+  await resumeTransport(args); assert.equal(count,0);
+  await resumeTransport({...args,canResume:()=>true}); assert.equal(count,1);
+  message={stopReason:'error',errorMessage:'401 bad credentials'};
+  await resumeTransport({...args,canResume:()=>false}); assert.equal(count,1);
+});

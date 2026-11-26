@@ -59,4 +59,33 @@ class CodingLocalFilesTest {
         assertThatThrownBy(()->service.claimLocal(s.id,client,request)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(()->service.completeLocal(s.id,new CodingService.LocalResult(client,request,true,"written"))).isInstanceOf(IllegalStateException.class);
     }
+    @Test void mutationReceiptIsValidatedAndForwardedWithoutBeingACandidateReceipt()throws Exception {
+        var s=fresh();String client=id(),request=id();var ready=new CountDownLatch(1);var done=new CountDownLatch(1);var release=new CountDownLatch(1);
+        var receipt=Map.<String,Object>of("effect","NO_EFFECT","phase","VALIDATING");
+        runtime.action=(r,e,q)->{
+            e.accept(Map.of("type","local_fs","requestId",request,"operation","edit","arguments",Map.of("path","a.txt","oldText","missing","newText","x")));
+            ready.countDown();var result=q.poll(5,TimeUnit.SECONDS);
+            assertThat(result).containsEntry("ok",false).containsEntry("mutationReceipt",receipt).doesNotContainKey("receipt");
+            done.countDown();release.await(5,TimeUnit.SECONDS);
+        };
+        try {
+            service.submit(s.id,turn(client,"react","allow"));assertThat(ready.await(5,TimeUnit.SECONDS)).isTrue();
+            service.claimLocal(s.id,client,request);
+            assertThatThrownBy(()->service.completeLocal(s.id,new CodingService.LocalResult(client,request,false,"failed",null,Map.of("effect","NO_EFFECT","phase","COMMITTED")))).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(()->service.completeLocal(s.id,new CodingService.LocalResult(client,request,true,"written",null,receipt))).isInstanceOf(IllegalArgumentException.class);
+            assertThat(service.localRequests(s.id,client)).hasSize(1);
+            var result=new CodingService.LocalResult(client,request,false,"edit predicate failed",null,receipt);
+            // Jackson must preserve the new field across the actual HTTP DTO shape.
+            var mapper=new ObjectMapper();result=mapper.readValue(mapper.writeValueAsBytes(result),CodingService.LocalResult.class);
+            service.completeLocal(s.id,result);assertThat(done.await(5,TimeUnit.SECONDS)).isTrue();
+        } finally {release.countDown();}
+    }
+    @Test void mutationReceiptCannotBeUsedForARead()throws Exception {
+        var s=fresh();String client=id(),request=id();var ready=new CountDownLatch(1);
+        runtime.action=(r,e,q)->{e.accept(Map.of("type","local_fs","requestId",request,"operation","read","arguments",Map.of("path","a.txt")));ready.countDown();q.poll(5,TimeUnit.SECONDS);};
+        service.submit(s.id,turn(client,"react","allow"));assertThat(ready.await(5,TimeUnit.SECONDS)).isTrue();service.claimLocal(s.id,client,request);
+        assertThatThrownBy(()->service.completeLocal(s.id,new CodingService.LocalResult(client,request,false,"failed",null,Map.of("effect","NO_EFFECT","phase","VALIDATING")))).isInstanceOf(IllegalArgumentException.class);
+        assertThat(service.localRequests(s.id,client)).hasSize(1);
+        service.completeLocal(s.id,new CodingService.LocalResult(client,request,false,"read failed"));
+    }
 }

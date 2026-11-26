@@ -37,6 +37,50 @@ class CodingServiceTest {
         try(var restored=new AutoService(new CodingService(json,runtime,root.toString(),true))){assertThat(restored.value.session(s.id).turns.getFirst().prompt).isEqualTo(input.prompt());}
     }
     record AutoService(CodingService value)implements AutoCloseable{public void close(){value.close();}}
+    @Test void currentReadOnlyIntentOverridesPriorAllowAndChecksEachAction()throws Exception {
+        var s=fresh();
+        var replies=new ArrayList<Boolean>();
+        runtime.action=(request,events,commands)->{
+            for(String action:List.of("READ","PROPOSE_PATCH","VERIFY")){
+                String rid=id();
+                events.accept(Map.of("type","work_permission_required","requestId",rid,"action",action));
+                var answer=commands.poll(3,TimeUnit.SECONDS);
+                assertThat(answer).containsEntry("requestId",rid);
+                replies.add((Boolean)answer.get("approved"));
+            }
+        };
+        service.submit(s.id,new CodingService.TurnInput(id(),"只分析，不要修改代码",0,"allow"));
+        assertThat(waitDone(s.id).status).isEqualTo("SUCCEEDED");
+        assertThat(replies).containsExactly(true,false,false);
+        assertThat(runtime.request.allowShell()).isFalse();
+        assertThat(runtime.request.execution()).containsEntry("workTransferPurpose","ANALYZE");
+        var page=service.updates(s.id,0);
+        assertThat(page.cursor()).isPositive();
+        assertThat(service.updates(s.id,page.cursor()).state().events).isEmpty();
+        assertThatThrownBy(()->service.updates(s.id,page.cursor()+1)).isInstanceOf(IllegalArgumentException.class);
+    }
+    @Test void repairEvidenceIsScopedToItsTurnAndSurvivesReload()throws Exception{
+        var s=fresh();
+        String snapshot="b".repeat(64);
+        runtime.action=(r,e,q)->{
+            e.accept(Map.of("type","repair_verification","status","PASSED","revision",1,"snapshotHash",snapshot,
+                "runner","node","target","tests/reproduce.test.js","testsRun",1,"exitCode",0,"baselineFailed",true));
+            e.accept(Map.of("type","repair_verification","status","STALE","revision",2));
+        };
+        var repair=input(0);
+        service.submit(s.id,repair);
+        waitDone(s.id);
+        runtime.action=(r,e,q)->e.accept(Map.of("type","text_delta","text","普通问答"));
+        var followUp=new CodingService.TurnInput(id(),"解释这段代码",1,"on-risk");
+        service.submit(s.id,followUp);
+        waitDone(s.id);
+        try(var restored=new AutoService(new CodingService(json,runtime,root.toString(),true))){
+            var events=restored.value.session(s.id).events.stream().filter(e->"repair_verification".equals(e.get("type"))).toList();
+            assertThat(events).extracting(e->e.get("status")).containsExactly("PASSED","STALE");
+            assertThat(events).allSatisfy(e->assertThat(e).containsEntry("turnId",repair.requestId()));
+            assertThat(events.getFirst()).containsEntry("snapshotHash",snapshot).containsEntry("baselineFailed",true);
+        }
+    }
     @Test void ownershipPreventsReadingEditingAndApprovingOtherAccounts()throws Exception{
         var s=fresh();service.putFile(s.projectId,new CodingService.FileInput("private.txt","private"));
         try(var other=UserContext.open(TaskWorkflowTest.B)){

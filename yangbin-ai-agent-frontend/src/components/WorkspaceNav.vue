@@ -15,6 +15,7 @@ const links = [
 { to: '/assistant?mode=work', name: '新 Work 任务', icon: 'plus' },
 { to: '/coding', name: '新编程任务', icon: 'layout' },
 { to: '/skills', name: '插件 · 技能 · 伙伴', icon: 'layers' },
+{ to: '/blog', name: '我的博客', icon: 'book' },
 { to: '/knowledge', name: '我的知识库', icon: 'folder' }
 ]
 const active = to => {

@@ -2,6 +2,14 @@
 
 使用用户指定参考 `yangbin-ai-code-mother/codingAgent/pi` 的公开 SDK 集成方式：`createAgentSession`、自定义工具、`SessionManager` 与事件订阅。固定依赖 `@earendil-works/pi-coding-agent` 1.3.0（MIT，Mario Zechner / earendil-works）；pi-gui 作为会话驱动拆分参考。这里是项目新增的 Java↔Node 适配及权限工具层，不声称从零实现 pi。
 
+## 修复验证
+
+在托管项目选择“检查与修正”，或在工具模式中要求修复一个 bug。启用了服务端沙箱且当前用户具备相应权限时，Agent 可用 `verify_tests` 在禁网只读快照里运行单个 `node:test` 或 pytest 文件。例如，工具参数可写成 `{"runner":"node","target":"test/login.test.mjs"}`。测试运行器及项目所需依赖须已在现有沙箱内可用。运行测试沿用 shell 审批策略。
+
+每次检查发出 `repair_verification` 事件，记录本轮修改序号、目标文件、快照 SHA-256、退出码和执行的测试数。界面以同一轮的最新事件为准。只有已执行的目标测试通过时才报告 `PASSED`。跳过全部用例或空文件报告 `NO_TESTS`。已验证的文件发生变化后报告 `STALE`。同一测试文件内容先失败、修改实现后再验证，事件会标记 `baselineFailed`。可以先新增这个测试文件复现问题。目标文件由仓库提供，测试覆盖的范围决定了这项证据的范围。
+
+修复请求在改动后的目标测试仍失败且模型准备结束时，会收到一次补充反馈，促使它检查失败原因、修正并复测。运行期间的取消、工具审批和调用预算继续生效。浏览器或桌面绑定的本机目录与未授权沙箱的服务端会话可以记录改动，获得快照验证需要使用具备上述能力的托管项目。
+
 ## 启动
 
 需要 Node >=22.19。在本目录运行 `npm ci --ignore-scripts`。服务端设置专用环境变量 `CODING_MODEL_API_KEY`、`CODING_MODEL_BASE_URL`、`CODING_MODEL_NAME`（兼容 `CODING_MODEL_MODEL`），通过 `CODING_MODEL_API` 指定支持工具调用的原生 Claude Messages 或 OpenAI-compatible Chat Completions 服务。凭据仅从进程环境传入，不落盘、不向浏览器返回。`node src/main.mjs --check` 检测 Node/SDK 及实际隔离能力，不访问模型。Java 生产启动强制 `CODING_GOVERNANCE_REQUIRED=true`。

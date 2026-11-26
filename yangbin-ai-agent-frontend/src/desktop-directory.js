@@ -25,10 +25,18 @@ class DesktopDirectory {
   async rpc(operation,args={},requestId=crypto.randomUUID(),context){
     await this.ready()
     const result=await native().execute(this.handle.id,operation,args,requestId,context)
+    if(result.error){
+      const error=new Error(result.error)
+      if(result.mutationReceipt)error.mutationReceipt=result.mutationReceipt
+      throw error
+    }
     if(result.changes)this.changes=new Map(result.changes.map(c=>[c.path,c]))
     return result
   }
   async files(){return (await this.rpc('files')).files}
+  get candidateDevice(){return native()?.workbenchProtocol===1 && typeof native().reconcile==='function' && typeof this.handle.deviceId==='string' ? this.handle.deviceId : null}
+  async candidateOperation(claim,context){return this.rpc(claim.operation,claim.arguments,claim.requestId,{...context,protocol:1,clientId:this.candidateDevice})}
+  async receipt(sessionId,turnId,requestId){await this.ready();return native().reconcile(this.handle.id,{sessionId,turnId,requestId})}
   async read(path,{observe=true}={}){return (await this.rpc('read',{path,observe})).output}
   async write(path,content,options={},guard=()=>true){if(!guard())throw new Error('任务已停止');return (await this.rpc(options.edit?'edit':'write',{path,content,...options})).output}
   async execute(operation,args={},guard=()=>true,requestId,context){if(!guard())throw new Error('任务已停止');return (await this.rpc(operation,args,requestId,context)).output}

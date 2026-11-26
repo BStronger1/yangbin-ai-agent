@@ -31,6 +31,18 @@ try{
  await page.reload();await page.getByText('记住任务目标甲',{exact:true}).waitFor();assert.equal(calls.length,1);checks.refreshRestoresWithoutModelRequest=true;
  await page.getByTestId('coding-prompt').fill('继续这个目标');await page.getByTestId('coding-send').click();await page.waitForFunction(()=>document.querySelectorAll('.coding-user-message').length===2);assert.equal(calls.length,2);assert.equal(calls[0].cid,calls[1].cid);assert.notEqual(calls[0].rid,calls[1].rid);checks.turnsShareConversation=true;
  await page.getByTestId('coding-history').click();await page.getByText('连续任务',{exact:true}).waitFor();checks.chatHistoryListed=true;page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'删除当前对话',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.coding-user-message').length===0);assert.equal(conversations.size,0);checks.explicitHistoryDeletion=true;
+ const pendingTurn = {id: crypto.randomUUID(), prompt: '恢复进行中的任务', status: 'RUNNING', answer: ''};
+ const pendingChat = {id: crypto.randomUUID(), title: '进行中的历史对话', turns: [pendingTurn], updatedAt: stamp};
+ conversations.set(pendingChat.id, pendingChat);
+ const submissionsBeforeOpen = calls.length;
+ await page.getByTestId('coding-history').click();
+ await page.getByRole('button', {name: /进行中的历史对话/}).click();
+ await page.getByText('任务状态：执行中', {exact: true}).waitFor();
+ await page.locator('.coding-thinking').waitFor();
+ Object.assign(pendingTurn, {status: 'SUCCEEDED', answer: '轮询取回最终回答'});
+ await page.getByText(pendingTurn.answer, {exact: true}).waitFor();
+ assert.equal(calls.length, submissionsBeforeOpen);
+ checks.runningHistoryRestoresWithoutResubmission = true;
  assert.deepEqual(errors,[]);assert.deepEqual(unknown,[]);checks.noPageErrors=true;checks.noUnknownApis=true;
 }finally{await fs.writeFile(path.join(out,'report.json'),JSON.stringify({checks,errors,unknown,modelRequests:calls.length,paidModelCalls:0},null,2));await browser.close()}
 assert.ok(Object.values(checks).every(Boolean));console.log(JSON.stringify(checks));

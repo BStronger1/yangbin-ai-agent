@@ -3,7 +3,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.*;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import java.util.Map;
-@RestControllerAdvice(assignableTypes={KnowledgeController.class,McpController.class,PlannerController.class})
+@RestControllerAdvice(assignableTypes={KnowledgeController.class,McpController.class,PlannerController.class,WorkEvidenceController.class})
 public class WorkspaceErrors {
  @ExceptionHandler({IllegalArgumentException.class,MaxUploadSizeExceededException.class})
  public ResponseEntity<?> bad(Exception e){return ResponseEntity.badRequest().body(Map.of("message",e instanceof MaxUploadSizeExceededException?"文件过大，最多 1 MB":e.getMessage()));}

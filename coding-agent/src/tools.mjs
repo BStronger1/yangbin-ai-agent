@@ -1,8 +1,9 @@
 import { FileOperations, atomicReplace, fileHash } from './file-operations.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { sandboxStatus, runIsolatedCommand } from './sandbox.mjs';
+import { sandboxStatus, runIsolatedCommand, runTargetTests } from './sandbox.mjs';
 import { randomUUID } from 'node:crypto';
+import { normalizeTestTarget } from './repair-verification.mjs';
 import { boundedText } from './context-store.mjs';
 
 const LIMIT = 64 * 1024;
@@ -11,6 +12,11 @@ export class ToolRuntime {
   constructor({ workspace, approvalMode = 'on-risk', allowShell = false, emit = () => {}, signal, contextStore, onLimit = () => {}, approvalTimeoutMs = 300000, execution, fileJournal, operationCheckpoint }) {
     if (!['ask', 'on-risk', 'allow'].includes(approvalMode)) throw new Error('Invalid approval mode');
     this.workspace = path.resolve(workspace); this.approvalMode = approvalMode;
+    this.workPurpose=execution?.workTransferPurpose;
+    this.allowWorkTests=execution?.allowWorkTests===true;
+    if ((this.workPurpose || execution?.authorizeWorkTools) && (!['ANALYZE','PROPOSE_PATCH'].includes(this.workPurpose) || execution?.authorizeWorkTools!==true)) throw new Error('Invalid Work transfer scope');
+    this.workPermissions=new Map();
+    this.dispatched=new Set();
     this.contextStore = contextStore; this.allowShell = allowShell === true; this.emit = emit; this.signal = signal;
     this.fileOperations = fileJournal || (execution?.fileJournalDir ? new FileOperations({directory:execution.fileJournalDir,identity:execution.identity,checkpoint:operationCheckpoint}) : null);
     this.pending = new Map(); this.count = 0; this.onLimit = onLimit; this.approvalTimeoutMs = Math.max(1, Math.min(approvalTimeoutMs, 300000));
@@ -36,15 +42,31 @@ export class ToolRuntime {
     }
     return result;
   }
-  cancel() { for (const waiter of this.pending.values()) waiter(false, 'cancelled'); this.pending.clear(); }
+  cancel() { for (const waiter of this.pending.values()) waiter(false, 'cancelled'); this.pending.clear(); for(const settle of this.workPermissions.values())settle(false); }
+  async requireWorkPermission(name) {
+    if (!this.workPurpose) return;
+    const read=['ping','read','list','search'].includes(name);
+    const verify=this.workPurpose==='PROPOSE_PATCH' && this.allowWorkTests && (this.allowShell || this.publicTests) && ['verify_tests','test_snapshot'].includes(name);
+    if (!read && !verify && !(this.workPurpose==='PROPOSE_PATCH' && ['write','edit'].includes(name))) throw new Error('Action outside Work transfer scope');
+    const requestId=randomUUID();
+    const approved=await new Promise(resolve=>{
+      const settle=value=>{clearTimeout(timer);this.workPermissions.delete(requestId);resolve(value===true);};
+      const timer=setTimeout(()=>settle(false),10000);
+      this.workPermissions.set(requestId,settle);
+      this.emit({type:'work_permission_required',requestId,action:read?'READ':verify?'VERIFY':'PROPOSE_PATCH'});
+    });
+    if (!approved) {const error=new Error('Work transfer permission denied or expired');error.code='WORK_PERMISSION_DENIED';this.onLimit(error);throw error;}
+    this.signal?.throwIfAborted();
+  }
   approve(id, approved) { const waiter = this.pending.get(id); if (!waiter) throw new Error('Approval expired or unknown'); waiter(approved === true, approved === true ? 'approved' : 'rejected'); }
   async authorize(name, args, callId, {force=false}={}) {
     this.signal?.throwIfAborted();
     if (++this.count > 80) { const error = new Error('Tool limit reached (80 per turn)'); this.onLimit(error); throw error; }
-    if (name === 'bash' && !this.allowShell) throw new Error(this.shellRequested ? this.sandbox.reason : 'Shell execution is disabled');
-    if (!force && (this.approvalMode === 'allow' || (this.approvalMode === 'on-risk' && !['write', 'edit', 'bash'].includes(name)))) return;
+    const shell = name === 'bash' || name === 'verify_tests';
+    if (shell && !this.allowShell && !(name === 'verify_tests' && this.publicTests)) throw new Error(this.shellRequested ? this.sandbox.reason : 'Shell execution is disabled');
+    if (!force && (this.approvalMode === 'allow' || (this.approvalMode === 'on-risk' && !['write', 'edit'].includes(name) && !shell))) return this.requireWorkPermission(name);
     const approvalId = randomUUID();
-    const reason = name === 'bash' ? '在禁网隔离环境的只读工作区快照中运行验证命令；更改不会写回工作区。' : '当前模式要求确认本次工具操作。';
+    const reason = shell ? '在禁网隔离环境的只读工作区快照中运行验证命令；更改不会写回工作区。' : '当前模式要求确认本次工具操作。';
     const resolution = await new Promise(resolve => {
       const settle = (approved, resolutionReason) => {
         if (!this.pending.has(approvalId)) return;
@@ -57,12 +79,34 @@ export class ToolRuntime {
       this.emit({ type: 'approval_required', approvalId, toolCallId: callId, toolName: name, arguments: args, reason });
     });
     if (!resolution.approved) {
+      this.approvalDeclined = true;
       const error = new Error(`Tool operation rejected (${resolution.reason})`);
       error.approvalId = approvalId; throw error;
     }
     this.signal?.throwIfAborted();
+    await this.requireWorkPermission(name);
   }
   async execute(name, args, callId = randomUUID()) {
+    const tracker = this.verification;
+    const write = tracker && ['write', 'edit'].includes(name);
+    if (write && typeof args.path==='string' && tracker.protects(path.posix.normalize(args.path))) throw new Error('Required test definition is frozen; modify the implementation or add a separate reproduction.');
+    if (write) tracker.beginWrite();
+    let succeeded = false;
+    try {
+      const result = await this.perform(name, args, callId);
+      succeeded = !result.isError;
+      return result;
+    } catch (error) {
+      // A lost/failed response after dispatch cannot leave old green evidence current.
+      if (write && this.dispatched.has(callId) && error.mutationReceipt?.effect !== 'NO_EFFECT') succeeded = true;
+      throw error;
+    } finally {
+      if (write) tracker.endWrite(succeeded, typeof args.path === 'string' ? path.posix.normalize(args.path) : null);
+    }
+  }
+  async perform(name, args, callId) {
+    const check = name === 'verify_tests' ? this.verification?.beginCheck() : null;
+    let checkDispatched = false;
     try {
       await this.authorize(name, args, callId);
       this.emit({ type: 'tool_start', toolCallId: callId, toolName: name, arguments: args });
@@ -112,13 +156,23 @@ export class ToolRuntime {
         return content;
         };
         const resolve = () => this.resolve(args.path, true);
-        if(this.fileOperations) output = await this.fileOperations.mutate({name,args:{...args,path:path.relative(this.workspace,location).split(path.sep).join('/')},callId,location,content:produce,resolve,signal:this.signal});
+        const dispatch=()=>this.dispatched.add(callId);
+        if(this.fileOperations) output = await this.fileOperations.mutate({name,args:{...args,path:path.relative(this.workspace,location).split(path.sep).join('/')},callId,location,content:produce,resolve,signal:this.signal,onDispatch:dispatch});
         else {
           const beforeHash=await fileHash(location),content=await produce();
-          await atomicReplace({location,content,beforeHash,resolve,signal:this.signal});
+          await atomicReplace({location,content,beforeHash,resolve,signal:this.signal,onDispatch:dispatch});
           output=`${name === 'edit' ? 'Edited' : 'Wrote'} ${args.path} (${Buffer.byteLength(content)} bytes)`;
         }
-      } else if (name === 'bash') output = await this.runCommand(args);
+      } else if (name === 'verify_tests') {
+        if (!this.verification || !this.allowShell) throw new Error('Test verification unavailable');
+        const target = normalizeTestTarget(args.runner, args.target);
+        await this.resolve(target);
+        checkDispatched = true;
+        const result = await runTargetTests({workspace:this.workspace, runner:args.runner, target, signal:this.signal});
+        this.signal?.throwIfAborted();
+        const evidence = this.verification.checked(check, args.runner, target, result);
+        output = JSON.stringify(evidence) + '\n' + result.diagnostic;
+      } else if (name === 'bash') {this.dispatched.add(callId);output = await this.runCommand(args);}
       else throw new Error('Unknown tool');
       this.signal?.throwIfAborted();
       if (['read', 'list', 'bash'].includes(name)) {
@@ -148,6 +202,9 @@ export class ToolRuntime {
       this.emit({ type: 'tool_end', toolCallId: callId, toolName: name, ok: true, output: output.slice(0, 12000) });
       return { content: [{ type: 'text', text: output }], details };
     } catch (error) {
+      if (checkDispatched && this.verification && !this.signal?.aborted) {
+        this.verification.checked(check, args.runner, args.target, {status:'BLOCKED', testsRun:null, exitCode:null, snapshotHash:null});
+      }
       if(error.recoveryRequired)this.onLimit(error);
       this.emit({ type: 'tool_end', toolCallId: callId, toolName: name, ok: false, error: error.message, ...(error.approvalId ? { approvalId: error.approvalId } : {}) });
       throw error;
@@ -160,16 +217,30 @@ export class ToolRuntime {
 }
 
 export function readPage(text, args) {
-  const offset = args.offset ?? 0, limit = args.limit ?? 2000, charOffset = args.charOffset ?? 0;
+  const limit = args.limit ?? 2000;
+  let offset = args.offset ?? 0, charOffset = args.charOffset ?? 0;
   if (![offset, limit, charOffset].every(Number.isSafeInteger) || offset < 0 || limit < 1 || limit > 2000 || charOffset < 0) throw new Error('Invalid read pagination: offset/limit are lines; charOffset is within the first line');
   const lines = text.match(/[^\n]*\n|[^\n]+$/g) || [];
-  if (offset > lines.length || (offset === lines.length && charOffset) || (offset < lines.length && charOffset > lines[offset].length)) throw new Error('Read offset outside file');
+  let adjustedFrom, notice = '';
+  if (offset > lines.length || (offset === lines.length && charOffset > 0)) {
+    adjustedFrom = { offset, charOffset };
+    offset = Math.max(0, lines.length - 1);
+    charOffset = 0;
+    notice = lines.length
+      ? `[File has ${lines.length} lines, numbered 0..${offset}. Showing read offset=${offset} charOffset=0.]\n`
+      : '[Empty file: 0 lines. EOF is read offset=0 charOffset=0.]\n';
+  } else if (offset < lines.length && charOffset > lines[offset].length) {
+    adjustedFrom = { offset, charOffset };
+    charOffset = 0;
+    notice = `[Line ${offset} of ${lines.length} lines accepts charOffset=0..${lines[offset].length}. Showing read offset=${offset} charOffset=0.]\n`;
+  }
   const selected = lines.slice(offset, offset + limit).join('').slice(charOffset);
   const value = boundedText(selected, 7800);
   let nextLine = offset, nextChar = charOffset + value.length;
   while (nextLine < lines.length && nextChar >= lines[nextLine].length) { nextChar -= lines[nextLine].length; nextLine++; }
   const more = nextLine < lines.length;
   const page = { offset, charOffset, totalLines: lines.length, nextOffset: more ? nextLine : null, nextCharOffset: more ? nextChar : null };
+  if (adjustedFrom) page.adjustedFrom = adjustedFrom;
   const footer = more ? '\n[More content: read offset=' + nextLine + ' charOffset=' + nextChar + '; offset is a zero-based line index.]' : '';
-  return { text: value + footer, page };
+  return { text: notice + value + footer, page };
 }

@@ -10,3 +10,17 @@ export function mergeWorkspaceTurns(previous, incoming) {
   }
   return [...turns.values()]
 }
+
+
+// A missed or out-of-order page needs a fresh session snapshot.
+export function mergeRunPage(prior, page) {
+  if (!prior || page?.state?.id !== prior.id || !Array.isArray(page.state.events)) return null
+  const previous = prior.events || []
+  let seq = previous.at(-1)?.seq || 0
+  if (page.after !== seq) return null
+  for (const event of page.state.events) {
+    if (event.seq !== ++seq) return null
+  }
+  if (page.cursor !== seq) return null
+  return {...page.state, events:[...previous, ...page.state.events]}
+}

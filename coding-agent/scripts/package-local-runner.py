@@ -1,6 +1,7 @@
 """Build the credential-free, dependency-free local companion download."""
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
+import json
 root = Path(__file__).resolve().parents[2]
 destination = root / 'yangbin-ai-agent-frontend/public/downloads/yangbin-local-runner.zip'
 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -16,7 +17,7 @@ console.log('也可手动填写地址：'+runner.url+'\\n连接码：'+runner.to
 for(const signal of ['SIGINT','SIGTERM'])process.once(signal,async()=>{await runner.close();process.exit(0);});
 '''
 with ZipFile(destination, 'w', ZIP_DEFLATED) as bundle:
-    for name in ('local-runner.mjs', 'tools.mjs', 'sandbox.mjs', 'context-store.mjs'):
+    for name in json.loads((root / 'coding-agent/local-runner-files.json').read_text(encoding='utf-8')):
         bundle.write(root / 'coding-agent/src' / name, 'src/' + name)
     bundle.writestr('start.mjs', launcher)
     bundle.writestr('start.cmd', '@echo off\r\ncd /d "%~dp0"\r\nnode start.mjs\r\npause\r\n')

@@ -35,12 +35,13 @@ async function fixture(t, { policy = 'layered-v1', respond, summaryStatus = 200,
     res.write('data: ' + JSON.stringify({ ...chunk({}, answer.action ? 'tool_calls' : 'stop'), usage }) + '\n\n');
     res.end('data: [DONE]\n\n');
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await fs.rm(root, { recursive: true, force: true }); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.signal.throwIfAborted();
   async function turn(prompt, options = {}) {
     let gate;
     await runAgent({ workspace, sessionDir, prompt, approvalMode: 'allow', allowShell: false, ...options.input }, {
-      signal: options.signal ?? new AbortController().signal,
+      signal: options.signal ?? t.signal,
       onTools: options.onTools ?? (() => {}), onSession: options.onSession,
       onGate: value => { gate = value; },
       emit: event => { events.push(event); if (event.type === 'model_request') gate.permission({ ...event, approved: true }); options.emit?.(event); },
@@ -239,6 +240,36 @@ test('M14: old result trimming keeps tool-call pairs; recent, error and unarchiv
   for (const result of projected.filter(message => message.role === 'toolResult')) {
     assert.ok(projected.some(message => message.role === 'assistant' && message.content.some(block => block.type === 'toolCall' && block.id === result.toolCallId)));
   }
+});
+
+test('long active turn budgets archived evidence while preserving goals, hypotheses, failures and call pairs',()=>{
+  const events=[],policy=new ContextPolicy({contextWindow:128000,emit:e=>events.push(e)});
+  const messages=[{role:'user',content:'Use the source rows and keep the input unchanged.'}];
+  for(let i=0;i<12;i++){
+    const id='read-'+i;
+    messages.push({role:'assistant',stopReason:'toolUse',content:[{type:'text',text:'hypothesis '+i},{type:'toolCall',id,name:'read'}]},
+      {role:'toolResult',toolCallId:id,toolName:i===4?'bash':'read',isError:i===2,details:i===3?{}:{contextRef:{id:String(i).padStart(32,'a')}},
+       content:[{type:'text',text:(i===4?'Exit code: 1\n':'').padEnd(4000,'x')}]});
+  }
+  const projected=policy.project(messages),metric=events.at(-1);
+  assert.equal(projected.length,messages.length);
+  assert.equal(metric.activeObservationBytesBefore,48000);
+  assert.ok(metric.activeObservationBytesAfter<=metric.observationBudgetBytes);
+  assert.ok(metric.trimmedResults>0);
+  for(let i=0;i<messages.length;i++){
+    const item=messages[i],view=projected[i];
+    assert.equal(view.role,item.role);
+    if(item.role!=='toolResult'||item.isError||item.toolName==='bash'||!item.details.contextRef||i>messages.length-4)assert.deepEqual(view,item);
+    else assert.equal(view.toolCallId,item.toolCallId);
+  }
+  for(const item of projected.filter(m=>m.role==='toolResult')){
+    assert.ok(projected.some(m=>m.role==='assistant' && m.content.some(part=>part.type==='toolCall' && part.id===item.toolCallId)));
+    if(textOf(item.content).includes('Historical tool output excerpt'))assert.match(textOf(item.content),new RegExp(item.details.contextRef.id));
+  }
+  const short=messages.slice(0,5);
+  assert.deepEqual(policy.project(short),short);
+  const restricted=new ContextPolicy({contextWindow:128000,canRecall:false});
+  assert.deepEqual(restricted.project(messages),messages);
 });
 
 

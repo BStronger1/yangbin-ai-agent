@@ -18,6 +18,8 @@ async def authenticate(request, handler):
     # Static assets and the SPA shell are public; every data API needs a session.
     if not request.path.startswith(('/api/', '/ppt/')):
         return await handler(request)
+    if request.match_info.route.name == 'public-blog-post' and request.method == 'GET':
+        return await handler(request)
     origin=request.headers.get('Origin')
     expected_origin=request.app.get('public_origin') or request.scheme+'://'+request.host
     if (origin and origin != expected_origin) or request.headers.get('Sec-Fetch-Site')=='cross-site':
@@ -41,6 +43,21 @@ async def clients(app):
     async with ClientSession(timeout=ClientTimeout(total=360), auto_decompress=False) as client:
         app["client"] = client
         yield
+
+async def read_public_post(request):
+    # Construct the one public upstream URL ourselves. Never relay cookies,
+    # identity headers, query parameters or redirects on this route.
+    article_id = request.match_info["article_id"]
+    url = "http://127.0.0.1:" + os.environ.get("SERVER_PORT", "18126") + "/api/open/blog/" + article_id
+    try:
+        async with request.app["client"].get(url, allow_redirects=False, auto_decompress=True) as upstream:
+            if upstream.status == 404:
+                raise web.HTTPNotFound()
+            if upstream.status != 200 or upstream.content_type != "application/json":
+                raise web.HTTPBadGateway()
+            return web.Response(body=await upstream.read(), content_type="application/json")
+    except (ClientError, asyncio.TimeoutError):
+        raise web.HTTPBadGateway(text="Backend unavailable")
 
 async def api(request):
     # authenticate already enforces same-origin; do not trigger CORS again on the loopback hop.
@@ -135,7 +152,7 @@ async def narrative(request):
 
 async def frontend(request):
     root = Path(os.environ.get("AGENT_FRONTEND_DIR", str(ROOT / "frontend"))).resolve()
-    target = (root / request.match_info["path"]).resolve()
+    target = (root / request.path.removeprefix("/")).resolve()
     if not target.is_relative_to(root): raise web.HTTPNotFound()
     if not target.is_file():
         if target.suffix: raise web.HTTPNotFound()
@@ -168,7 +185,12 @@ def create_app(accounts=None):
     app.router.add_get('/api/ops/metrics',operations)
     app.router.add_get('/api/ppt/status',ppt_status)
     app.router.add_route('*','/ppt/{path:.*}',narrative)
+    uuid = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    app.router.add_get('/api/open/blog/{article_id:' + uuid + '}', read_public_post,
+                       name='public-blog-post', allow_head=False)
     app.router.add_route('*','/api/{path:.*}',api)
+    # This fixed companion ZIP ships with the frontend, alongside the persistent desktop release.
+    app.router.add_get('/downloads/yangbin-local-runner.zip', frontend)
     register_downloads(app, ROOT)
     app.router.add_get('/{path:.*}',frontend)
     return app

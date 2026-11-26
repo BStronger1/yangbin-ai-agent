@@ -17,7 +17,9 @@ public class InternalApiTokenFilter extends OncePerRequestFilter {
     public InternalApiTokenFilter(@Value("${app.internal-api-token:}") String token){this.token=token;}
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain)
             throws ServletException,IOException {
-        if(request.getMethod().equals("GET") && request.getRequestURI().equals(request.getContextPath()+"/health")) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        if(request.getMethod().equals("GET") && (path.equals("/health") ||
+                path.matches("/open/blog/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))) {
             chain.doFilter(request,response);return;
         }
         UserContext.User user;

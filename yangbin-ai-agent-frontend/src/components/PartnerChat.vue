@@ -1,4 +1,5 @@
 <script setup>
+import { downloadMarkdown } from '../downloads'
 import {ref,computed,watch,nextTick,onBeforeUnmount} from 'vue'
 import {useRoute,useRouter} from 'vue-router'
 import {api,errorMessage} from '../workspace-api'
@@ -37,7 +38,7 @@ async function upload(event){const files=[...event.target.files];event.target.va
 async function send(retry=false){if(busy.value||running.value||loading.value||uploading.value||!props.enabled||!modelReady.value)return;if(!retry&&(!draft.value.trim()||pending.value))return;busy.value=true;error.value='';menu.value='';const t=epoch;let input=retry?pending.value:null
  try{if(!input){if(!selected.value){selected.value=uuid();await router.push({query:{conversation:selected.value}})}input={conversationId:selected.value,requestId:uuid(),expectedRevision:conversation.value?.revision||0,text:draft.value.trim(),skillId:skill.value,reasoningEffort:reasoningEffort.value||null,modelProfileId:modelProfileId.value,attachmentIds:attachments.value.map(x=>x.id)}}if(t!==epoch)return;sessionStorage.setItem(storageKey(input.conversationId),JSON.stringify(input));pending.value=input;draft.value='';attachments.value=[];bottom.value=true;await latest();const r=await api.post(base.value+'/jobs',input,{signal:controller.signal});if(t!==epoch)return;accept(r.data);await lists(t)}catch(e){if(t!==epoch||e.code==='ERR_CANCELED')return;if([400,409].includes(e.response?.status)){sessionStorage.removeItem(storageKey(input.conversationId));pending.value=null;draft.value=input.text;attachments.value=resources.value.filter(r=>input.attachmentIds?.includes(r.id));error.value=errorMessage(e)}else error.value='发送状态待确认，请刷新记录。重试同一条消息会复用原记录。'}finally{if(t===epoch)busy.value=false}}
 async function stop(){const t=epoch;try{const r=await api.post(base.value+'/conversations/'+selected.value+'/stop',{}, {signal:controller.signal});if(t===epoch)accept(r.data)}catch(e){if(t===epoch)error.value=errorMessage(e)}}
-function exportLegacy(turn){const url=URL.createObjectURL(new Blob([turn.answer],{type:'text/markdown;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='回复文稿.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function exportLegacy(turn) { downloadMarkdown(turn.answer, '回复文稿.md') }
 watch(()=>route.query.skill,()=>{if(!busy.value&&!pending.value)presetSkill()})
 watch(()=>route.query.conversation,id=>{if((id||'')!==selected.value)open(typeof id==='string'?id:'',false)})
 watch([()=>props.partner.id,()=>auth.user?.id],()=>open(typeof route.query.conversation==='string'?route.query.conversation:'',false),{immediate:true})

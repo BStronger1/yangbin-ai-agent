@@ -12,10 +12,12 @@ Bring your own model, keep projects private, and review tool actions before they
 
 ## 能做什么
 
-- **Windows 客户端**：[下载 0.2.1](https://www.yangbinai.homes/download)，本机文件与程序执行已内置，无需单独连接运行器；支持本机项目和 VS Code 打开目录。结束旧版任务并退出后，解压新版启动，保留账号会话与目录绑定。参见[桌面说明](desktop/README.md)。
+- **Coding 修复验证**在服务端断网快照上运行选定的 pytest 或 Node 测试，记录补丁版本、基线失败和实际用例数。[修复流程](docs/CODING-REPAIR.md)
+
+- **Windows 客户端**：[下载客户端](https://www.yangbinai.homes/download)，支持本机独立候选与持久回执，无需单独连接运行器；支持本机项目和 VS Code 打开目录。结束旧版任务并退出后，解压新版启动，保留账号会话与目录绑定。参见[桌面说明](desktop/README.md)。
 - **通用 Chat**：直接问答、讨论与修改内容，使用文字及已解析材料，不为简单问题强制创建工作计划。
 - **通用 Work**：确认本轮目标、材料和交付物，查看实际处理进度与 Word、Markdown、数据成果；切换或刷新后恢复服务端状态。
-- **Coding Agent**：创建服务端私有项目，或在桌面 Chrome/Edge 的 HTTPS 页面选择[本机目录](docs/LOCAL-PROJECTS.md)，让 pi 按授权读取、编写、编辑原文件；查看工具事件、审批和取消。本机目录需保持页面打开，暂不支持终端及团队执行。
+- **Coding Agent**：创建服务端私有项目，或在桌面 Chrome/Edge 的 HTTPS 页面选择[本机目录](docs/LOCAL-PROJECTS.md)，让 pi 按授权读取资料；服务端或0.4.0桌面支持生成独立候选，普通浏览器本机目录仅支持读取；查看工具事件、审批和取消。本机目录需保持页面打开，暂不支持终端及团队执行。
 - **总设置中的模型管理**：在 `/settings` 保存服务连接和加密 API Key，获取模型列表并勾选常用模型（建议 6 个，不限 6 个）。Chat、Work、Coding 只显示所选模型，输入区可选已核实的原生推理强度；未知能力保留服务默认。[用法与边界](docs/MODEL-SETTINGS.md)。
 - **可控执行**：始终询问 / 按需确认 / 全部允许；命令工具还需管理员授权及可用的 Linux 隔离环境，不回退宿主 shell。
 - **运行治理**：账号/全局模型并发、每日请求与保守 Token 配额、持久用量账本、失败熔断、请求关联及网关指标；未知用量和费用明确区分，详见[运行治理与安全边界](docs/PRODUCTION-GOVERNANCE.md)。
@@ -23,6 +25,8 @@ Bring your own model, keep projects private, and review tool actions before they
 - **MCP 工作台**：参数表单、调用校验、持久历史、结果下载与显式交给伙伴，详见[MCP 使用说明](docs/MCP-WORKBENCH.md)。
 - **工作伙伴**：覆盖 9 个领域的 11 位伙伴提供独立任务工具箱和需求填写引导、个人模型选择、Word/文字 PDF 材料读取、Word/Excel 交付、任务资源复用和清理，详见[伙伴能力](docs/PARTNER-CAPABILITIES.md)。
 - **原工作台**：技能、知识库、出行规划与来源核查仍保留。NarrativePPT 是需要独立配置的可选服务。
+- **个人博客**支持手机网页与桌面客户端共用账号写 Markdown。进入「我的博客」写文章，点击「保存草稿」后可在另一台设备继续。点击「公开发布」生成免登录的单篇链接，后续草稿仅自己可见，再次发布时更新同一链接。编辑页支持预览和带 Hexo front matter 的 Markdown 导出。
+- 在已发布文章上点击「导入知识库」，即可在「我的知识库」检索正文。启用已有 RAG 与嵌入服务后可用，重新导入会更新同一篇文档。删除文章会撤下公开链接，已导入的知识库文档可在知识库中单独删除。部署时一并更新前端、Java 和 Python 网关，持久化博客数据目录（默认 `tmp/blog`，可通过 `app.blog.dir` 配置）。
 
 ![账号私有模型设置](docs/images/model-settings.png)
 

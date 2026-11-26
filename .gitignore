@@ -70,3 +70,6 @@ __pycache__/
 /docs/memory/
 
 .venv/
+
+# Local acceptance screenshots, logs and source fingerprints; keep on disk.
+/.bugfix-validation/

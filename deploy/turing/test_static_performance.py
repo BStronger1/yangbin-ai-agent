@@ -47,6 +47,16 @@ class StaticPerformanceTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(r.status,200)
             self.assertEqual(r.headers['Cache-Control'],'no-store')
 
+    async def test_companion_zip_is_served_independently_of_desktop_manifest(self):
+        downloads = Path(self.tmp.name) / 'downloads'
+        downloads.mkdir()
+        body = b'PK-companion'
+        (downloads / 'yangbin-local-runner.zip').write_bytes(body)
+        response = await self.client.get('/downloads/yangbin-local-runner.zip')
+        self.assertEqual(response.status, 200)
+        self.assertEqual(await response.read(), body)
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+
     async def test_private_and_missing_routes_do_not_receive_asset_policy(self):
         for path, status in (('/api/auth/me',200),('/api/ai/models',401),('/ppt/assets/index-Abcd1234.js',401),('/assets/missing-Abcd1234.js',404)):
             r = await self.client.get(path)

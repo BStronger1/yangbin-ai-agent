@@ -26,14 +26,15 @@ await page.route('**/*',async route=>{
     else if(name==='/api/ai/coding/sessions'&&method==='GET')data=session?[session]:[];
     else if(name==='/api/ai/coding/sessions'&&method==='POST'){session={id:'local-session',projectId:project.id,title:body.title,approvalMode:'on-risk',status:'IDLE',revision:0,turns:[],events:[]};data=session;}
     else if(name==='/api/ai/coding/sessions/local-session')data=session;
+    else if(name.endsWith('/local-receipts'))data=[];
     else if(name.endsWith('/turns')){clientId=body.localClientId;turnId=body.requestId;check('turn-binds-browser-client',typeof clientId==='string'&&clientId.length===36);session.status='RUNNING';session.revision++;session.turns=[{id:turnId,prompt:body.prompt,status:'RUNNING'}];pending=[request('ping',{})];data=session;}
     else if(name.endsWith('/local-files')){if(req.headers()['x-local-client']!==clientId){status=409;data={message:'本机目录连接已失效'};}else data=pending;}
     else if(name.endsWith('/local-files/claim')){assert.equal(body.clientId,clientId);const item=pending.find(p=>p.requestId===body.requestId);assert.ok(item&&!item.claimed);item.claimed=true;data=item;}
     else if(name.endsWith('/local-files/result')){
-      const item=pending.find(p=>p.requestId===body.requestId);assert.ok(item);assert.equal(body.ok,true,body.output);results.push({op:item.operation,output:body.output});pending=[];
+      const item=pending.find(p=>p.requestId===body.requestId);assert.ok(item);if(item.operation==='edit'){assert.equal(body.ok,false);assert.match(body.output,/不支持隔离候选/);}else assert.equal(body.ok,true,body.output);results.push({op:item.operation,ok:body.ok,output:body.output});pending=[];
       if(item.operation==='ping')pending=[request('read',{path:'main.txt'})];
       if(item.operation==='read'){assert.equal(body.output,'before\n');session.status='WAITING_APPROVAL';session.events.push({type:'approval_required',turnId,approvalId:'a1',toolName:'edit',arguments:{path:'main.txt',oldText:'before',newText:'after'}});}
-      if(item.operation==='edit'){assert.ok(approved);session.status='SUCCEEDED';session.turns[0].status='SUCCEEDED';session.events.push({type:'context',turnId,maxOutputTokens:256000,contextWindow:1000000});session.events.push({type:'text_delta',turnId,delta:'本机修改完成'});}
+      if(item.operation==='edit'){assert.ok(approved);session.status='FAILED';session.turns[0].status='FAILED';session.events.push({type:'context',turnId,maxOutputTokens:256000,contextWindow:1000000});session.events.push({type:'text_delta',turnId,delta:'浏览器未写入原文件'});}
       data={ok:true};
     }
     else if(name.endsWith('/approvals/a1')){approved=true;session.status='RUNNING';session.events.push({type:'approval_resolved',turnId,approvalId:'a1',approved:true});pending=[request('edit',{path:'main.txt',oldText:'before',newText:'after'})];data=session;}
@@ -56,16 +57,16 @@ try {
   await page.keyboard.press('Escape');
   await page.getByTestId('coding-prompt').fill('请读取 main.txt，把 before 修改为 after。');await page.getByTestId('coding-prompt').press('Enter');
   await page.getByTestId('approval-allow').waitFor();check('real-file-unchanged-before-approval',await content()==='before\n');
-  await page.getByTestId('approval-allow').click();await page.getByText('本机修改完成',{exact:true}).waitFor();
+  await page.getByTestId('approval-allow').click();await page.getByText('浏览器未写入原文件',{exact:true}).waitFor();
   check('normal-status-is-neutral',await page.getByTestId('local-status').evaluate(e=>!e.classList.contains('coding-warning') && getComputedStyle(e).backgroundColor==='rgba(0, 0, 0, 0)'));
   check('optional-runner-hidden',await page.getByTestId('local-runner-panel').count()===0);
   const budget=page.getByTestId('coding-budget');check('budget-collapsed-by-default',!await budget.evaluate(e=>e.open));
   await budget.locator('summary').click();check('budget-shows-exact-limit',await budget.textContent().then(t=>t.includes('256,000')&&t.includes('1,000,000')));await budget.locator('summary').click();
-  await page.getByTestId('run-options').click();check('web-runner-is-optional',await page.getByTestId('local-runner-panel').textContent().then(t=>t.includes('编辑代码无需安装额外程序')));await page.getByTestId('run-options').click();
+  await page.getByTestId('run-options').click();check('web-direct-write-is-unavailable',await page.getByTestId('local-runner-panel').textContent().then(t=>t.includes('此浏览器仅支持读取')));await page.getByTestId('run-options').click();
   await page.screenshot({path:path.join(out,'neutral-status-desktop.png')});
-  check('actual-file-api-write-to-original-handle',await content()==='after\n');check('read-write-rpc-order',results.map(r=>r.op).join(',')==='ping,read,edit');
+  check('candidate-required-before-write',await content()==='before\n' && results.at(-1).ok===false);check('read-and-rejected-write-rpc-order',results.map(r=>r.op).join(',')==='ping,read,edit');
   check('no-server-file-copy-endpoint',!unknown.some(x=>/\/file|\/diff/.test(x)));
-  await page.reload();await page.getByTestId('local-status').filter({hasText:'已连接'}).waitFor();check('indexeddb-handle-restores-after-reload',await content()==='after\n');
+  await page.reload();await page.getByTestId('local-status').filter({hasText:'已连接'}).waitFor();check('indexeddb-handle-restores-after-reload',await content()==='before\n');
   const boundary=await page.evaluate(async()=>{
     const {LocalDirectory,localPath}=await import('/local-directory.js');const root=await navigator.storage.getDirectory(),handle=await root.getDirectoryHandle('device-project');const d=new LocalDirectory(handle),results={};
     const fails=async(name,fn)=>{try{await fn();results[name]=false;}catch{results[name]=true;}};

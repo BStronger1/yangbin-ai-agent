@@ -48,6 +48,7 @@ await page.route('**/*',async route=>{
 const check=(name,value=true)=>{assert.ok(value,name);checks[name]=true}
 try{
  await page.goto('http://team-fixture.test/coding?session=s1');await page.getByTestId('coding-team').waitFor()
+ check('legacy-turn-has-no-verification-badge',await page.getByRole('region',{name:'修复验证'}).count()===0)
  check('multiple-independent-task-identities',await page.locator('[data-testid^="team-member-"]').count()===3)
  check('turn-scope-excludes-old-events',await page.getByTestId('team-member-foreign-child').count()===0)
  check('roles-and-progress',(await page.getByTestId('team-member-reviewer').innerText()).includes('独立审查者')&&(await page.getByTestId('team-member-worker-a').innerText()).includes('执行中'))
@@ -106,6 +107,23 @@ try{
  check('mobile-navigation-closes-without-covering-content',await page.getByTestId('coding-team').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+5,r.top+5))}))
  await page.reload();await page.getByTestId('coding-team').waitFor();check('terminal-refresh-restores-without-reexecution',(await page.getByTestId('team-status').innerText())==='部分完成'&&posts.length===1&&await page.locator('[data-testid^="team-member-"]').count()===3)
  check('no-page-errors',errors.length===0);check('no-unknown-api',unknown.length===0)
+ events.push({turnId:'t1',type:'repair_verification',status:'PASSED',revision:1,runner:'node',target:'tests/fix.test.js',testsRun:1,exitCode:0,snapshotHash:sha,baselineFailed:true})
+ await page.reload()
+ const verification=page.getByRole('region',{name:'修复验证'})
+ await verification.waitFor()
+ check('scoped-test-evidence-visible',(await verification.innerText()).includes('目标测试通过')&&(await verification.innerText()).includes(sha))
+ events.push({turnId:'t1',type:'repair_verification',status:'STALE',revision:2})
+ events.push({turnId:'another-turn',type:'repair_verification',status:'PASSED',revision:4})
+ await page.reload();await verification.waitFor()
+ check('edits-invalidate-old-pass',(await verification.innerText()).includes('需重新验证')&&!(await verification.innerText()).includes('目标测试通过'))
+ const blocked=process.env.REPAIR_BLOCKED_EVIDENCE
+   ? JSON.parse(await fs.readFile(process.env.REPAIR_BLOCKED_EVIDENCE,'utf8')).events.at(-1)
+   : {type:'repair_verification',status:'BLOCKED',revision:2,runner:'pytest',target:'test_subject.py',testsRun:0,exitCode:2,baselineFailed:false}
+ assert.equal(blocked.status,'BLOCKED')
+ events.push({...blocked,turnId:'t1'})
+ await page.reload();await verification.waitFor()
+ const blockedText=await verification.innerText()
+ check('missing-dependency-blocks-verification',blockedText.includes('验证受阻')&&blockedText.includes(blocked.target)&&!blockedText.includes('目标测试失败'))
 }catch(error){await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({error:String(error),checks,errors,unknown,posts,reads},null,2));await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});throw error}
 finally{await fs.writeFile(path.join(out,'report.json'),JSON.stringify({checks,errors,unknown,posts,reads,passed:Object.values(checks).filter(Boolean).length,paidModelCalls:0,scope:'Real Chrome offline event/API contract, not a model quality evaluation.'},null,2));await browser.close()}
 console.log(JSON.stringify(checks))

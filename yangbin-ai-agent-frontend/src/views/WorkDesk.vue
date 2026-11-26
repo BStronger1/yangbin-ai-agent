@@ -1,4 +1,5 @@
 <script setup>
+import { downloadBlob, downloadMarkdown } from '../downloads'
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, errorMessage } from '../workspace-api'
@@ -89,9 +90,7 @@ async function copy() {
   catch { if (current === epoch) notice.value = '当前浏览器无法复制，请选中文稿后手动复制。' }
 }
 function download() {
-  const blob = new Blob([run.value.result],{type:'text/markdown;charset=utf-8'}), url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = 'yangbin-' + run.value.id + '.md'; a.click()
-  setTimeout(() => URL.revokeObjectURL(url),1000)
+  downloadMarkdown(run.value.result, 'yangbin-' + run.value.id + '.md')
 }
 async function downloadPresentation() {
   if (!run.value?.presentation || exporting.value) return
@@ -107,8 +106,7 @@ async function downloadPresentation() {
     const {data} = await api.get(path,{responseType:'blob',signal:exportController.signal,timeout:30000})
     if (!valid()) return
     if (!(data instanceof Blob) || data.size !== artifact.bytes || data.size < 22) throw new Error('Invalid presentation file')
-    const url = URL.createObjectURL(data), a = document.createElement('a')
-    a.href = url; a.download = 'yangbin-' + id + '.pptx'; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000)
+    downloadBlob(data, 'yangbin-' + id + '.pptx')
     notice.value = '已下载 ' + artifact.slideCount + ' 页可编辑 PPTX，讲稿保存在演讲者备注中。'
   } catch (e) { if (valid() && e.code !== 'ERR_CANCELED') notice.value = 'PPTX 下载未完成，请重试生成文件；不会重新调用模型。' }
   finally { if (valid()) exporting.value = false }

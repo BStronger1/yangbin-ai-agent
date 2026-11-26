@@ -10,14 +10,14 @@ export class ModelGate {
   }
   permission(command) { const pending=this.pending.get(command.requestId); if (pending) pending(command.approved===true); }
   close() { for (const resolve of this.pending.values()) resolve(false); this.pending.clear(); }
-  async admit(init,{kind='model',maxCostMicros=null}={}) {
+  async admit(init,{kind='model',maxCostMicros=null,requestId=randomUUID()}={}) {
     this.signal?.throwIfAborted();this.beforeRequest();
     if(++this.count>100)throw new Error('Model request limit reached (100 per turn, including compaction)');
     const body=typeof init?.body==='string'?init.body:'';
     let parsed; try { parsed=JSON.parse(body); } catch { throw new Error('Model request body must be JSON for quota accounting'); }
     const maxTokens=Number(parsed.max_tokens ?? parsed.max_completion_tokens ?? 8192);
     if(!Number.isFinite(maxTokens)||maxTokens<=0||maxTokens>384000)throw new Error('Invalid model output token limit');
-    const requestId=randomUUID(), reservedTokens=Buffer.byteLength(body,'utf8')+Math.ceil(maxTokens);
+    const reservedTokens=Buffer.byteLength(body,'utf8')+Math.ceil(maxTokens);
     if(this.budget)this.reservations.set(requestId,this.budget.reserve({identity:this.identity,kind,requestId,reservedTokens,maxCostMicros}));
     let parentApproved=false;
     try {
@@ -48,11 +48,38 @@ export class ModelGate {
     if(rootId){this.budget.settle({reservationId:rootId,usage,status});this.reservations.delete(reservationId);}
     this.emit({type:'model_usage',requestId:reservationId,inputTokens:usage?.inputTokens??null,outputTokens:usage?.outputTokens??null,status,kind:'external'});
   }
-  wrap(fetch) {
+  wrap(fetch, validate) {
     return async (input,init) => {
-      const requestId=await this.admit(init); let completed=false;
+      const requestId=randomUUID();
+      const stage=(phase,fields={})=>{
+        this.lastAttempt={type:'model_attempt',attemptId:requestId,phase,...fields};
+        this.emit(this.lastAttempt);
+      };
+      stage('CREATED');
+      try {
+        if (this.unknownAttempt && this.allowedResumeAttempt!==this.unknownAttempt) throw new Error('Previous model request has unknown usage and no recovery authorization');
+        this.allowedResumeAttempt=null;
+        validate?.(input);
+        await this.admit(init,{requestId});
+        this.unknownAttempt=null;
+      } catch(error) {
+        const reason=/budget|quota|limit reached/i.test(error.message)?'BUDGET_LIMIT':'ADMISSION_DENIED';
+        stage('LOCAL_REJECTED',{reason,sent:false,usageKnown:true});
+        throw error;
+      }
+      let completed=false, headers=false;
       let inputTokens=null,outputTokens=null,ended=false,protocolError=false,buffer='',responseBytes=0;
-      const finish=status=>{if(completed)return;completed=true;if(status!=='SUCCEEDED'||!ended||protocolError){inputTokens=null;outputTokens=null;}const reservationId=this.reservations.get(requestId);if(reservationId){this.budget.settle({reservationId,status,usage:inputTokens!==null&&outputTokens!==null?{inputTokens,outputTokens}:null});this.reservations.delete(requestId);}this.emit({type:'model_usage',requestId,inputTokens,outputTokens,status});};
+      const finish=status=>{
+        if(completed)return;
+        completed=true;
+        if(status!=='SUCCEEDED'||!ended||protocolError){inputTokens=null;outputTokens=null;}
+        const usageKnown=inputTokens!==null && outputTokens!==null;
+        if(status==='UNKNOWN')this.unknownAttempt=requestId;
+        const reservationId=this.reservations.get(requestId);
+        if(reservationId){this.budget.settle({reservationId,status,usage:usageKnown?{inputTokens,outputTokens}:null});this.reservations.delete(requestId);}
+        stage(status==='UNKNOWN'?(headers?'STREAM_INTERRUPTED':'DELIVERY_UNKNOWN'):'SETTLED',{status,sent:true,usageKnown});
+        this.emit({type:'model_usage',requestId,inputTokens,outputTokens,status});
+      };
       const terminalStatus=()=>protocolError?'FAILED':ended?'SUCCEEDED':'UNKNOWN';
       const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
       const line=raw=>{
@@ -70,14 +97,16 @@ export class ModelGate {
         if(item.type==='message_stop')ended=true;
       };
       try {
+        stage('DISPATCHED',{sent:true});
         const response=await fetch(input,init);
+        headers=true; stage('RESPONSE_HEADERS',{httpStatus:response.status,sent:true});
         if(!response.ok||!response.body){finish('FAILED');return response;}
         const reader=response.body.getReader(),decoder=new TextDecoder();
         const body=new ReadableStream({
           async pull(controller){
             try{
               const item=await reader.read();
-              if(item.done){buffer+=decoder.decode();if(buffer)line(buffer);finish(terminalStatus());controller.close();return;}
+              if(item.done){buffer+=decoder.decode();if(buffer)line(buffer);finish(terminalStatus());if(!ended && !protocolError)throw new Error('Incomplete model stream');controller.close();return;}
               responseBytes+=item.value.byteLength;
               if(responseBytes>MAX_RESPONSE_BYTES)throw new Error('Model response exceeds 64 MiB limit');
               buffer+=decoder.decode(item.value,{stream:true});
@@ -91,7 +120,7 @@ export class ModelGate {
           async cancel(reason){finish(terminalStatus());await reader.cancel(reason);},
         });
         return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});
-      }catch(error){finish('FAILED');throw error;}
+      }catch(error){finish('UNKNOWN');throw error;}
     };
   }
 }

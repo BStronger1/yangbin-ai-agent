@@ -32,6 +32,8 @@ input.on('line', line => {
   catch { send({ type: 'response', ok: false, error: 'Invalid JSON command' }); return; }
   if (command.type === 'local_fs_result') {
     for(const t of allTools)t.localResult?.(command);
+  } else if (command.type === 'work_permission') {
+    for(const t of allTools)t.workPermissions.get(command.requestId)?.(command.approved);
   } else if (command.type === 'model_permission') {
     for(const g of allGates)g.permission(command);
   } else if (command.type === 'approve') {

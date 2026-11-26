@@ -1,0 +1,10 @@
+[
+  "tools.mjs",
+  "file-operations.mjs",
+  "local-runner.mjs",
+  "sandbox.mjs",
+  "context-store.mjs",
+  "repair-verification.mjs",
+  "native-public-tests.mjs",
+  "public_test_sandbox.py"
+]

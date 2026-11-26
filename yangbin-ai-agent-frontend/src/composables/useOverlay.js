@@ -1,4 +1,4 @@
-import { nextTick, onBeforeUnmount, watch, unref } from 'vue'
+import { nextTick, onActivated, onDeactivated, onBeforeUnmount, ref, watch, unref } from 'vue'
 
 // One stack across component trees and Teleports. Closing UI never decides a task.
 const layers = []
@@ -73,12 +73,15 @@ export function registerOverlay(element, close, { opener = document.activeElemen
 }
 export function useOverlay(open, element, close, options = {}) {
   let release, sequence = 0
-  watch(() => Boolean(typeof open === 'function' ? open() : unref(open)), async value => {
+  const active = ref(true)
+  watch(() => active.value && Boolean(typeof open === 'function' ? open() : unref(open)), async value => {
     const token = ++sequence, opener = document.activeElement
     if (!value) { release?.(); release = null; return }
     await nextTick()
-    if (token !== sequence || !element.value) return
+    if (token !== sequence || !active.value || !element.value) return
     release = registerOverlay(element.value, close, { ...options, opener })
   }, { immediate: true, flush: 'post' })
+  onDeactivated(() => { active.value = false; sequence++; release?.(); release = null })
+  onActivated(() => { active.value = true })
   onBeforeUnmount(() => { sequence++; release?.(); release = null })
 }

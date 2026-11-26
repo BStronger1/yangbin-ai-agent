@@ -27,6 +27,7 @@ await page.route('**/*',async route=>{
   else if(p==='/api/ai/work/library')data={skills:[],partners:catalog.partners.map(x=>x.id)};
   else if(p==='/api/ai/work/partners')data=catalog.partners.map(x=>x.id);
   else if(p==='/api/ai/coding/capabilities')data={available:true,shellEnabled:false,model:'fixture'};
+  else if(p==='/api/ai/coding/recent'||p==='/api/ai/work/evidence/recent-reports')data=[];
   else if(p==='/api/ai/coding/projects')data=[project];
   else if(p==='/api/ai/coding/sessions')data=owner==='owner-a'?[coding]:[];
   else if(p===`/api/ai/coding/projects/${project.id}/files`)data=wrote?[{path:'review.txt',size:9}]:[];
@@ -72,17 +73,18 @@ const go=async suffix=>{await page.goto('http://workspaces-fixture.test'+suffix)
 const jobCount=()=>calls.filter(x=>x.kind==='job').length;
 const cancelCount=()=>calls.filter(x=>x.kind.includes('cancel')).length;
 const assistant=async(mode)=>{await go('/assistant?mode='+mode);await page.getByTestId('assistant-prompt').waitFor();};
+const readyModel = page.locator('select[data-testid="partner-model-select"]:enabled');
 try{
  await assistant('chat');assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'');checks.chatEmptyState=true;
  await page.getByTestId('partner-model-select').selectOption(profiles[0].id);await page.getByTestId('reasoning-effort').selectOption('high');await page.getByTestId('assistant-prompt').fill('聊天草稿');
  await page.getByTestId('assistant-mode-work').click();await page.getByTestId('assistant-prompt').waitFor();assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'');
  await page.getByTestId('partner-model-select').selectOption(profiles[1].id);await page.getByTestId('reasoning-effort').selectOption('low');await page.getByTestId('assistant-prompt').fill('工作草稿');
- await page.getByTestId('assistant-mode-chat').click();assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'聊天草稿');assert.equal(await page.getByTestId('partner-model-select').inputValue(),profiles[0].id);checks.modeDraftAndModelIsolation=true;
+ await page.getByTestId('assistant-mode-chat').click();assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'聊天草稿');assert.equal(await readyModel.inputValue(),profiles[0].id);checks.modeDraftAndModelIsolation=true;
  await page.reload();await page.getByTestId('assistant-prompt').waitFor();assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'聊天草稿');checks.draftRefresh=true;
  await page.getByTestId('assistant-prompt').fill('简单回答');await page.getByTestId('assistant-send').click();await page.getByText('模拟简短回答',{exact:true}).waitFor();assert.equal(jobCount(),1);assert.equal(calls[0].mode,'chat');assert.equal(calls[0].reasoningEffort,'high');checks.chatEffortRequest=true;checks.chatDirectNoConfirmation=true;
  const chatUrl=page.url();await page.reload();await page.getByText('模拟简短回答',{exact:true}).waitFor();assert.equal(jobCount(),1);checks.chatRefreshNoResubmit=true;
  await page.getByTestId('assistant-history').click();await page.getByText('简单回答',{exact:true}).last().waitFor();checks.chatHistory=true;
- await assistant('work');assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'工作草稿');assert.equal(await page.getByTestId('partner-model-select').inputValue(),profiles[1].id);
+ await assistant('work');assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'工作草稿');assert.equal(await readyModel.inputValue(),profiles[1].id);
  await page.getByTestId('assistant-prompt').fill('整理合成任务');await page.getByTestId('assistant-send').click();await page.getByRole('alert').filter({hasText:'确认本轮执行范围'}).waitFor();assert.equal(jobCount(),1);checks.workBlocksUnconfirmed=true;
  await page.getByTestId('assistant-goal').fill('整理提供的合成材料');await page.getByTestId('assistant-deliverable').fill('一份可审阅文稿');await page.getByTestId('assistant-constraints').fill('不虚构证据');await page.getByTestId('assistant-confirmed').check();hold=true;
  await page.getByTestId('assistant-send').click();await page.getByTestId('assistant-cancel').waitFor();assert.equal(jobCount(),2);const workUrl=page.url(),workId=new URL(workUrl).searchParams.get('conversation');assert.ok(workId);checks.workExplicitContract=true;
@@ -107,7 +109,7 @@ try{
  await assistant('chat');denyJobs=true;await page.getByTestId('assistant-prompt').fill('超过额度的合成请求');await page.getByTestId('assistant-send').click();await page.getByRole('alert').filter({hasText:'共享账号额度不足'}).waitFor();const denied=jobCount();await page.reload();await page.getByTestId('assistant-prompt').waitFor();assert.equal(jobCount(),denied);checks.denialNoAutomaticRetry=true;denyJobs=false;
  await assistant('chat');await page.getByTestId('assistant-prompt').fill('异步提交后立即切换');delayNext=300;const raceCount=jobCount();await page.getByTestId('assistant-send').click();await page.getByTestId('assistant-mode-work').click();await page.waitForTimeout(500);assert.equal(jobCount(),raceCount+1);assert.equal(calls.filter(x=>x.kind==='job').at(-1).mode,'chat');assert.equal(await page.getByTestId('assistant-mode-work').getAttribute('aria-pressed'),'true');assert.ok(!(await page.locator('body').innerText()).includes('模拟简短回答'));checks.submitThenSwitchStaysInOriginalScope=true;
  owner='owner-b';await go(new URL(chatUrl).pathname+new URL(chatUrl).search);await page.getByRole('alert').waitFor();assert.ok(!(await page.locator('body').innerText()).includes('模拟简短回答'));checks.uiDoesNotDisplayDeniedAccountHistory=true;
- await assistant('work');assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'');assert.equal(await page.getByTestId('partner-model-select').inputValue(),'system');checks.ownerPreferencesIsolated=true;
+ await assistant('work');assert.equal(await page.getByTestId('assistant-prompt').inputValue(),'');assert.equal(await readyModel.inputValue(),'system');checks.ownerPreferencesIsolated=true;
  await page.setViewportSize({width:390,height:844});await page.reload();await page.getByTestId('assistant-prompt').waitFor();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));const box=await page.getByTestId('assistant-prompt').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390);checks.mobileFits=true;await page.waitForFunction(()=>document.querySelector('.studio-sidebar')?.getBoundingClientRect().right<=0);await page.screenshot({path:path.join(out,'work-mobile.png'),animations:'disabled'});
  assert.deepEqual(errors,[]);assert.deepEqual(unknown,[]);checks.noPageErrors=true;checks.noUnknownApis=true;
 }catch(e){await fs.writeFile(path.join(out,'failure-detail.json'),JSON.stringify({error:String(e),url:page.url(),body:await page.locator('body').innerText()},null,2));await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});throw e;}finally{await fs.writeFile(path.join(out,'report.json'),JSON.stringify({checks,errors,unknown,modelSubmissions:jobCount(),paidModelRequests:0,scope:'Intercepted browser fixtures; backend security requires separate tests.'},null,2));await browser.close();}

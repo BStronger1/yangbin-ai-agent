@@ -18,6 +18,15 @@ async function fileText(handle) {
   if (file.size > LIMIT) throw new Error('文件超过64KiB，请缩小文件');
   return textOnly(new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()));
 }
+// Each operation owns its receipt. Wrapping an error must never downgrade a
+// lower-level commit or turn an already uncertain write into a safe retry.
+export function mutationError(error, receipt) {
+  const failure = error instanceof Error ? error : new Error(String(error));
+  const previous = failure.mutationReceipt;
+  if (previous?.effect === 'COMMITTED' || (previous?.effect === 'UNKNOWN' && receipt.effect === 'NO_EFFECT')) return failure;
+  failure.mutationReceipt = { ...receipt };
+  return failure;
+}
 export class LocalDirectory {
   constructor(handle) { localPath(handle.name); this.handle = handle; this.observed = new Map(); this.changes = new Map(); this.enabled = true; }
   async ready() {
@@ -54,39 +63,49 @@ export class LocalDirectory {
     await visit(this.handle, '', 0); return result.sort((a, b) => a.path.localeCompare(b.path));
   }
   async write(name, content, { oldText, newText, edit = false } = {}, guard = () => true) {
-    await this.ready(); const parts = localPath(name);
-    let parent, handle, before = null;
-    try { parent = await this.directory(parts.slice(0, -1)); handle = await parent.getFileHandle(parts.at(-1)); before = await fileText(handle); }
-    catch (e) { if (e.name !== 'NotFoundError') throw e; }
-    if (before !== null && (!this.observed.has(name) || this.observed.get(name) !== before)) throw new Error('文件尚未读取或已被外部修改，请重新读取并确认修改');
-    if (before === null && this.observed.has(name)) throw new Error('文件已被外部删除，请重新确认');
-    if (edit) {
-      if (before === null || typeof oldText !== 'string' || !oldText || typeof newText !== 'string') throw new Error('编辑需要已有文件及替换内容');
-      const index = before.indexOf(oldText);
-      if (index < 0 || before.indexOf(oldText, index + 1) >= 0) throw new Error('待替换内容必须恰好匹配一次');
-      content = before.slice(0, index) + newText + before.slice(index + oldText.length);
-    }
-    textOnly(content);
-    if (!guard()) throw new Error('任务已停止，文件未写入');
-    await this.ready();
-    if (!parent) parent = await this.directory(parts.slice(0, -1), true);
-    // Recheck existence before creating; never overwrite a newly appeared file.
-    if (!handle) {
-      try { await parent.getFileHandle(parts.at(-1)); throw new Error('文件已由外部创建，请重新读取'); }
-      catch (e) { if (e.name !== 'NotFoundError') throw e; }
-      handle = await parent.getFileHandle(parts.at(-1), { create: true });
-    }
-    const writable = await handle.createWritable({ mode: 'exclusive', keepExistingData: true });
+    let receipt = {effect:'NO_EFFECT', phase:'VALIDATING'};
     try {
-      if (before !== null && await fileText(handle) !== before) throw new Error('文件已被外部修改，请重新读取');
-      await writable.write(content); await writable.truncate(new TextEncoder().encode(content).length);
-      await this.ready(); if (!guard()) throw new Error('任务已停止，文件未写入');
-      if (before !== null && await fileText(handle) !== before) throw new Error('写入前检测到外部修改');
-      await writable.close();
-    } catch (e) { await writable.abort().catch(() => {}); throw e; }
-    this.observed.set(name, content);
-    this.changes.set(name, { path: name, before: this.changes.has(name) ? this.changes.get(name).before : before, after: content, kind: before === null ? 'added' : 'modified' });
-    return `${edit ? 'Edited' : 'Wrote'} ${name} (${new TextEncoder().encode(content).length} bytes; 本机原文件)`;
+      await this.ready(); const parts = localPath(name);
+      let parent, handle, before = null;
+      try { parent = await this.directory(parts.slice(0, -1)); handle = await parent.getFileHandle(parts.at(-1)); before = await fileText(handle); }
+      catch (e) { if (e.name !== 'NotFoundError') throw e; }
+      if (before !== null && (!this.observed.has(name) || this.observed.get(name) !== before)) throw new Error('文件尚未读取或已被外部修改，请重新读取并确认修改');
+      if (before === null && this.observed.has(name)) throw new Error('文件已被外部删除，请重新确认');
+      if (edit) {
+        if (before === null || typeof oldText !== 'string' || !oldText || typeof newText !== 'string') throw new Error('编辑需要已有文件及替换内容');
+        const index = before.indexOf(oldText);
+        if (index < 0 || before.indexOf(oldText, index + 1) >= 0) throw new Error('待替换内容必须恰好匹配一次');
+        content = before.slice(0, index) + newText + before.slice(index + oldText.length);
+      }
+      textOnly(content);
+      if (!guard()) throw new Error('任务已停止，文件未写入');
+      await this.ready();
+      if (!parent) {
+        receipt = {effect:'UNKNOWN', phase:'PREPARING'};
+        parent = await this.directory(parts.slice(0, -1), true);
+      }
+      // Recheck existence before creating; never overwrite a newly appeared file.
+      if (!handle) {
+        try { await parent.getFileHandle(parts.at(-1)); throw new Error('文件已由外部创建，请重新读取'); }
+        catch (e) { if (e.name !== 'NotFoundError') throw e; }
+        receipt = {effect:'UNKNOWN', phase:'PREPARING'};
+        handle = await parent.getFileHandle(parts.at(-1), { create: true });
+      }
+      receipt = {effect:'UNKNOWN', phase:'PREPARING'};
+      const writable = await handle.createWritable({ mode: 'exclusive', keepExistingData: true });
+      try {
+        if (before !== null && await fileText(handle) !== before) throw new Error('文件已被外部修改，请重新读取');
+        await writable.write(content); await writable.truncate(new TextEncoder().encode(content).length);
+        await this.ready(); if (!guard()) throw new Error('任务已停止，文件未写入');
+        if (before !== null && await fileText(handle) !== before) throw new Error('写入前检测到外部修改');
+        receipt = {effect:'UNKNOWN', phase:'COMMITTING'};
+        await writable.close();
+        receipt = {effect:'COMMITTED', phase:'COMMITTED'};
+      } catch (e) { await writable.abort().catch(() => {}); throw e; }
+      this.observed.set(name, content);
+      this.changes.set(name, { path: name, before: this.changes.has(name) ? this.changes.get(name).before : before, after: content, kind: before === null ? 'added' : 'modified' });
+      return `${edit ? 'Edited' : 'Wrote'} ${name} (${new TextEncoder().encode(content).length} bytes; 本机原文件)`;
+    } catch (error) { throw mutationError(error, receipt); }
   }
   async execute(operation, args = {}, guard = () => true) {
     if (operation === 'ping') { await this.ready(); return 'Local directory connected'; }

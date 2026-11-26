@@ -36,7 +36,12 @@ if manifest.get("codingRuntime"):
  print("Installing isolated pi runtime before service update",flush=True)
  # NFS metadata is slow; install on local disk, preserve one durable archive, restore on boot.
  local=Path(tempfile.mkdtemp(prefix="yangbin-coding-install-",dir="/tmp"))
- local_source=local/"coding";shutil.copytree(source,local_source)
+ local_source=local/"coding-agent";shutil.copytree(source,local_source)
+ if (local_source/"test/mutation-receipt-sdk.test.mjs").is_file():
+  for relative in ("desktop/native-directory.mjs","yangbin-ai-agent-frontend/src/local-directory.js","yangbin-ai-agent-frontend/package.json"):
+   item=stage/"verification"/relative
+   if "verification/"+relative not in manifest.get("sha256",{}) or not item.is_file():raise SystemExit("Missing verified receipt-test dependency: "+relative)
+   target=local/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(item,target)
  install_env["npm_config_cache"]=str(local/"npm-cache")
  subprocess.run([str(node),str(npm),"ci","--ignore-scripts","--no-audit","--no-fund"],cwd=local_source,env=install_env,check=True,timeout=900)
  subprocess.run([str(node),str(local_source/"src/main.mjs"),"--check"],env=install_env,check=True,timeout=120)

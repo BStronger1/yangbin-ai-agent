@@ -9,6 +9,7 @@ await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.
  if (method === 'GET' && (name === '/api/ai/coding/recent' || name === '/api/ai/work/evidence/recent-reports')) data = [];
   else if(name === '/api/auth/me')data={user:{id:'fixture-owner',username:'用户',role:'admin',csrf:'fixture'}};
  else if(name==='/api/ai/models')data={profiles:[],providers:[],defaultModelId:'system'};
+ else if(name==='/api/ai/capabilities')data={router:{enabled:false,shadowOnly:true,defaultBudgetMode:'balanced',budgetModes:['economy','balanced','quality']}};
  else if(name==='/api/ai/coding/capabilities')data={available:true,shellEnabled:false,model:'fixture'};
  else if(name==='/api/ai/coding/projects'||name==='/api/ai/coding/sessions')data=[];
  else if(name==='/api/ai/governance') {if(failed){status=503;data={message:'账本不可用，已阻止新调用'}}else data={day:'2026-10-21',timezone:'UTC',limits:{dailyRequests:100,dailyTokens:200000,accountConcurrency:2},requests:3,budgetChargedTokens:10000,knownTokens:1200,unknownUsageRequests:1,remainingTokens:190000,active:0,failures:1,scope:'当前实例；不含外部PPT'}}

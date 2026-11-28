@@ -30,6 +30,8 @@ const workspacePath = liveRoute.path
 // its session, client ID, in-flight device operations or pending receipts.
 const route = reactive({ path: workspacePath, query: { ...liveRoute.query } })
 const pageVisible = computed(() => liveRoute.path === workspacePath)
+const topbar = ref(null), topbarHeight = ref(72)
+let topbarObserver = null
 async function replaceWorkspaceRoute(query) {
   if (pageVisible.value) await router.replace({ path: workspacePath, query })
   else route.query = { ...query }
@@ -41,7 +43,9 @@ function saveWorkspace() { clearTimeout(draftTimer); if (restoringWorkspace || l
 function restoreWorkspace() { restoringWorkspace = true; draft.value = pending.value?.prompt || readWorkspace('coding', codingDraftKey(), ''); filePanel.value = readWorkspace('coding', 'layout', { files: false }).files === true; restoringWorkspace = false }
 const projects = ref([]), sessions = ref([]), session = ref(null), capabilities = ref(null)
 const memoryOpen = ref(false)
-const projectId = ref(''), draft = ref(''), error = ref(''), busy = ref(false), loading = ref(true)
+// A handoff is already persisted before navigation. Show that draft on the
+// first render instead of waiting for unrelated capability/catalog requests.
+const projectId = ref(''), draft = ref(mode.value === 'work' && !route.query.session ? readWorkspace('coding', 'draft:new', '') : ''), error = ref(''), busy = ref(false), loading = ref(true)
 const workTransfer = ref(null), analysisOnly = ref(false), requiredTestPaths = ref('')
 let grantTicket = 0
 async function loadGrant() {
@@ -58,6 +62,19 @@ async function loadGrant() {
     analysisOnly.value = data.purpose === 'ANALYZE'
     if (!draft.value.trim()) draft.value = analysisOnly.value ? '请根据选定的订单行检查脚本，并给出定位依据。' : '请根据选定的订单行定位脚本问题并生成候选修复。'
   } catch (err) { if (ticket === grantTicket) error.value = err.response ? errorMessage(err) : err.message }
+}
+async function revokeGrant() {
+  if (busy.value || !workTransfer.value) return
+  const grant = workTransfer.value, token = generation
+  busy.value = true; error.value = ''
+  try {
+    await api.post('/ai/work/evidence/transfers/' + encodeURIComponent(grant.id) + '/revoke')
+    if (disposed || token !== generation || workTransfer.value?.id !== grant.id) return
+    grantTicket++; workTransfer.value = null; analysisOnly.value = false; requiredTestPaths.value = ''
+    const query = { ...route.query }; delete query.transfer
+    await replaceWorkspaceRoute(query)
+  } catch (e) { if (token === generation) error.value = errorMessage(e) }
+  finally { if (token === generation) busy.value = false }
 }
 const executionMode = ref('auto')
 const executionModes = [{id:'auto',label:'自动选择'},{id:'direct',label:'直接回答'},{id:'react',label:'工具驱动'},{id:'plan',label:'规划与执行'},{id:'check',label:'检查与修正'},{id:'team',label:'团队执行（需服务端执行器）'}]
@@ -82,7 +99,7 @@ const modelCatalog = ref({ profiles: [], providers: [], defaultModelId: 'system'
 const selectedEfforts = ref({work:'',chat:''})
 const modelPickerOpen = ref(false), modelsLoading = ref(true), modelsError = ref(''), capabilitiesLoading = ref(false)
 const capabilitiesModelId = ref(''), chatModelSnapshot = ref(null)
-let pollTimer = null, source = null, generation = 0, disposed = false, capabilityGeneration = 0, modelGeneration = 0, refreshInFlight = false
+let pollTimer = null, source = null, generation = 0, disposed = false, capabilityGeneration = 0, modelGeneration = 0, refreshInFlight = false, chatRecoveryGeneration = 0
 const policies = [
   { id: 'ask', label: '始终询问', detail: '每次调用工具前都需要确认' },
   { id: 'on-risk', label: '按需确认', detail: '修改文件和运行命令时确认' },
@@ -378,7 +395,7 @@ async function loadSession(sessionId) {
   } catch (e) { if (token === generation) error.value = isLocal.value ? localError(e) : errorMessage(e) }
   finally { if (token === generation) { loading.value = false; restoreWorkspace(); if (filePanel.value) loadFiles() } }
 }
-function closeChat() { source?.close(); source = null; clearTimeout(legacyPoll); legacyPoll = null; chatRunning.value = false }
+function closeChat() { chatRecoveryGeneration++; source?.close(); source = null; clearTimeout(legacyPoll); legacyPoll = null; chatRunning.value = false }
 function applyChatHistory(turns, { showRunningStatus }) {
   chatMessages.value = turns.flatMap(turn => {
     const waitingForAnswer = turn.status === 'RUNNING' && !showRunningStatus
@@ -391,18 +408,25 @@ function applyChatHistory(turns, { showRunningStatus }) {
   chatRunning.value = turns.at(-1)?.status === 'RUNNING'
   error.value = chatRunning.value ? '任务仍在服务端执行，正在同步状态。' : ''
 }
-async function recoverChat(cid = chatId.value) {
+async function recoverChat(cid = chatId.value, failures = 0) {
   if (!cid || disposed || mode.value !== 'chat') return
-  const token = generation, owner = ownerId()
+  clearTimeout(legacyPoll); legacyPoll = null
+  const token = generation, owner = ownerId(), recoveryToken = ++chatRecoveryGeneration
   try {
     const { data } = await api.get('/ai/manus/conversations/' + encodeURIComponent(cid))
-    if (disposed || token !== generation || cid !== chatId.value || owner !== ownerId()) return
+    if (disposed || token !== generation || recoveryToken !== chatRecoveryGeneration || cid !== chatId.value || owner !== ownerId()) return
     applyChatHistory(data.turns, { showRunningStatus: false })
     if (chatRunning.value) legacyPoll = setTimeout(() => recoverChat(cid), 2000)
-  } catch {
-    if (disposed || token !== generation) return
+  } catch (e) {
+    if (disposed || token !== generation || recoveryToken !== chatRecoveryGeneration || cid !== chatId.value || owner !== ownerId()) return
+    if (e.response?.status >= 400 && e.response.status < 500) {
+      closeChat(); error.value = '无法恢复这条对话：' + errorMessage(e) + '。请新建对话或前往新版 Chat / Work。'; return
+    }
+    if (failures + 1 >= 10) {
+      closeChat(); error.value = '连续 10 次未能获取对话状态，已停止自动重连。请稍后从历史记录核对任务结果。'; return
+    }
     error.value = '历史状态暂时不可用，正在重连；不会重新提交。'
-    legacyPoll = setTimeout(() => recoverChat(cid), 2500)
+    legacyPoll = setTimeout(() => recoverChat(cid, failures + 1), 2500)
   }
 }
 async function newTask(nextMode = mode.value) { if (busy.value || running.value || !(await allowNavigation())) return; fileEditing.value = false; policy.value = 'on-risk'; projectName.value = ''; closeChat(); chatId.value = ''; chatHistory.value = []; chatMessages.value = []; chatEvents.value = []; draft.value = ''; error.value = ''; historyOpen.value = false; router.push({ path: nextMode === 'chat' ? '/super-agent' : '/coding', query: {} }) }
@@ -435,15 +459,16 @@ async function send() {
     if(isLocal.value && !localDirectory.value?.candidateDevice && pending.value.approvalMode === 'allow') await authorizeDesktopTask(localDirectory.value,currentId,pending.value.requestId)
     rememberPending()
     const value = await codingApi.turn(currentId, { ...pending.value })
-    if (disposed || session.value?.id !== currentId) return
+    if (disposed || token !== generation || session.value?.id !== currentId) return
     applySession(value); pending.value = null; rememberPending(); draft.value = ''; if (grant) await replaceWorkspaceRoute({session:currentId}); await loadHistory(); scrollBottom(true); schedulePoll()
   } catch (e) {
+    if (disposed || token !== generation) return
     if (e.response?.status >= 400 && e.response?.status < 500) { pending.value = null; rememberPending(); error.value = isLocal.value ? localError(e) : errorMessage(e) }
     else if (!e.response && /当前桌面版本|用户取消/.test(e.message || '')) { pending.value=null; error.value=e.message; rememberPending() }
     else error.value = pending.value ? '提交结果尚未确认。请刷新状态；若未创建本轮，可重试原消息（沿用同一请求编号）。' : errorMessage(e)
     if (session.value) schedulePoll()
   }
-  finally { busy.value = false }
+  finally { if (token === generation) busy.value = false }
 }
 async function showHistory() {
   historyOpen.value = !historyOpen.value
@@ -476,12 +501,18 @@ async function deleteChat(cid) {
   try{await api.delete('/ai/manus/conversations/'+cid);chatHistory.value=chatHistory.value.filter(c=>c.id!==cid);if(chatId.value===cid)newTask('chat')}catch(e){error.value=errorMessage(e)}
 }
 function sendChat() {
-  const prompt = draft.value.trim(), profileId = effectiveModelId.value; chatModelSnapshot.value = { profileId, name: modelLabel.value, model: selectedProfile.value?.model || '' }; draft.value = ''; error.value = ''; closeChat(); chatEvents.value = []
+  const prompt = draft.value.trim(), profileId = effectiveModelId.value
+  if (!prompt || chatRunning.value || busy.value) return
+  if (encodeURIComponent(prompt).length > 6000) { error.value = '文本过长，旧版对话无法通过链接发送。请缩短文本，或改用新版 Chat / Work。'; return }
+  chatModelSnapshot.value = { profileId, name: modelLabel.value, model: selectedProfile.value?.model || '' }; draft.value = ''; error.value = ''; closeChat(); chatEvents.value = []
   chatMessages.value.push({ id: id(), role: 'user', text: prompt }, { id: id(), role: 'assistant', text: '', modelSnapshot: { ...chatModelSnapshot.value } })
   const response = chatMessages.value[chatMessages.value.length - 1]
   if (!chatId.value) chatId.value = id();
   void replaceWorkspaceRoute({chat:chatId.value});
-  chatRunning.value = true; source = chatWithManus(prompt, profileId, chatId.value, id(), selectedEfforts.value.chat || null); const connection = source
+  chatRunning.value = true
+  try { source = chatWithManus(prompt, profileId, chatId.value, id(), selectedEfforts.value.chat || null) }
+  catch (e) { closeChat(); error.value = errorMessage(e); draft.value = prompt; return }
+  const connection = source
   connection.onmessage = event => { if (source !== connection) return; if (event.data === '[DONE]') closeChat(); else { response.text += (response.text ? '\n\n' : '') + event.data; scrollBottom() } }
   connection.addEventListener('trace', event => { if (source !== connection) return; try { const value = JSON.parse(event.data); const index = chatEvents.value.findIndex(item => item.id === value.id); if (index < 0) chatEvents.value.push(value); else chatEvents.value[index] = value } catch { /* Non-JSON trace cannot be rendered. */ } })
   connection.addEventListener('failure', event => { if (source === connection) { error.value = event.data || '对话未完成'; closeChat() } })
@@ -490,16 +521,23 @@ function sendChat() {
 }
 async function decide(approvalId, approved) {
   if (busy.value) return
-  busy.value = true; const currentId = session.value.id
-  try { const value = await codingApi.approve(currentId, approvalId, approved); if (session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
-  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { busy.value = false }
+  busy.value = true; const currentId = session.value.id, token = generation
+  try { const value = await codingApi.approve(currentId, approvalId, approved); if (!disposed && token === generation && session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
+  catch (e) { if (token === generation) error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { if (token === generation) busy.value = false }
 }
 async function cancel() {
-  if (mode.value === 'chat') { const cid=chatId.value; closeChat(); try { if(cid) await api.post('/ai/manus/conversations/'+cid+'/cancel'); error.value = '已请求停止后续工具操作；已发出的供应商请求可能仍在运行。'; if(cid) recoverChat(cid) } catch(e) { error.value=errorMessage(e) } return }
+  if (mode.value === 'chat') {
+    if (busy.value) return
+    const cid=chatId.value, token=generation; closeChat(); busy.value=true
+    try { if(cid) await api.post('/ai/manus/conversations/'+encodeURIComponent(cid)+'/cancel'); if(token!==generation||disposed)return;error.value = '已请求停止后续工具操作；已发出的供应商请求可能仍在运行。'; if(cid) recoverChat(cid) }
+    catch(e) { if(token!==generation||disposed)return;closeChat();error.value=errorMessage(e) }
+    finally { if(token===generation)busy.value=false }
+    return
+  }
   if (!session.value || busy.value) return
-  busy.value = true; const currentId = session.value.id
-  try { const value = await codingApi.cancel(currentId); if (session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
-  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { busy.value = false }
+  busy.value = true; const currentId = session.value.id, token = generation
+  try { const value = await codingApi.cancel(currentId); if (!disposed && token === generation && session.value?.id === currentId) { applySession(value); error.value = ''; schedulePoll() } }
+  catch (e) { if (token === generation) error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { if (token === generation) busy.value = false }
 }
 async function loadFiles() {
   const currentId = session.value?.id, project = session.value?.projectId || projectId.value, owner = ownerId(), token = ++filesSequence, directory = localDirectory.value, local = isLocal.value
@@ -518,9 +556,9 @@ async function showFiles() { if (filePanel.value) { await closeFiles(); return }
 async function editFile(file = null) { if (!(await allowFileDiscard())) return; filePath.value = file?.path || ''; fileContent.value = file?.content || ''; fileBaseline.value = JSON.stringify([filePath.value, fileContent.value]); fileEditing.value = true }
 async function saveFile() {
   if (!filePath.value.trim() || fileSaving.value || workRunning.value) return
-  const project = session.value?.projectId || projectId.value; fileSaving.value = true; error.value = ''
-  try { const value = isLocal.value ? (await localDirectory.value.write(filePath.value.trim(), fileContent.value), {path:filePath.value.trim(),content:fileContent.value}) : await codingApi.putFile(project, filePath.value.trim(), fileContent.value); if ((session.value?.projectId || projectId.value) === project) { openedFile.value = value; fileEditing.value = false; await loadFiles() } }
-  catch (e) { error.value = isLocal.value ? localError(e) : errorMessage(e) } finally { fileSaving.value = false }
+  const project = session.value?.projectId || projectId.value, token = generation; fileSaving.value = true; filesError.value = ''
+  try { const value = isLocal.value ? (await localDirectory.value.write(filePath.value.trim(), fileContent.value), {path:filePath.value.trim(),content:fileContent.value}) : await codingApi.putFile(project, filePath.value.trim(), fileContent.value); if (!disposed && token === generation && (session.value?.projectId || projectId.value) === project) { openedFile.value = value; fileEditing.value = false; await loadFiles() } }
+  catch (e) { if (token === generation) filesError.value = isLocal.value ? localError(e) : errorMessage(e) } finally { if (token === generation) fileSaving.value = false }
 }
 async function openFile(path) {
   const project = session.value?.projectId || projectId.value, owner = ownerId(), token = ++previewSequence, directory = localDirectory.value, local = isLocal.value
@@ -534,7 +572,7 @@ async function openFile(path) {
   finally { if (token === previewSequence) previewLoading.value = false }
 }
 watch([ownerId, () => selectedProject.value?.id, () => session.value?.id, () => mode.value], () => {
-  filesSequence++; previewSequence++; filesLoading.value = false; previewLoading.value = false
+  filesSequence++; previewSequence++; filesLoading.value = false; previewLoading.value = false; fileSaving.value = false
   fileQuery.value = ''; changedOnly.value = false; filesError.value = ''; previewError.value = ''; fileNotice.value = ''; files.value = []; changes.value = []; openedFile.value = null
 })
 watch(effectiveModelId, () => { modelPickerOpen.value = false; if (mode.value === 'work') refreshCapabilities() })
@@ -557,7 +595,7 @@ watch(() => [liveRoute.path, liveRoute.query], ([path, query], [previousPath]) =
 watch(() => route.query.chat, value => { if (mode.value !== 'chat' || value === chatId.value) return; closeChat(); if (typeof value === 'string') openChat(value); else { generation++; chatId.value = ''; chatMessages.value = []; chatEvents.value = [] } })
 watch(() => route.query.session, value => { if (value !== session.value?.id) loadSession(typeof value === 'string' ? value : null) })
 watch(() => mode.value, () => { modelPickerOpen.value = false; generation++; closeChat(); chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; draft.value = ''; policyOpen.value = false; error.value = ''; filePanel.value = false; if (mode.value === 'chat') { stopPoll(); session.value = null; pending.value = null } else refreshCapabilities() })
-watch(() => auth.user?.id || auth.user?.username, (_, previousOwner) => { disconnectLocal(); saveWorkspace(); restoringWorkspace = true; workspaceAccount = auth.user?.id || auth.user?.username; for (const currentMode of ['work','chat']) { try { sessionStorage.removeItem(modelPreferenceKey(previousOwner, currentMode)) } catch {} } modelGeneration++; capabilityGeneration++; modelPickerOpen.value = false; modelCatalog.value = { profiles: [], providers: [], defaultModelId: 'system' }; selectedModels.value = { work: 'system', chat: 'system' }; selectedEfforts.value={work:'',chat:''}; executionMode.value='auto'; chatModelSnapshot.value = null; capabilitiesModelId.value = ''; generation++; closeChat(); stopPoll(); session.value = null; sessions.value = []; projects.value = []; draft.value = ''; pending.value = null; chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; projectId.value = ''; projectName.value = ''; openedFile.value = null; files.value = []; changes.value = []; filePanel.value = false; fileEditing.value = false; fileContent.value = ''; projectOpen.value = false; historyOpen.value = false; policyOpen.value = false; capabilities.value = null; restoringWorkspace = false })
+watch(() => auth.user?.id || auth.user?.username, (_, previousOwner) => { disconnectLocal(); saveWorkspace(); restoringWorkspace = true; workspaceAccount = auth.user?.id || auth.user?.username; for (const currentMode of ['work','chat']) { try { sessionStorage.removeItem(modelPreferenceKey(previousOwner, currentMode)) } catch {} } modelGeneration++; capabilityGeneration++; modelPickerOpen.value = false; modelCatalog.value = { profiles: [], providers: [], defaultModelId: 'system' }; selectedModels.value = { work: 'system', chat: 'system' }; selectedEfforts.value={work:'',chat:''}; executionMode.value='auto'; chatModelSnapshot.value = null; capabilitiesModelId.value = ''; generation++; busy.value = false; fileSaving.value = false; closeChat(); stopPoll(); session.value = null; sessions.value = []; projects.value = []; draft.value = ''; pending.value = null; chatMessages.value = []; chatEvents.value = []; chatId.value=''; chatHistory.value=[]; projectId.value = ''; projectName.value = ''; openedFile.value = null; files.value = []; changes.value = []; filePanel.value = false; fileEditing.value = false; fileContent.value = ''; projectOpen.value = false; historyOpen.value = false; policyOpen.value = false; capabilities.value = null; restoringWorkspace = false })
 onMounted(async () => {
   const owner = auth.user?.id || auth.user?.username
   const results = await Promise.allSettled([codingApi.capabilities(), codingApi.projects(), codingApi.sessions(), modelApi.list()])
@@ -588,17 +626,20 @@ onDeactivated(() => {
 })
 onActivated(() => {
   if (loading.value || disposed) return
+  // Another workspace can append an explicit handoff while this new-task view
+  // is cached. Read it before exposing the composer again.
+  if (mode.value === 'work' && !session.value && !pending.value) restoreWorkspace()
   void reloadModels()
   if (mode.value === 'work' && session.value) void refreshSession()
   if (mode.value === 'chat' && chatRunning.value && !source) void recoverChat()
 })
-onMounted(() => { window.addEventListener('beforeunload', warnLocalClose); document.addEventListener('visibilitychange', saveHiddenDraft) })
-onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClose); document.removeEventListener('visibilitychange', saveHiddenDraft); disconnectLocal(); saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
+onMounted(() => { window.addEventListener('beforeunload', warnLocalClose); document.addEventListener('visibilitychange', saveHiddenDraft); topbarObserver = new ResizeObserver(() => { if (topbar.value) topbarHeight.value = topbar.value.getBoundingClientRect().height }); if (topbar.value) topbarObserver.observe(topbar.value) })
+onBeforeUnmount(() => { topbarObserver?.disconnect(); window.removeEventListener('beforeunload', warnLocalClose); document.removeEventListener('visibilitychange', saveHiddenDraft); disconnectLocal(); saveWorkspace(); disposed = true; modelGeneration++; capabilityGeneration++; generation++; closeChat(); stopPoll() })
 </script>
 
 <template>
-  <main class="coding-workspace" data-testid="coding-workspace">
-    <header class="coding-topbar">
+  <main class="coding-workspace" data-testid="coding-workspace" :style="{ '--coding-topbar-height': topbarHeight + 'px' }">
+    <header ref="topbar" class="coding-topbar">
       <div class="coding-location"><StudioIcon :name="mode === 'work' ? 'layout' : 'chat'" :size="19" /><strong>{{ mode === 'work' ? 'Coding Agent' : '历史智能体对话' }}</strong><span v-if="session" class="coding-project-label">/ {{ selectedProject?.name || '项目' }}</span></div>
       <div class="coding-top-actions"><CodingEditorLink v-if="mode === 'work' && selectedProject" :project="selectedProject" :owner="ownerId()" :directory-name="savedLocalHandle?.name" :desktop-id="savedLocalHandle?.desktop ? savedLocalHandle.id : null" /><button v-if="mode === 'work' && projectId" class="quiet-button" aria-label="项目长期记忆" title="项目长期记忆" @click="memoryOpen = true" data-testid="coding-memory-open"><StudioIcon name="notes" :size="18" /><span>项目记忆</span></button><RouterLink class="quiet-button" to="/governance" aria-label="用量与运行状态" title="用量与运行状态"><StudioIcon name="chart" :size="18" /><span>用量与运行状态</span></RouterLink><button class="quiet-button" :aria-label="mode === 'chat' ? '对话历史' : '历史任务'" title="历史记录" @click="showHistory" data-testid="coding-history"><StudioIcon name="clock" :size="18" /><span>{{ mode === 'chat' ? '对话历史' : '历史任务' }}</span></button><button v-if="mode === 'work' && (session || projectId)" class="quiet-button" aria-label="项目文件" title="项目文件" @click="showFiles" data-testid="coding-files"><StudioIcon name="folder" :size="18" /><span>项目文件</span></button><button v-if="hasContent" class="quiet-button" aria-label="新任务" title="新任务" :disabled="busy" @click="newTask()"><StudioIcon name="plus" :size="18" /><span>新任务</span></button></div>
     </header>
@@ -625,13 +666,13 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
           <template v-else><article v-for="message in chatMessages" :key="message.id" class="coding-turn"><div v-if="message.role === 'user'" class="coding-user-message">{{ message.text }}</div><template v-else><div class="coding-agent-label"><span class="agent-mini">✦</span> 历史智能体对话<span class="turn-model">{{ message.modelSnapshot?.model || message.modelSnapshot?.name }}</span></div><ReplyMarkdown v-if="message.text" :text="message.text" /><p v-else-if="chatRunning" class="coding-thinking"><span></span>正在思考…</p></template></article><details v-if="chatEvents.length" class="coding-tool-event"><summary>本轮工具执行记录 · {{ chatEvents.length }}</summary><pre>{{ pretty(chatEvents) }}</pre></details></template>
         </div>
       </section>
-      <aside v-if="filePanel" ref="filesPanel" aria-label="项目文件" class="coding-file-panel" data-testid="coding-file-panel"><div class="panel-heading"><h2>项目文件</h2><button class="icon-button" aria-label="关闭文件面板" @click="closeFiles"><StudioIcon name="close" :size="18" /></button></div><p class="muted">{{ selectedProject?.name }} · {{ workspaceLabel }}</p><div class="file-panel-actions"><button class="quiet-button" :disabled="filesLoading" @click="loadFiles" data-testid="refresh-files"><StudioIcon name="clock" :size="15" />{{ filesLoading ? '正在刷新…' : '刷新文件' }}</button><button class="quiet-button" :disabled="workRunning" @click="editFile()" data-testid="new-file"><StudioIcon name="plus" :size="15" />新建文件</button></div><div v-if="fileEditing" ref="editorPanel" role="dialog" aria-label="编辑项目文件" class="coding-file-editor"><label>项目相对路径<input v-model="filePath" placeholder="例如 src/index.js" aria-label="文件路径" :disabled="fileSaving" /></label><label>文件内容<textarea v-model="fileContent" rows="12" aria-label="文件内容" :disabled="fileSaving"></textarea></label><footer><button class="quiet-button" :disabled="fileSaving" @click="cancelFileEdit">取消</button><button class="coding-primary" :disabled="fileSaving || !filePath.trim() || workRunning" @click="saveFile" data-testid="save-file">保存文件</button></footer></div><div class="file-browser-tools">
+      <aside v-if="filePanel" ref="filesPanel" aria-label="项目文件" class="coding-file-panel" data-testid="coding-file-panel"><div class="panel-heading"><h2>项目文件</h2><button class="icon-button" aria-label="关闭文件面板" @click="closeFiles"><StudioIcon name="close" :size="18" /></button></div><p class="muted">{{ selectedProject?.name }} · {{ workspaceLabel }}</p><div class="file-panel-actions"><button class="quiet-button" :disabled="filesLoading" @click="loadFiles" data-testid="refresh-files"><StudioIcon name="clock" :size="15" />{{ filesLoading ? '正在刷新…' : '刷新文件' }}</button><button class="quiet-button" :disabled="workRunning" @click="editFile()" data-testid="new-file"><StudioIcon name="plus" :size="15" />新建文件</button></div><div v-if="fileEditing" ref="editorPanel" role="dialog" aria-label="编辑项目文件" class="coding-file-editor"><p v-if="filesError" class="file-panel-error" role="alert">{{ filesError }}</p><label>项目相对路径<input v-model="filePath" placeholder="例如 src/index.js" aria-label="文件路径" :disabled="fileSaving" /></label><label>文件内容<textarea v-model="fileContent" rows="12" aria-label="文件内容" :disabled="fileSaving"></textarea></label><footer><button class="quiet-button" :disabled="fileSaving" @click="cancelFileEdit">取消</button><button class="coding-primary" :disabled="fileSaving || !filePath.trim() || workRunning" @click="saveFile" data-testid="save-file">保存文件</button></footer></div><div class="file-browser-tools">
           <label class="file-search"><StudioIcon name="search" :size="16" /><input v-model="fileQuery" type="search" aria-label="搜索项目文件" placeholder="按文件名或路径搜索" data-testid="file-search" /></label>
           <label class="changed-filter"><input v-model="changedOnly" type="checkbox" data-testid="changed-only" />只看已改文件</label>
           <p class="muted file-count" role="status">显示 {{ filteredFiles.length }} / {{ files.length }} 个已加载文件 · {{ changes.length }} 项改动</p>
         </div>
         <p v-if="filesLoading" class="muted" role="status">正在读取项目文件…</p>
-        <p v-if="filesError" class="file-panel-error" role="alert">{{ filesError }}<span v-if="files.length">（当前显示上次加载的文件列表）</span></p>
+        <p v-if="filesError && !fileEditing" class="file-panel-error" role="alert">{{ filesError }}<span v-if="files.length">（当前显示上次加载的文件列表）</span></p>
         <p v-if="!filesLoading && !filesError && !files.length" class="muted file-empty">项目中暂无可显示的文件</p>
         <p v-else-if="!filesLoading && files.length && !filteredFiles.length" class="muted file-empty">{{ changedOnly ? '没有符合条件的已改文件，已删除文件请查看下方变更。' : '没有匹配的文件，试试其他关键词。' }}</p>
         <button v-for="file in filteredFiles" :key="file.path" class="coding-file-row" :class="{ active: openedFile?.path === file.path }" :title="file.path" @click="openFile(file.path)"><StudioIcon name="document" :size="16" /><span>{{ file.path }}</span><small v-if="changedPaths.has(file.path)" class="file-changed-badge">已改</small></button>
@@ -648,7 +689,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', warnLocalClos
         <p>{{ workTransfer.destination.model }} · {{workTransfer.destination.baseUrl}} · {{ workTransfer.purpose==='ANALYZE'?'只分析':'可生成候选修复' }}</p>
         <label v-if="workTransfer.purpose==='PROPOSE_PATCH'"><input v-model="analysisOnly" type="checkbox" :disabled="busy || running"/>本轮只分析</label>
         <label v-if="workTransfer.allowTests && !analysisOnly">必验测试文件（每行一个，可选）<textarea v-model="requiredTestPaths" rows="2" placeholder="tests/test_orders.py"/></label>
-        <button type="button" @click="api.post('/ai/work/evidence/transfers/'+workTransfer.id+'/revoke').then(loadGrant).catch(e=>error=errorMessage(e))">撤销授权</button>
+        <button type="button" :disabled="busy" @click="revokeGrant">撤销授权</button>
       </section>
       <p v-if="error" class="coding-error" role="alert">{{ error }} <button v-if="mode === 'work' && session" @click="refreshSession">刷新状态</button></p>
       <p v-if="modelsError" class="coding-service-note coding-warning" role="status">{{ modelsError }} <button class="model-note-action" @click="reloadModels()">重试</button></p><p v-if="mode === 'work' && !modelsLoading && !capabilitiesLoading && capabilities && !capabilities.available" class="coding-service-note coding-warning" role="status">{{ capabilities.reason || 'Coding Agent 暂未就绪' }} <button class="model-note-action" :disabled="running || busy || Boolean(pending)" @click="openModelManager">配置模型</button></p>

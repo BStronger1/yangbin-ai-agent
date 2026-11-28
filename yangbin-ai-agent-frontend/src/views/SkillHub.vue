@@ -22,7 +22,7 @@ const plugins = computed(() => [
 { id: 'knowledge', name: '个人知识库', icon: 'book', color: 'blue', description: '上传资料、建立索引并检索自己的知识库。', available: !!capabilities.value?.rag, to: '/knowledge', tag: '资料检索' },
 { id: 'mcp', name: 'MCP 工具', icon: 'plug', color: 'violet', description: '查看服务端连接的工具，按当前账号权限调用。', available: !!capabilities.value?.mcpTools?.length, to: '/mcp', tag: '工具连接' },
 { id: 'agent', name: 'Agent 工具执行', icon: 'spark', color: 'teal', description: '在智能对话中调用当前账号可用的工具。', available: !!capabilities.value?.tools?.length, to: '/super-agent', tag: '智能对话' }
-].filter(s => [s.name,s.description].join(' ').includes(query.value.trim())))
+].filter(s => [s.name,s.description].join(' ').toLowerCase().includes(query.value.toLowerCase().trim())))
 async function load() {
   const version = ++epoch, account = owner()
   controller?.abort(); controller = new AbortController(); loading.value = true; error.value = ''
@@ -62,7 +62,7 @@ function dialogKeys(e) {
   }
 }
 watch(tab, () => { category.value = '全部'; mine.value = false; query.value = ''; detail.value = null })
-watch(owner, () => { epoch++; controller?.abort(); catalog.value = {skills:[],partners:[]}; library.value = {skills:[],partners:[]}; detail.value = null; capabilities.value = null; busy.value = ''; if (owner()) load() })
+watch(owner, () => { epoch++; controller?.abort(); catalog.value = {skills:[],partners:[]}; library.value = {skills:[],partners:[]}; summoned.value = []; detail.value = null; capabilities.value = null; busy.value = ''; if (owner()) load() })
 onMounted(load)
 onBeforeUnmount(() => { alive = false; epoch++; controller?.abort() })
 </script>
@@ -121,3 +121,7 @@ onBeforeUnmount(() => { alive = false; epoch++; controller?.abort() })
     </div>
   </main>
 </template>
+
+<style scoped>
+.studio-body{min-width:0;max-width:100%;box-sizing:border-box}.category-strip{min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.category-strip button{flex-shrink:0}
+</style>

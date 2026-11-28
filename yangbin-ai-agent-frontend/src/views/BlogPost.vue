@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { useUnsavedChanges } from '../composables/useUnsavedChanges'
 import { api, errorMessage } from '../workspace-api'
 import { workspaceOwner } from '../workspace-state'
 import { downloadHexoPost } from '../blog-export'
@@ -21,6 +22,10 @@ const publicUrl = computed(() => new URL(publicPath.value, location.origin).href
 const draftSlot = () => JSON.stringify(['blog-draft', workspaceOwner(), route.params.id || 'new'])
 const url = id => '/ai/blog/posts/' + encodeURIComponent(id)
 const words = computed(() => Array.from(markdown.value.trim()).length)
+const unsaved = computed(() => loaded.value && editing.value && storageWarning.value && (title.value !== (post.value?.title || '') || markdown.value !== (post.value?.markdown || '') || JSON.stringify(fields().tags) !== JSON.stringify(post.value?.tags || [])))
+const { allowDiscard } = useUnsavedChanges(unsaved, false, workspaceOwner)
+onBeforeRouteLeave(() => allowDiscard())
+onBeforeRouteUpdate(() => allowDiscard())
 let generation = 0
 onBeforeUnmount(() => { generation++ })
 
@@ -31,7 +36,7 @@ function cacheDraft() {
   if (!loaded.value || !editing.value || !workspaceOwner()) return
   const saved = post.value
   if (title.value === (saved?.title || '') && markdown.value === (saved?.markdown || '')
-    && tagsInput.value === (saved?.tags.join('，') || '')) {
+    && tagsInput.value === (saved?.tags?.join('，') || '')) {
     clearDraft()
     return
   }
@@ -45,7 +50,7 @@ watch([title, markdown, tagsInput], cacheDraft, { flush: 'sync' })
 function loadFields(article) {
   title.value = article?.title || ''
   markdown.value = article?.markdown || ''
-  tagsInput.value = article?.tags.join('，') || ''
+  tagsInput.value = article?.tags?.join('，') || ''
   baseRevision.value = article?.revision ?? null
 }
 async function load() {
@@ -67,8 +72,8 @@ async function load() {
     if (editing.value) {
       let draft
       try { draft = JSON.parse(localStorage.getItem(draftSlot())) } catch { /* optional local cache */ }
-      creationId.value = draft?.creationId || ''
-      if (draft && typeof draft.markdown === 'string') {
+      creationId.value = typeof draft?.creationId === 'string' ? draft.creationId : ''
+      if (draft && ['title', 'tagsInput', 'markdown'].every(key => typeof draft[key] === 'string')) {
         title.value = draft.title
         markdown.value = draft.markdown
         tagsInput.value = draft.tagsInput
@@ -91,6 +96,11 @@ watch([() => route.path, workspaceOwner], load, { immediate: true })
 function restoreServer() {
   if (!window.confirm('用服务器上的文章替换此设备的修改？需要保留的内容可先导出 Markdown。')) return
   clearDraft()
+  storageWarning.value = false
+  if (!route.params.id && creationId.value) {
+    router.replace('/blog/' + encodeURIComponent(creationId.value) + '/edit')
+    return
+  }
   load()
 }
 async function save(publish) {
@@ -116,6 +126,7 @@ async function save(publish) {
     if (token !== generation) return
     post.value = saved
     baseRevision.value = saved.revision
+    storageWarning.value = false
     clearDraft()
     if (publish && saved.status !== 'PUBLISHED') {
       saved = (await api.post(url(saved.id) + '/publish', { revision: saved.revision })).data
@@ -172,7 +183,7 @@ function insert(before, sample, after = '') {
 </script>
 <template>
   <main class="blog">
-    <nav class="blog-breadcrumb" aria-label="文章导航"><RouterLink to="/blog">我的博客</RouterLink><span>/</span>{{ editing ? '写文章' : '阅读文章' }}</nav>
+    <nav class="blog-breadcrumb" aria-label="文章导航"><RouterLink to="/blog">我的博客</RouterLink><span>/</span>{{ editing ? (route.params.id ? '编辑文章' : '写文章') : '阅读文章' }}</nav>
     <p v-if="error" class="blog-error" role="alert">{{ error }} <button v-if="!loaded" @click="load">重试</button></p>
     <p v-if="notice" class="blog-notice" role="status">{{ notice }}</p>
     <p v-if="!loaded && !error" class="blog-empty">正在打开文章…</p>

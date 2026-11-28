@@ -1,6 +1,10 @@
 package com.yangbin.yangbinaiagent.work;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.yangbin.yangbinaiagent.router.RouterDecision;
+import com.yangbin.yangbinaiagent.router.RouterProperties;
+import com.yangbin.yangbinaiagent.router.SmartRouterService;
 import com.yangbin.yangbinaiagent.evaluation.ExecutionProvenance;
 import com.yangbin.yangbinaiagent.security.UserContext;
 import com.yangbin.yangbinaiagent.models.*;
@@ -23,7 +27,8 @@ public class PartnerChatService {
     private static final String UUID_RE="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
     public record Profile(int version,String instructions) {}
     public record Brief(String goal,String deliverable,String constraints) {}
-    public record Input(String conversationId,String requestId,int expectedRevision,String text,String skillId,List<String> attachmentIds,String modelProfileId,String mode,Brief brief,boolean confirmed,String reasoningEffort) {
+    public record Input(String conversationId,String requestId,int expectedRevision,String text,String skillId,List<String> attachmentIds,String modelProfileId,String mode,Brief brief,boolean confirmed,String reasoningEffort,String budgetMode) {
+        public Input(String conversationId,String requestId,int expectedRevision,String text,String skillId,List<String> attachments,String modelProfileId,String mode,Brief brief,boolean confirmed,String reasoningEffort){this(conversationId,requestId,expectedRevision,text,skillId,attachments,modelProfileId,mode,brief,confirmed,reasoningEffort,null);}
         public Input(String conversationId,String requestId,int expectedRevision,String text,String skillId,List<String> attachments,String modelProfileId,String mode,Brief brief,boolean confirmed){this(conversationId,requestId,expectedRevision,text,skillId,attachments,modelProfileId,mode,brief,confirmed,null);}
         public Input(String conversationId,String requestId,int expectedRevision,String text,String skillId,List<String> attachments,String modelProfileId){this(conversationId,requestId,expectedRevision,text,skillId,attachments,modelProfileId,null,null,false);}
         public Input {attachmentIds=attachmentIds==null?List.of():List.copyOf(attachmentIds);}
@@ -31,9 +36,11 @@ public class PartnerChatService {
         public Input(String conversationId,String requestId,int expectedRevision,String text){this(conversationId,requestId,expectedRevision,text,null,List.of());}
     }
     public record Event(String label,String at) {}
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record Turn(String id,String text,String answer,String status,String error,String createdAt,
                        String systemInstructions,int profileVersion,List<String> contextTurnIds,ExecutionProvenance.Attempt attempt,
-                       String skillId,List<PartnerResources.Resource> attachments,List<PartnerResources.Resource> artifacts,List<Event> events,String materialContext,String modelProfileId,ModelProfileService.Snapshot modelSnapshot,Brief brief) {
+                       String skillId,List<PartnerResources.Resource> attachments,List<PartnerResources.Resource> artifacts,List<Event> events,String materialContext,String modelProfileId,ModelProfileService.Snapshot modelSnapshot,Brief brief,RouterDecision routerDecision) {
+        public Turn(String id,String text,String answer,String status,String error,String createdAt,String systemInstructions,int profileVersion,List<String> contextTurnIds,ExecutionProvenance.Attempt attempt,String skillId,List<PartnerResources.Resource> attachments,List<PartnerResources.Resource> artifacts,List<Event> events,String materialContext,String modelProfileId,ModelProfileService.Snapshot modelSnapshot,Brief brief){this(id,text,answer,status,error,createdAt,systemInstructions,profileVersion,contextTurnIds,attempt,skillId,attachments,artifacts,events,materialContext,modelProfileId,modelSnapshot,brief,null);}
         public Turn {attachments=attachments==null?List.of():List.copyOf(attachments);artifacts=artifacts==null?List.of():List.copyOf(artifacts);events=events==null?List.of():List.copyOf(events);}
     }
     public record Conversation(String id,String partnerId,String title,String createdAt,String updatedAt,int revision,List<Turn> turns,String mode) {
@@ -43,6 +50,8 @@ public class PartnerChatService {
     private final ObjectMapper json; private final ChatModel model; private final WorkCatalog catalog;
     private final WorkService work; private final ExecutionProvenance provenance; private final Path root; private final PartnerResources resources;
     private final ModelProfileService modelProfiles; private final PrivateChatModels privateModels;
+    @Autowired(required = false) private SmartRouterService smartRouter;
+    public void setSmartRouter(SmartRouterService smartRouter){this.smartRouter=smartRouter;}
     private final ExecutorService executor=new ThreadPoolExecutor(2,2,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(8),r->{var t=new Thread(r,"partner-job");t.setDaemon(true);return t;});
     @PreDestroy public void close(){executor.shutdownNow();}
     public PartnerChatService(ObjectMapper json,ChatModel model,WorkCatalog catalog,WorkService work,ExecutionProvenance provenance,String dir)throws IOException{this(json,model,catalog,work,provenance,dir,new PartnerResources(json,catalog,dir));}
@@ -121,6 +130,12 @@ public class PartnerChatService {
     public synchronized Page page(String partner,String id,Integer before,int limit,String mode)throws IOException {inMode(partner,id,mode);return page(partner,id,before,limit);}
     public synchronized Page cancel(String partner,String id,String mode)throws IOException {inMode(partner,id,mode);cancel(partner,id);return page(partner,id,null,8);}
     private static String effort(String value){return value==null||value.isBlank()||value.equals("default")?"":value.strip();}
+    // Old requests and old persisted turns remain replayable when the flag is enabled later.
+    private boolean budgetChanged(Turn turn,Input input){
+        return smartRouter!=null&&smartRouter.isEnabled()&&turn.routerDecision()!=null
+            &&input.budgetMode()!=null&&!input.budgetMode().isBlank()
+            &&!Objects.equals(turn.routerDecision().budgetMode(),RouterProperties.normalizeBudgetMode(input.budgetMode()));
+    }
     private record Prepared(Conversation conversation,List<Message> messages,ChatModel selectedModel,boolean existing) {}
     private synchronized Prepared prepare(String partnerId,Input input)throws IOException {
         if(input==null||input.text()==null||input.text().isBlank()||input.text().length()>12000)throw new IllegalArgumentException("请输入1–12000字的消息");
@@ -132,7 +147,7 @@ public class PartnerChatService {
         if(Files.exists(target)) {
             c=get(partnerId,input.conversationId());
             if(!c.mode().equals(mode))throw new IllegalStateException("会话属于其他工作空间，请返回原入口");
-            for(Turn t:c.turns())if(t.id().equals(input.requestId())){if(!t.text().equals(text)||!Objects.equals(t.skillId()==null?catalog.partner(partnerId).skillId():t.skillId(),skillId)||!t.attachments().stream().map(PartnerResources.Resource::id).toList().equals(input.attachmentIds())||!Objects.equals(t.modelProfileId(),normalizedModel(input.modelProfileId()))||!Objects.equals(t.brief(),brief)||!Objects.equals(effort(t.modelSnapshot()==null?null:t.modelSnapshot().reasoningEffort()),effort(input.reasoningEffort())))throw new IllegalStateException("消息编号已用于其他内容");return new Prepared(c,List.of(),null,true);}
+            for(Turn t:c.turns())if(t.id().equals(input.requestId())){if(!t.text().equals(text)||!Objects.equals(t.skillId()==null?catalog.partner(partnerId).skillId():t.skillId(),skillId)||!t.attachments().stream().map(PartnerResources.Resource::id).toList().equals(input.attachmentIds())||!Objects.equals(t.modelProfileId(),normalizedModel(input.modelProfileId()))||!Objects.equals(t.brief(),brief)||!Objects.equals(effort(t.modelSnapshot()==null?null:t.modelSnapshot().reasoningEffort()),effort(input.reasoningEffort()))||budgetChanged(t,input))throw new IllegalStateException("消息编号已用于其他内容");return new Prepared(c,List.of(),null,true);}
             if(c.revision()!=input.expectedRevision())throw new IllegalStateException("会话有新消息，请刷新后继续");
             if(c.turns().getLast().status().equals("RUNNING"))throw new IllegalStateException("请等待当前回复完成");
             if(c.turns().size()>=100)throw new IllegalStateException("此会话已达100轮，请新建任务");
@@ -144,6 +159,13 @@ public class PartnerChatService {
         if(!work.policy(partnerId).enabled())throw new IllegalStateException("此伙伴已被限制，请在伙伴管理中调整授权");
         var resolved=modelProfiles==null?null:modelProfiles.resolve(input.modelProfileId(),input.reasoningEffort());
         ChatModel selectedModel=resolved==null?model:privateModels.create(resolved);
+        RouterDecision routerDecision=null;
+        ModelProfileService.Snapshot modelSnapshot=resolved==null?null:resolved.snapshot();
+        if(resolved==null&&smartRouter!=null&&smartRouter.isEnabled()){
+            var outcome=smartRouter.route(text,mode,input.budgetMode(),selectedModel);
+            selectedModel=outcome.model();routerDecision=outcome.decision();
+            if(routerDecision!=null&&routerDecision.applied())modelSnapshot=outcome.snapshot();
+        }
         if(selectedModel instanceof UnconfiguredChatModel)throw new IllegalArgumentException("请先在模型设置中配置并选择个人模型，或联系管理员配置系统模型");
         var files=resources.bind(partnerId,input.attachmentIds(),c.id(),input.requestId());
         Profile profile=profile(partnerId);String skillName=skill==null?"自由对话":skill.name();
@@ -155,9 +177,9 @@ public class PartnerChatService {
         var context=new ArrayList<Turn>();int chars=0;
         for(int i=c.turns().size()-1;i>=0&&context.size()<10;i--){var t=c.turns().get(i);if(!t.status().equals("SUCCEEDED"))continue;int n=t.text().length()+t.answer().length()+(t.materialContext()==null?0:t.materialContext().length());if(chars+n>60000)break;context.addFirst(t);chars+=n;}
         var messages=new ArrayList<Message>();messages.add(new SystemMessage(system));for(Turn t:context){messages.add(new UserMessage(t.text()+(t.materialContext()==null?"":"\n"+t.materialContext())));messages.add(new AssistantMessage(t.answer()));}
-        var attempt=provenance.capture("model",1,json,Map.of("system",system,"context",context,"text",text,"attachments",files,"model",resolved==null?"system":resolved.snapshot()));
-        if(resolved!=null)attempt=new ExecutionProvenance.Attempt(attempt.schemaVersion(),attempt.stepId(),attempt.attempt(),attempt.reservedAt(),attempt.codeRevision(),resolved.snapshot().provider(),resolved.snapshot().model(),attempt.inputHash(),attempt.inputHashFormat());
-        var turn=new Turn(input.requestId(),text,null,"RUNNING",null,Instant.now().toString(),system,profile.version(),context.stream().map(Turn::id).toList(),attempt,skillId,files,List.of(),List.of(new Event(mode.equals("work")?"已确认工作目标与交付物":mode.equals("chat")?"已接收消息":"读取技能："+skillName,Instant.now().toString())),null,normalizedModel(input.modelProfileId()),resolved==null?null:resolved.snapshot(),brief);
+        var attempt=provenance.capture("model",1,json,Map.of("system",system,"context",context,"text",text,"attachments",files,"model",modelSnapshot==null?"system":modelSnapshot));
+        if(modelSnapshot!=null)attempt=new ExecutionProvenance.Attempt(attempt.schemaVersion(),attempt.stepId(),attempt.attempt(),attempt.reservedAt(),attempt.codeRevision(),modelSnapshot.provider(),modelSnapshot.model(),attempt.inputHash(),attempt.inputHashFormat());
+        var turn=new Turn(input.requestId(),text,null,"RUNNING",null,Instant.now().toString(),system,profile.version(),context.stream().map(Turn::id).toList(),attempt,skillId,files,List.of(),List.of(new Event(mode.equals("work")?"已确认工作目标与交付物":mode.equals("chat")?"已接收消息":"读取技能："+skillName,Instant.now().toString())),null,normalizedModel(input.modelProfileId()),modelSnapshot,brief,routerDecision);
         var turns=new ArrayList<>(c.turns());turns.add(turn);var reserved=new Conversation(c.id(),c.partnerId(),c.title(),c.createdAt(),turn.createdAt(),c.revision()+1,List.copyOf(turns),c.mode());write(target,reserved);return new Prepared(reserved,messages,selectedModel,false);
     }
     public Conversation send(String partner,Input input)throws IOException{var prepared=prepare(partner,input);return prepared.existing()?prepared.conversation():execute(prepared);}
@@ -169,7 +191,7 @@ public class PartnerChatService {
     public synchronized Conversation cancel(String partner,String id)throws IOException{var c=get(partner,id);var t=c.turns().getLast();if(t.status().equals("RUNNING"))update(partner,id,t.id(),old->finish(old,null,"CANCELLED","已停止后续处理；已经发出的模型请求可能仍在服务商端运行。"));return get(partner,id);}
     private synchronized void update(String partner,String id,String turnId,java.util.function.UnaryOperator<Turn> change)throws IOException{var c=get(partner,id);if(!c.turns().getLast().id().equals(turnId)||!c.turns().getLast().status().equals("RUNNING"))return;var turns=new ArrayList<>(c.turns());turns.set(turns.size()-1,change.apply(turns.getLast()));write(path(id),new Conversation(c.id(),partner,c.title(),c.createdAt(),Instant.now().toString(),c.revision(),List.copyOf(turns),c.mode()));}
     private boolean running(String partner,String id,String turn)throws IOException{var t=get(partner,id).turns().getLast();return t.id().equals(turn)&&t.status().equals("RUNNING");}
-    private void event(String partner,String id,String turn,String label)throws IOException{update(partner,id,turn,t->{var events=new ArrayList<>(t.events());events.add(new Event(label,Instant.now().toString()));return new Turn(t.id(),t.text(),t.answer(),t.status(),t.error(),t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),t.artifacts(),events,t.materialContext(),t.modelProfileId(),t.modelSnapshot(),t.brief());});}
+    private void event(String partner,String id,String turn,String label)throws IOException{update(partner,id,turn,t->{var events=new ArrayList<>(t.events());events.add(new Event(label,Instant.now().toString()));return new Turn(t.id(),t.text(),t.answer(),t.status(),t.error(),t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),t.artifacts(),events,t.materialContext(),t.modelProfileId(),t.modelSnapshot(),t.brief(),t.routerDecision());});}
     private Conversation execute(Prepared prepared)throws IOException{
         var c=prepared.conversation();String partner=c.partnerId(),id=c.id();var turn=c.turns().getLast();
         try{
@@ -177,7 +199,7 @@ public class PartnerChatService {
             if(!turn.attachments().isEmpty())event(partner,id,turn.id(),"读取 "+turn.attachments().size()+" 个附件");
             var analysis=resources.analyze(partner,turn.attachments());String material=turn.attachments().isEmpty()?null:analysis.context();
             if(!analysis.tables().isEmpty())event(partner,id,turn.id(),"已完成 "+analysis.tables().size()+" 张表的数值统计");
-            update(partner,id,turn.id(),t->new Turn(t.id(),t.text(),t.answer(),t.status(),t.error(),t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),t.artifacts(),t.events(),material,t.modelProfileId(),t.modelSnapshot(),t.brief()));
+            update(partner,id,turn.id(),t->new Turn(t.id(),t.text(),t.answer(),t.status(),t.error(),t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),t.artifacts(),t.events(),material,t.modelProfileId(),t.modelSnapshot(),t.brief(),t.routerDecision()));
             if(!running(partner,id,turn.id()))return get(partner,id);
             event(partner,id,turn.id(),c.mode().equals("work")?"正在生成工作成果":"正在生成回复");var messages=new ArrayList<>(prepared.messages());messages.add(new UserMessage(turn.text()+(material==null?"":"\n\n附件材料与统计：\n"+material)));
             String answer=prepared.selectedModel().call(new Prompt(messages)).getResult().getOutput().getText();if(answer==null||answer.isBlank()||answer.length()>40000)throw new IllegalStateException("回复为空或过长");
@@ -190,7 +212,7 @@ public class PartnerChatService {
     private synchronized void publish(String partner,String id,String turnId,String answer,PartnerResources.Analysis analysis)throws IOException {
         if(!running(partner,id,turnId))return;
         var artifacts=get(partner,id).mode().equals("chat")?List.<PartnerResources.Resource>of():resources.deliver(partner,id,turnId,answer,analysis);
-        update(partner,id,turnId,t->new Turn(t.id(),t.text(),answer,"SUCCEEDED",null,t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),artifacts,t.events(),t.materialContext(),t.modelProfileId(),t.modelSnapshot(),t.brief()));
+        update(partner,id,turnId,t->new Turn(t.id(),t.text(),answer,"SUCCEEDED",null,t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),artifacts,t.events(),t.materialContext(),t.modelProfileId(),t.modelSnapshot(),t.brief(),t.routerDecision()));
     }
     public synchronized void deleteConversation(String partner,String id,int revision)throws IOException {
         var c=get(partner,id);
@@ -201,6 +223,6 @@ public class PartnerChatService {
         Files.delete(path(id));
     }
     private static String normalizedModel(String id){return id==null||id.isBlank()?null:id;}
-    private static Turn finish(Turn t,String answer,String status,String error){return new Turn(t.id(),t.text(),answer,status,error,t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),t.artifacts(),t.events(),t.materialContext(),t.modelProfileId(),t.modelSnapshot(),t.brief());}
+    private static Turn finish(Turn t,String answer,String status,String error){return new Turn(t.id(),t.text(),answer,status,error,t.createdAt(),t.systemInstructions(),t.profileVersion(),t.contextTurnIds(),t.attempt(),t.skillId(),t.attachments(),t.artifacts(),t.events(),t.materialContext(),t.modelProfileId(),t.modelSnapshot(),t.brief(),t.routerDecision());}
     private void write(Path path,Object value) throws IOException {Path tmp=Files.createTempFile(path.getParent(),"chat-",".tmp");try{json.writeValue(tmp.toFile(),value);Files.move(tmp,path,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}finally{Files.deleteIfExists(tmp);}}
 }

@@ -49,15 +49,20 @@ const messages = ref([])
 const traceEvents=ref([])
 const mode = ref('chat')
 const capabilities = ref({ rag: false, mcpTools: [] })
+let alive = true
 onMounted(async () => {
-  try {
-    capabilities.value = await getCapabilities()
-    if (capabilities.value.rag) mode.value = 'rag'
-    await refreshConversations();if(conversations.value.length)await openConversation(conversations.value[0].id);else newConversation()
-  } catch (error) { console.error('Capabilities unavailable', error) }
+  newConversation()
+  addMessage('欢迎来到AI恋爱大师，请告诉我你的恋爱问题，我会尽力给予帮助和建议。', false)
+  connectionStatus.value = 'connecting'
+  try { const value = await getCapabilities(); if (!alive) return; capabilities.value = value; if (value.rag) mode.value = 'rag' }
+  catch { if (alive) historyError.value = '暂时无法读取服务能力，请稍后重试。' }
+  if (!alive) return
+  try { await refreshConversations(); if (alive && conversations.value.length) await openConversation(conversations.value[0].id) }
+  catch (e) { if (alive) historyError.value = errorMessage(e) }
+  finally { if (alive) connectionStatus.value = 'disconnected' }
 })
 const conversations=ref([]),historyError=ref('')
-async function refreshConversations(){conversations.value=(await api.get('/ai/conversations')).data}
+async function refreshConversations(){const {data}=await api.get('/ai/conversations');if(alive)conversations.value=data}
 function newConversation(){chatId.value=generateChatId();messages.value=[];traceEvents.value=[];historyError.value=''}
 async function openConversation(id){try{const c=conversations.value.find(c=>c.id===id);if(!c)return;const response=await api.get('/ai/conversations/'+id,{params:{mode:c.mode}});chatId.value=id;mode.value=c.mode;messages.value=response.data.map(m=>({content:m.content,isUser:m.role==='USER',time:Date.now()}));traceEvents.value=[]}catch(e){historyError.value=errorMessage(e)}}
 async function deleteConversation(){if(!confirm('删除当前会话及保存的上下文？'))return;try{await api.delete('/ai/conversations/'+chatId.value,{params:{mode:mode.value}});newConversation();await refreshConversations()}catch(e){historyError.value=errorMessage(e)}}
@@ -81,6 +86,7 @@ const addMessage = (content, isUser) => {
 
 // 发送消息
 const sendMessage = (message) => {
+  if (connectionStatus.value === 'connecting' || !message?.trim()) return
   traceEvents.value=[]
   addMessage(message, true)
 
@@ -94,15 +100,27 @@ const sendMessage = (message) => {
   addMessage('', false)
 
   connectionStatus.value = 'connecting'
-  eventSource = chatWithLoveApp(message, chatId.value, mode.value)
-
+  const fail = text => {
+    traceEvents.value=traceEvents.value.map(e=>e.status==='running'?{...e,status:'failed'}:e)
+    const bubble=messages.value[aiMessageIndex]
+    if(bubble) bubble.content = bubble.content ? bubble.content + '\n\n' + text : text
+    connectionStatus.value='error';eventSource?.close()
+  }
+  try { eventSource = chatWithLoveApp(message, chatId.value, mode.value) }
+  catch { fail('无法连接服务，请稍后重试。'); return }
   eventSource.addEventListener('trace', event => {
-    const item=JSON.parse(event.data),index=traceEvents.value.findIndex(e=>e.id===item.id)
-    if(index>=0) traceEvents.value[index]=item
-    else {traceEvents.value.push(item);if(traceEvents.value.length>80)traceEvents.value.shift()}
+    try {
+      const item=JSON.parse(event.data)
+      if(!item||typeof item!=='object'||!item.id)return
+      const index=traceEvents.value.findIndex(e=>e.id===item.id)
+      if(index>=0) traceEvents.value[index]=item
+      else {traceEvents.value.push(item);if(traceEvents.value.length>80)traceEvents.value.shift()}
+    } catch { fail('回复数据格式异常，请稍后重试。') }
   })
   eventSource.addEventListener('failure', event => {
-    traceEvents.value=traceEvents.value.map(e=>e.status==='running'?{...e,status:'failed'}:e);addMessage(event.data,false);connectionStatus.value='error';eventSource.close()
+    let message=event.data || '回复未完成，请稍后重试。'
+    try { const data=JSON.parse(message);message=typeof data?.message==='string'?data.message:message } catch { /* Plain-text SSE failure is supported. */ }
+    fail(message)
   })
 
   // 监听SSE消息
@@ -116,6 +134,8 @@ const sendMessage = (message) => {
     }
 
     if (data === '[DONE]') {
+      const bubble = messages.value[aiMessageIndex]
+      if (bubble && !bubble.content) bubble.content = '服务未返回回复内容，请稍后重试。'
       connectionStatus.value = 'disconnected'
       eventSource.close()
       refreshConversations().catch(e=>historyError.value=errorMessage(e))
@@ -123,12 +143,9 @@ const sendMessage = (message) => {
   }
 
   // 监听SSE错误
-  eventSource.onerror = (error) => {
-    traceEvents.value=traceEvents.value.map(e=>e.status==='running'?{...e,status:'failed'}:e)
-    checkSession()
-    console.error('SSE Error:', error)
-    connectionStatus.value = 'error'
-    eventSource.close()
+  eventSource.onerror = () => {
+    fail('无法连接服务，回复未完成，请稍后重试。')
+    checkSession().catch(() => {})
   }
 }
 
@@ -137,17 +154,9 @@ const goBack = () => {
   router.push('/')
 }
 
-// 页面加载时添加欢迎消息
-onMounted(() => {
-  // 生成聊天ID
-  chatId.value = generateChatId()
-
-  // 添加欢迎消息
-  addMessage('欢迎来到AI恋爱大师，请告诉我你的恋爱问题，我会尽力给予帮助和建议。', false)
-})
-
 // 组件销毁前关闭SSE连接
 onBeforeUnmount(() => {
+  alive = false
   if (eventSource) {
     eventSource.close()
   }

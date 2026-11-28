@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { api, errorMessage } from '../workspace-api'
 import { downloadBlob } from '../downloads'
+import { uuid } from '../uuid'
 
 const props = defineProps({sessionId:String,turnId:String})
 const changes=ref([]), receipts=ref([]), loading=ref(false), working=ref(false), error=ref('')
@@ -27,7 +28,7 @@ async function apply(change) {
   if(working.value)return
   working.value=true;error.value=''
   try {
-    if(!attempts.has(change.path))attempts.set(change.path,crypto.randomUUID())
+    if(!attempts.has(change.path))attempts.set(change.path,uuid())
     await api.post(root()+'/applications',{requestId:attempts.get(change.path),path:change.path,oldHash:await digest(change.before),newHash:await digest(change.after)})
     await load()
   } catch(e){error.value=errorMessage(e)}

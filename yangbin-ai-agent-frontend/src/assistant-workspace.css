@@ -6,3 +6,26 @@
 .assistant-recent details > button { margin:.5rem .65rem .25rem 0; }
 
 .assistant-composer-zone > .work-evidence[open] { max-height:min(58dvh,600px); overflow:auto; overscroll-behavior:contain; }
+
+.assistant-workspace .coding-history-panel{top:var(--coding-topbar-height,72px)}
+.assistant-workspace .coding-body,.assistant-workspace .coding-thread,.assistant-workspace .coding-turn,.assistant-output-preview{min-width:0}
+.assistant-dialog p.coding-error{color:#ad4b45}
+@media(max-width:760px){.assistant-workspace .assistant-result-panel{inset:0}.assistant-workspace .coding-topbar{height:auto;min-height:54px;flex-wrap:wrap;padding:8px 10px;row-gap:8px}.assistant-workspace .coding-history-panel{top:var(--coding-topbar-height,54px)}}
+
+/* ITER-3: match the shared workspace palette without changing layout contracts. */
+.assistant-modes{border-color:var(--yb-border);background:var(--yb-bg-subtle)}
+.assistant-modes button{color:var(--yb-ink-muted)}
+.assistant-modes button.active{background:var(--yb-bg-surface);color:var(--yb-accent);box-shadow:var(--yb-shadow-sm)}
+.assistant-emblem{background:var(--yb-accent-soft);color:var(--yb-accent);border:1px solid #dbeafe;border-radius:var(--yb-radius-lg)}
+.assistant-starters button{padding:16px 20px;background:var(--yb-bg-surface);border-color:var(--yb-border);color:var(--yb-ink-secondary);box-shadow:var(--yb-shadow-sm);transition:transform var(--yb-motion),border-color var(--yb-motion),box-shadow var(--yb-motion)}
+.assistant-starters button:hover{transform:translateY(-2px);border-color:var(--yb-border-strong);box-shadow:var(--yb-shadow-md)}
+.assistant-resources,.assistant-footnote,.assistant-brief-grid label{color:var(--yb-ink-muted)}
+.assistant-confirm input{accent-color:var(--yb-accent)}
+.assistant-brief-grid input,.assistant-dialog textarea{background:var(--yb-bg-canvas);border-color:var(--yb-border);color:var(--yb-ink)}
+.assistant-skill{border-color:var(--yb-border);background:var(--yb-bg-subtle);color:var(--yb-ink-secondary)}
+.assistant-brief-record,.assistant-attachment-chips span{background:var(--yb-bg-subtle);color:var(--yb-ink-secondary)}
+.assistant-resource-card,.assistant-artifacts>a{border-color:var(--yb-border);background:var(--yb-bg-surface);border-radius:var(--yb-radius-md);box-shadow:var(--yb-shadow-sm)}
+.assistant-resource-card a,.assistant-attached,.assistant-legacy,.assistant-footnote button{color:var(--yb-accent)}
+.assistant-dialog{border-color:var(--yb-border);border-radius:var(--yb-radius-lg);box-shadow:var(--yb-shadow-md)}
+.assistant-dialog h2{color:var(--yb-ink)}
+@media(max-width:760px){.assistant-starters button{padding:13px 15px}}

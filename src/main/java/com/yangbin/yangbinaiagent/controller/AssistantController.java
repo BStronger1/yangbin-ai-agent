@@ -53,7 +53,7 @@ public class AssistantController {
                 }})
                 .distinctUntilChanged()
                 .concatMap(snapshot->{var state=ServerSentEvent.builder((Object)snapshot).event("state").build();
-                    return snapshot.turns().getLast().status().equals("RUNNING")?Flux.just(state):Flux.just(state,ServerSentEvent.builder((Object)"[DONE]").event("done").build());})
+                    return snapshot.turns()!=null&&!snapshot.turns().isEmpty()&&"RUNNING".equals(snapshot.turns().getLast().status())?Flux.just(state):Flux.just(state,ServerSentEvent.builder((Object)"[DONE]").event("done").build());})
                 .takeUntil(event->"done".equals(event.event()))
                 .take(Duration.ofMinutes(5)) // Subscription lifetime only; browser may reconnect to the same durable record.
                 .doFinally(signal->subscriptions.release());

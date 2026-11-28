@@ -72,6 +72,27 @@ logging:
   level:
     org.springframework.ai: INFO
 app:
+  router:
+    enabled: ${ROUTER_ENABLED:false}
+    shadow-only: ${ROUTER_SHADOW_ONLY:false}
+    base-url: ${ROUTER_BASE_URL:http://127.0.0.1:18129}
+    timeout-ms: ${ROUTER_TIMEOUT_MS:250}
+    default-budget-mode: ${ROUTER_BUDGET_MODE:balanced}
+    circuit-failure-threshold: ${ROUTER_CIRCUIT_FAILURES:3}
+    circuit-cooldown-ms: ${ROUTER_CIRCUIT_COOLDOWN_MS:30000}
+    tiers:
+      local:
+        model: ${ROUTER_TIER_LOCAL_MODEL:}
+        base-url: ${ROUTER_TIER_LOCAL_BASE_URL:}
+        api-key: ${ROUTER_TIER_LOCAL_API_KEY:}
+      flash:
+        model: ${ROUTER_TIER_FLASH_MODEL:}
+        base-url: ${ROUTER_TIER_FLASH_BASE_URL:}
+        api-key: ${ROUTER_TIER_FLASH_API_KEY:}
+      pro:
+        model: ${ROUTER_TIER_PRO_MODEL:}
+        base-url: ${ROUTER_TIER_PRO_BASE_URL:}
+        api-key: ${ROUTER_TIER_PRO_API_KEY:}
   work:
     presentation-font: ${PRESENTATION_FONT:Microsoft YaHei}
   build:

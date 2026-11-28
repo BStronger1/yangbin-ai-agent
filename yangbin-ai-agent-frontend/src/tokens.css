@@ -1,0 +1,53 @@
+/* Yangbin Workspace: one shared palette, readable type, restrained motion. */
+:root {
+  --yb-bg-canvas: #f8f9fb;
+  --yb-bg-surface: #ffffff;
+  --yb-bg-subtle: #f3f5f9;
+  --yb-bg-hover: #eef2f7;
+  --yb-border: #e5e9f0;
+  --yb-border-strong: #cfd7e3;
+  --yb-ink: #0f172a;
+  --yb-ink-secondary: #475569;
+  --yb-ink-muted: #64748b;
+  --yb-accent: #2563eb;
+  --yb-accent-hover: #1d4ed8;
+  --yb-accent-soft: #eff6ff;
+  --yb-accent-ring: rgba(37, 99, 235, 0.16);
+  --yb-router-local-bg: #ecfdf5;
+  --yb-router-local-ink: #047857;
+  --yb-router-local-border: #a7f3d0;
+  --yb-router-flash-bg: #eff6ff;
+  --yb-router-flash-ink: #1d4ed8;
+  --yb-router-flash-border: #bfdbfe;
+  --yb-router-pro-bg: #f5f3ff;
+  --yb-router-pro-ink: #6d28d9;
+  --yb-router-pro-border: #ddd6fe;
+  --yb-router-fallback-bg: #f8fafc;
+  --yb-router-fallback-ink: #475569;
+  --yb-router-fallback-border: #cbd5e1;
+  --yb-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --yb-font-mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --yb-radius-sm: 8px;
+  --yb-radius-md: 12px;
+  --yb-radius-lg: 16px;
+  --yb-radius-pill: 999px;
+  --yb-shadow-sm: 0 1px 3px rgba(15, 23, 42, .035), 0 3px 12px rgba(15, 23, 42, .025);
+  --yb-shadow-md: 0 8px 30px rgba(15, 23, 42, .06), 0 1px 3px rgba(15, 23, 42, .025);
+  --yb-motion: 150ms cubic-bezier(0.2, 0, 0, 1);
+  --yb-transition: var(--yb-motion);
+  font-family: var(--yb-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+}
+
+button, input, textarea, select { font-family: inherit; }
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+button, input, textarea, select { transition: border-color var(--yb-motion), background-color var(--yb-motion), color var(--yb-motion), box-shadow var(--yb-motion); }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--yb-accent); outline-offset: 3px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; border-color: var(--yb-accent); box-shadow: 0 0 0 3px var(--yb-accent-ring); }
+pre, code, kbd, samp { font-family: var(--yb-font-mono); }
+::selection { color: var(--yb-ink); background: #dbeafe; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}

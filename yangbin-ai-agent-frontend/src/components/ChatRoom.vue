@@ -37,7 +37,7 @@
       <div class="chat-input">
         <textarea
           v-model="inputMessage"
-          @keydown.enter.prevent="sendMessage"
+          @keydown.enter="onEnter"
           placeholder="请输入消息..."
           class="input-box"
           :disabled="connectionStatus === 'connecting'"
@@ -84,8 +84,13 @@ const aiAvatar = computed(() => {
 })
 
 // 发送消息
+const onEnter = event => {
+  if (event.isComposing || event.keyCode === 229 || event.shiftKey) return
+  event.preventDefault()
+  sendMessage()
+}
 const sendMessage = () => {
-  if (!inputMessage.value.trim()) return
+  if (props.connectionStatus === 'connecting' || !inputMessage.value.trim()) return
 
   emit('send-message', inputMessage.value)
   inputMessage.value = ''

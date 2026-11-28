@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { api, errorMessage } from '../workspace-api'
 import { codingApi } from '../api/coding'
 import { modelApi } from '../api/models'
+import { uuid } from '../uuid'
 
 const props = defineProps({resource:Object, partner:String, model:String, reportId:String})
 const router = useRouter()
@@ -21,7 +22,7 @@ const requests = new Map()
 const chosen = computed(() => report.value?.rows.filter(row => selection.value.includes(row.row)) || [])
 function idFor(payload) {
   const key = JSON.stringify(payload)
-  if (!requests.has(key)) requests.set(key, crypto.randomUUID())
+  if (!requests.has(key)) requests.set(key, uuid())
   return requests.get(key)
 }
 function selectReport(value) {
@@ -55,6 +56,8 @@ function exportReport() {
   downloadMarkdown(lines.join('\n'), r.filename+'.核对.md')
 }
 async function verifyClaim() {
+  if (busy.value || !report.value) return
+  if (!Number.isSafeInteger(Number(claimRow.value)) || Number(claimRow.value) <= 0) { error.value='请输入正整数行号'; return }
   busy.value=true; error.value=''; verification.value=null
   try {
     const {data}=await api.post(root+'/reports/'+report.value.id+'/verify',{claimedTotal:claimTotal.value,claimedDifference:claimDifference.value,claimedRow:Number(claimRow.value),claimedOrderId:claimOrderId.value,claimedAmount:claimAmount.value})
@@ -109,7 +112,8 @@ async function grant() {
   finally { busy.value = false }
 }
 async function revoke() {
-  busy.value = true
+  if (busy.value || !transfer.value) return
+  busy.value = true; error.value = ''
   try { await api.post(root + '/transfers/' + transfer.value.id + '/revoke'); transfer.value=null; requests.clear() }
   catch (err) { error.value=errorMessage(err) }
   finally { busy.value=false }

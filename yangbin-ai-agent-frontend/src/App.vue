@@ -30,10 +30,11 @@ const reload = () => window.location.reload()
 }
 
 html, body {
-  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--yb-font-sans);
   font-size: 16px;
-  color: #333;
-  background-color: #f0f2f5;
+  color: var(--yb-ink);
+  background-color: var(--yb-bg-canvas);
+  -webkit-font-smoothing: antialiased;
   width: 100%;
   height: auto;
   min-height: 100vh;

@@ -4,7 +4,7 @@ import {auth} from '../auth'
 import {modelApi} from '../api/models'
 import ReasoningEffort from './ReasoningEffort.vue'
 const props=defineProps({partnerId:String,modelProfileId:String,reasoningEffort:{type:String,default:''},disabled:Boolean})
-const emit=defineEmits(['update:modelProfileId','update:reasoningEffort','ready'])
+const emit=defineEmits(['update:modelProfileId','update:reasoningEffort','ready','catalog'])
 const catalog=ref({profiles:[],systemEnabled:false}),loading=ref(true),error=ref('')
 let generation=0
 const key=()=>`partner-model:${auth.user?.id||auth.user?.username}:${props.partnerId}`
@@ -14,7 +14,7 @@ function effort(value){emit('update:reasoningEffort',value);try{sessionStorage.s
 function restoreEffort(id){let value='';try{value=sessionStorage.getItem(key()+':effort:'+id)||''}catch{}const allowed=catalog.value.profiles.find(p=>p.id===id)?.reasoningEfforts||[];emit('update:reasoningEffort',allowed.includes(value)?value:'')}
 function choose(id){emit('update:modelProfileId',id);try{sessionStorage.setItem(key(),id)}catch{}restoreEffort(id);emit('ready',valid(id)&&!loading.value&&!error.value)}
 async function load(){const current=++generation;loading.value=true;error.value='';emit('ready',false)
- try{const result=await modelApi.list();if(current!==generation)return;catalog.value=result;let saved='';try{saved=sessionStorage.getItem(key())||''}catch{}const id=props.modelProfileId||saved||result.defaultModelId||'';loading.value=false;choose(valid(id)?id:'')}
+ try{const result=await modelApi.list();if(current!==generation)return;catalog.value=result;emit('catalog',result);let saved='';try{saved=sessionStorage.getItem(key())||''}catch{}const id=props.modelProfileId||saved||result.defaultModelId||'';loading.value=false;choose(valid(id)?id:'')}
  catch{if(current===generation)error.value='模型配置未能加载'}finally{if(current===generation)loading.value=false}}
 watch([()=>props.partnerId,()=>auth.user?.id],()=>{emit('update:modelProfileId','');emit('update:reasoningEffort','');load()},{immediate:true})
 onBeforeUnmount(()=>{generation++})

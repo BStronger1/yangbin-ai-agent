@@ -49,7 +49,8 @@ async function mutate(operation, message, clearEditor = false) {
     if (!valid(scope)) return
     confirming.value = null; results.value = null; query.value = ''
     if (clearEditor) resetEditor()
-    notice.value = message; await reload()
+    await reload()
+    if (valid(scope)) notice.value = message
   } catch (failure) {
     if (!valid(scope)) return
     if (failure.response?.status === 409) {
@@ -90,9 +91,12 @@ async function forget() {
   if (editing.value?.id === item?.id && !(await allowDiscard())) return
   if (item) mutate(project => memoryApi.forget(project, item.id, item.version), '已忘记该条目，后续不会再召回。已发送的历史对话不会因此删除。', editing.value?.id === item.id)
 }
-function setOption(name, value) {
+async function setOption(name, event) {
+  const input = event.target, scope = currentScope(), value = input.checked
+  if (!snapshot.value) return
   const settings = { revision: snapshot.value.revision, enabled: snapshot.value.enabled, autoExtract: snapshot.value.autoExtract, [name]: value }
-  mutate(project => memoryApi.settings(project, settings), '项目记忆设置已更新，从后续任务生效。')
+  await mutate(project => memoryApi.settings(project, settings), '项目记忆设置已更新，从后续任务生效。')
+  if (valid(scope)) input.checked = !!snapshot.value?.[name]
 }
 async function search() {
   if (!query.value.trim() || busy.value || loading.value) return
@@ -116,8 +120,8 @@ onBeforeUnmount(() => { disposed = true; epoch++ })
       <button class="quiet-button" :disabled="loading || effectiveBusy" data-testid="memory-refresh" @click="refresh">{{ loading ? '正在加载…' : '刷新记忆' }}</button>
       <template v-if="snapshot">
         <fieldset class="memory-settings" :disabled="effectiveBusy || loading">
-          <label><input type="checkbox" :checked="snapshot.enabled" data-testid="memory-enabled" @change="setOption('enabled', $event.target.checked)" /> 在后续任务中使用项目记忆</label>
-          <label><input type="checkbox" :checked="snapshot.autoExtract" :disabled="!snapshot.enabled" data-testid="memory-auto-extract" @change="setOption('autoExtract', $event.target.checked)" /> 识别用户消息中的记忆</label>
+          <label><input type="checkbox" :checked="snapshot.enabled" data-testid="memory-enabled" @change="setOption('enabled', $event)" /> 在后续任务中使用项目记忆</label>
+          <label><input type="checkbox" :checked="snapshot.autoExtract" :disabled="!snapshot.enabled" data-testid="memory-auto-extract" @change="setOption('autoExtract', $event)" /> 识别用户消息中的记忆</label>
           <small>开启后，明确格式「偏好:名称=内容」「项目约束:名称=内容」「事实:名称=内容」直接保存；自然语言先形成候选，需你审阅确认。模型反思与工具观察不会自动成为用户事实；关闭使用不删除条目。</small>
         </fieldset>
         <form class="memory-search" @submit.prevent="search"><input v-model="query" maxlength="500" aria-label="检索项目记忆" placeholder="输入当前任务关键词" data-testid="memory-query" :disabled="effectiveBusy || loading" /><button class="coding-primary" :disabled="effectiveBusy || loading || !query.trim()" data-testid="memory-search">检索</button></form>

@@ -14,7 +14,7 @@ const filtered = computed(() => {
   return posts.value.filter(post => {
     if (filter.value === 'PUBLISHED' && !post.publishedAt) return false
     if (filter.value === 'DRAFT' && post.status !== 'DRAFT') return false
-    return [post.title, ...post.tags].some(value => value.toLocaleLowerCase().includes(needle))
+    return [post.title || '', ...(Array.isArray(post.tags) ? post.tags : [])].some(value => String(value ?? '').toLocaleLowerCase().includes(needle))
   })
 })
 const date = value => new Date(value).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -57,7 +57,7 @@ watch(workspaceOwner, load, { immediate: true })
       <article v-for="post in filtered" :key="post.id" class="blog-row">
         <time class="blog-meta" :datetime="post.updatedAt">{{ date(post.updatedAt) }}</time>
         <div><h2><RouterLink :to="'/blog/' + post.id">{{ post.title || '无标题草稿' }}</RouterLink></h2>
-          <div v-if="post.tags.length" class="blog-tags"><span v-for="tag in post.tags" :key="tag">{{ tag }}</span></div>
+          <div v-if="post.tags?.length" class="blog-tags"><span v-for="tag in post.tags" :key="tag">{{ tag }}</span></div>
         </div>
         <span class="blog-status" :class="{published:!!post.publishedAt}">{{ post.status === 'PUBLISHED' ? '已发布' : post.publishedAt ? '已发布 · 有新草稿' : '草稿' }}</span>
       </article>

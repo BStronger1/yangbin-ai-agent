@@ -15,6 +15,10 @@ purifier.addHook('uponSanitizeAttribute', (node, attr) => {
   }
 })
 purifier.addHook('afterSanitizeAttributes', node => {
+  if (node.tagName === 'A' && /^https?:\/\//i.test(node.getAttribute('href') || '')) {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
   if (node.tagName === 'IMG') {
     node.setAttribute('loading', 'lazy')
     node.setAttribute('referrerpolicy', 'no-referrer')
@@ -29,3 +33,11 @@ const html = computed(() => purifier.sanitize(marked.parse(props.text, { gfm: tr
 }))
 </script>
 <template><div class="blog-markdown" v-html="html"></div></template>
+
+<style>
+.blog-markdown{min-width:0;max-width:100%}
+.blog-markdown pre{max-width:100%;min-width:0;overflow-x:auto;box-sizing:border-box;white-space:pre;overflow-wrap:normal;word-break:normal}
+.blog-markdown pre code{white-space:pre;overflow-wrap:normal;word-break:normal}
+.blog-markdown table{display:block;max-width:100%;overflow-x:auto}
+.blog-markdown th,.blog-markdown td{overflow-wrap:normal;word-break:keep-all;white-space:nowrap}
+</style>

@@ -24,4 +24,4 @@ export function configureAuth(client){
     return Promise.reject(error)
   })
 }
-export async function checkSession(){try{await loadUser(true);if(!auth.user)location.assign('/login?next='+encodeURIComponent(location.pathname))}catch{ /* Network errors remain visible in the current page. */ }}
+export async function checkSession(){try{await loadUser(true);if(!auth.user&&!['/login','/register'].includes(location.pathname))location.assign('/login?next='+encodeURIComponent(location.pathname+location.search))}catch{ /* Network errors remain visible in the current page. */ }}
